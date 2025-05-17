@@ -2,22 +2,17 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
-const { authMiddleware: a } = require("../middleware/auth");
-
-interface IUser {
-  req: any;
-  res: any;
-}
+const  authMiddleware = require("../middleware/auth");
 
 const router = express.Router();
 
 //Protected route
-router.get("/dashboard", a, async (req, res) => {
+router.get("/dashboard", authMiddleware, async (req: any, res: any) => {
   res.json({ msg: `Welcome to your dashboard!` });
 });
 
 //Register
-router.post("/register", async (req, res) => {
+router.post("/register", async (req: any, res: any) => {
   try {
     const { username, email, password } = req.body;
 
@@ -57,7 +52,7 @@ router.post("/register", async (req, res) => {
 });
 
 //Login
-router.post("/login", async (req, res) => {
+router.post("/login", async (req: any, res: any) => {
   try {
     const { email, password } = req.body;
 

@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
-import { IUser } from "../models/User";
+import { IUser } from "../src/models/User";
 
 interface DecodedToken {
   _id: string;

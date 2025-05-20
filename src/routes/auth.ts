@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User";
@@ -10,7 +10,7 @@ const router = Router();
 router.get(
   "/profile",
   authenticateToken,
-  async (req: AuthenicationRequest, res: Response): Promise<any> => {
+  async (req: AuthenicationRequest, res: Response) => {
     try {
       res.json({
         msg: "Welcome to the protected route!",

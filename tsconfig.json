@@ -6,6 +6,12 @@
     "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
+    "skipLibCheck": true, // ✅ Avoid issues from DefinitelyTyped packages
+    "forceConsistentCasingInFileNames": true, // ✅ Good for Linux/Mac
+    "resolveJsonModule": true, // ✅ If you ever import .json files
+    "moduleResolution": "node", // ✅ Required for node_modules resolution
     "typeRoots": ["./node_modules/@types", "./src/types"]
-  }
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
 }

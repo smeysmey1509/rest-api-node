@@ -33,7 +33,7 @@ export const authenticateToken = (
       res.status(403).json({ message: "Invalid token" });
       return;
     }
-    req.user = user as JwtPayload;
+    (req.user = user as JwtPayload), { expiresIn: "10s" };
     next();
   });
 };

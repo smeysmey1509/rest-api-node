@@ -1,4 +1,6 @@
 import express from "express";
+import http from "http";
+import { Server as SocketIOServer } from "socket.io";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth";
@@ -7,8 +9,8 @@ import cors from "cors";
 dotenv.config();
 
 const app = express();
-app.use(express.json());
 
+app.use(express.json());
 app.use(cors());
 
 // Routes

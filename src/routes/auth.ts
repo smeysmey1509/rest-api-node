@@ -14,7 +14,7 @@ router.get(
     try {
       res.json({
         msg: "Welcome to the protected route!",
-        userId: req.user?.id,
+        userId: req.user
       });
     } catch (err) {
       res.status(500).json({ error: "Server error" });
@@ -73,7 +73,12 @@ router.post("/login", async (req: Request, res: Response): Promise<any> => {
 
     res.json({
       token,
-      user: { id: user._id, name: user.name, email: user.email },
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
     });
   } catch (err) {
     console.error(err);

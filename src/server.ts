@@ -14,7 +14,7 @@ app.use(express.json());
 app.use(cors());
 
 // Routes
-app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1", authRoutes);
 
 // Connect to DB
 mongoose

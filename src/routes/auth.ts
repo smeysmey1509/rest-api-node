@@ -103,8 +103,6 @@ router.post("/login", async (req: Request, res: Response): Promise<any> => {
   try {
     const { name, password } = req.body;
 
-    console.log("LOGIN PAYLOAD:", name, password);
-
     const user = await User.findOne({ name }).select("+password");
 
     if (!user) {
@@ -261,3 +259,4 @@ router.delete(
 );
 
 export default router;
+  

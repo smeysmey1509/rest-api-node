@@ -16,6 +16,8 @@ app.use(cors());
 // Routes
 app.use("/api/v1", authRoutes);
 
+console.log("Hello Konkon")
+
 // Connect to DB
 mongoose
   .connect(

@@ -1,0 +1,21 @@
+config:
+  target: "http://localhost:5002"
+  phases:
+    - duration: 60
+      arrivalRate: 100
+
+scenarios:
+  - name: Create product
+    flow:
+      - post:
+          url: "/api/v1/products"
+          headers:
+            Authorization: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4M2E5YjM4M2U4Y2M3MDBmYTExYjE4YiIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc0OTM4MzM1MSwiZXhwIjoxNzQ5NDY5NzUxfQ.Obc56MYNUbEbHQdivjvRyh0QpKOMwbj1eiEtFB5ftR8"
+            Content-Type: application/json
+          json:
+            name: "Test Product"
+            description: "This is a test"
+            price: 49.99
+            stock: 100
+            category: "6845295eb300ea5d0e0b619d"  # <-- Replace with real ObjectId
+            seller: "683a98c03e8cc700fa11b180"    # <-- Replace with real ObjectId

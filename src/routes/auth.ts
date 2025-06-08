@@ -1,5 +1,4 @@
 import { Router, Request, Response, NextFunction } from "express";
-import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User";
 import Product from "../models/Product";
@@ -9,6 +8,7 @@ import {
   authorizeRoles,
 } from "../middleware/auth";
 import { authorizePermission } from "../middleware/authorizePermission";
+import Category from "../models/Category";
 
 const router = Router();
 
@@ -38,7 +38,8 @@ router.get(
 );
 
 //User
-router.get("/users", async (req: Request, res: Response) => {
+router.get("/users",  authenticateToken,
+    authorizeRoles("admin"), async (req: Request, res: Response) => {
   try {
     const users = await User.find().select("-password");
     res.status(200).json(users);
@@ -104,28 +105,35 @@ router.post("/login", async (req: Request, res: Response): Promise<any> => {
     const { name, password } = req.body;
 
     const user = await User.findOne({ name }).select("+password");
-
     if (!user) {
       return res.status(400).json({ msg: "User does not exist" });
     }
 
     const isMatch = await user.comparePassword(password);
-    console.log("PASSWORD MATCH:", isMatch);
-
     if (!isMatch) return res.status(400).json({ msg: "Invalid credentials" });
 
     const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) {
+    const refreshSecret = process.env.JWT_REFRESH_SECRET;
+    if (!jwtSecret || !refreshSecret) {
       return res.status(500).json({ error: "JWT secret not configured" });
     }
 
-    const token = jwt.sign({ id: user._id, role: user.role }, jwtSecret, {
-      expiresIn: "12h",
-      algorithm: "HS256",
+    //Access token(short-lived)
+    const accessToken = jwt.sign({ id: user._id, role: user.role }, jwtSecret, {
+      expiresIn: "1d",
     });
 
+    //Refresh token (long-lived)
+    const refreshToken = jwt.sign({ id: user._id, role: user.role }, refreshSecret, {
+      expiresIn: "7d",
+    });
+
+    //Send refresh token as Httponly Cookie
+    res.cookie("refreshToken", refreshToken, { httpOnly: true, secure: false, sameSite: 'strict', maxAge: 7 * 24 * 60 * 60 * 1000 });
+
+    //Return access token in json
     res.json({
-      token,
+      accessToken,
       user: {
         id: user._id,
         name: user.name,
@@ -139,6 +147,54 @@ router.post("/login", async (req: Request, res: Response): Promise<any> => {
   }
 });
 
+router.post('/logout', async (req: Request, res: Response): Promise<any> => {
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: 'strict',
+  });
+  return res.status(200).json({
+    msg: "Logged out",
+  })
+})
+
+router.post("/refresh", async (req: Request, res: Response): Promise<any> => {
+  const refreshToken = req.cookies?.refreshToken;
+
+  console.log("🔁 Refresh token from cookie:", refreshToken);
+  if (!refreshToken) {
+    return res.status(401).json({ msg: "No refresh token provided!" });
+  }
+
+  const refreshSecret = process.env.JWT_REFRESH_SECRET;
+  const accessSecret = process.env.JWT_SECRET;
+
+  if (!refreshSecret || !accessSecret) {
+    return res.status(500).json({ error: "JWT secret not configured." });
+  }
+
+  try {
+    const decoded = jwt.verify(refreshToken, refreshSecret) as jwt.JwtPayload;
+
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    // Issue new access token
+    const newAccessToken = jwt.sign(
+        { id: user._id, role: user.role },
+        accessSecret,
+        { expiresIn: "7d" }
+    );
+
+    return res.json({ accessToken: newAccessToken });
+  } catch (err) {
+    console.error("Refresh token invalid or expired:", err);
+    return res.status(403).json({ msg: "Invalid or expired refresh token" });
+  }
+});
+
 //Product
 
 //Get /api/v1/products - Get Product
@@ -148,7 +204,7 @@ router.get(
   authorizePermission("read"),
   async (req: Request, res: Response) => {
     try {
-      const products = await Product.find();
+      const products = await Product.find().populate("category", "name").populate("seller", 'name email');
       res.status(200).json(products);
     } catch (err) {
       res.status(500).json({ error: "Failed to fetch prodcts" });
@@ -187,14 +243,15 @@ router.post(
   authorizePermission("create"),
   async (req: Request, res: Response) => {
     try {
-      const { name, description, price, category, stock } = req.body;
+      const { name, description, price, stock, category, seller } = req.body;
 
       const newProduct = new Product({
         name,
         description,
         price,
-        category,
         stock,
+        category,
+        seller
       });
 
       const savedProduct = await newProduct.save();
@@ -257,6 +314,69 @@ router.delete(
     }
   }
 );
+
+//Category
+
+router.get("/category", async (req, res) => {
+  try{
+    const categories = await Category.find({})
+    console.log("category:", categories)
+    res.status(200).json(categories);
+  }catch(err){
+    res.status(500).json({message: 'Failed to fetch categories', err})
+  }
+})
+
+router.post('/category', async (req: Request, res: Response) => {
+  try{
+    const {name, description} = req.body
+    const category = await Category.create({name, description})
+    res.status(200).json(category)
+  }catch (err: any){
+    res.status(400).json({error: err.message})
+  }
+})
+
+router.put('/category/:id', async (req: Request, res: Response): Promise<any> => {
+  try{
+    const { id } = req.params
+    const {name, description} = req.body
+    const updateCategory = await Category.findByIdAndUpdate(id, {name, description}, {new: true, runValidations: true})
+    if (!updateCategory){
+      return res.status(404).json({message: "Category not found."})
+    }
+    res.json(updateCategory)
+  }catch (e) {
+    res.status(500).json({message: "Failed to update cagory.", e})
+  }
+})
+
+router.delete("/category/:id", async (req: Request, res: Response): Promise<any> => {
+  try{
+    const {id } = req.params
+
+    const usedByProduct = await Product.exists({category: id})
+
+    if (usedByProduct){
+      return res.status(400).json({
+        message: "Cannot delete category because some products are still assigned to it."
+      })
+    }
+
+    const deletedGategory = await Category.findByIdAndDelete(id)
+
+    if(!deletedGategory){
+      return res.status(404).json({
+        message: "Categor not found."
+      })
+    }
+
+    res.json({message: "Category delete successfuly"})
+
+  }catch (e) {
+    res.status(401).json({message: 'Failed to delete category.', e})
+  }
+})
 
 export default router;
   

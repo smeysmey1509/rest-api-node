@@ -1,9 +1,11 @@
 import express from "express";
-import http from "http";
-import { Server as SocketIOServer } from "socket.io";
+import cookieParser from "cookie-parser";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
-import authRoutes from "./routes/auth";
+import userRoutes from "./routes/user";
+import productRoutes from "./routes/product";
+import categoryRoutes from "./routes/category";
+import roleRoutes from "./routes/role";
 import cors from "cors";
 
 dotenv.config();
@@ -11,12 +13,17 @@ dotenv.config();
 const app = express();
 
 app.use(express.json());
-app.use(cors());
+app.use(cookieParser());
+app.use(  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+}));
 
-// Routes
-app.use("/api/v1", authRoutes);
-
-console.log("Hello Konkon")
+// Prefix routes
+app.use("/api/v1", userRoutes);
+app.use("/api/v1", productRoutes);
+app.use("/api/v1", categoryRoutes);
+app.use("/api/v1", roleRoutes);
 
 // Connect to DB
 mongoose
@@ -29,7 +36,7 @@ mongoose
   )
   .then(() => {
     console.log("Connected to MongoDB");
-    app.listen(process.env.PORT || 5003, () => {
+    app.listen(process.env.PORT || 5002, () => {
       console.log(`Server is running on port ${process.env.PORT || 5000}`);
     });
   })

@@ -2,8 +2,7 @@ config:
   target: "http://localhost:5002"
   phases:
     - duration: 60
-      arrivalRate: 100
-
+      arrivalRate: 500
 scenarios:
   - name: Create product
     flow:

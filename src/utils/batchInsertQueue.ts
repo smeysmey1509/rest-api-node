@@ -10,7 +10,7 @@ interface ProductInput {
 }
 
 const buffer: ProductInput[] = [];
-const MAX_BATCH_SIZE = 100;
+const MAX_BATCH_SIZE = 500;
 const FLUSH_INTERVAL_MS = 100;
 
 function addToBatch(product: ProductInput) {

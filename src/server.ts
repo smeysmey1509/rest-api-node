@@ -19,6 +19,22 @@ app.use(  cors({
     credentials: true,
 }));
 
+// Log every incoming request with instance identifier
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] Instance PID: ${process.pid}, PM2 ID: ${process.env.pm2_id}, Path: ${req.path}`);
+    next();
+});
+
+// Debug endpoint to identify instance
+app.get('/debug', (req, res) => {
+    res.json({
+        instance: `PM2 ID: ${process.env.pm2_id || 'unknown'}`,
+        pid: process.pid,
+        port: process.env.PORT || 5002,
+        timestamp: new Date().toISOString()
+    });
+});
+
 // Prefix routes
 app.use("/api/v1", userRoutes);
 app.use("/api/v1", productRoutes);
@@ -30,16 +46,17 @@ mongoose
   .connect(
     process.env.MONGO_URI as string,
     {
+        maxPoolSize: 100,
       useNewUrlParser: true,
       useUnifiedTopology: true,
     } as mongoose.ConnectOptions
   )
   .then(() => {
-    console.log("Connected to MongoDB");
+      console.log(`[${process.pid}] Connected to MongoDB`);
     app.listen(process.env.PORT || 5002, () => {
-      console.log(`Server is running on port ${process.env.PORT || 5000}`);
+        console.log(`[${process.pid}] Server is running on port ${process.env.PORT || 5002}`);
     });
   })
   .catch((err: Error) => {
-    console.error("Error connecting to MongoDB:", err);
+      console.error(`[${process.pid}] Error connecting to MongoDB:`, err);
   });

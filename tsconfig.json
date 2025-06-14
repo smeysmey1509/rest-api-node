@@ -10,7 +10,9 @@
     "forceConsistentCasingInFileNames": true, // ✅ Good for Linux/Mac
     "resolveJsonModule": true, // ✅ If you ever import .json files
     "moduleResolution": "node", // ✅ Required for node_modules resolution
-    "typeRoots": ["./node_modules/@types", "./src/types"]
+    "typeRoots": ["./node_modules/@types",
+      "./src/main/types"
+    ]
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]

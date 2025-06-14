@@ -1,7 +1,7 @@
 module.exports = {
     apps: [{
         name: 'rest-api-node',
-        script: './src/server.ts',
+        script: './src/server.tj',
         instances: 4,
         interpreter: "node",
         exec_mode: 'cluster',

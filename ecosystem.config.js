@@ -1,24 +1,23 @@
 module.exports = {
-    apps: [{
-        name: 'rest-api-node',
-        script: './src/server.tj',
-        instances: 4,
-        interpreter: "node",
-        exec_mode: 'cluster',
-        watch: true,
-        env: {
-            port: 5002
-        }
-    },
+    apps: [
         {
-            name: "order-service",
-            script: "./dist/server.js",
-            cwd: "./order-service",
-            instances: 4,
+            name: "main-api",
+            script: "./dist/main/server.js",
+            instances: 1,
             exec_mode: "cluster",
-            watch: false,
+            interpreter: "ts-node",
             env: {
-                PORT: 5003
+                JWT_SECRET: process.env.JWT_SECRET
+            }
+        },
+        {
+            name: "worker",
+            script: "./dist/worker/server.js",
+            instances: 2,
+            exec_mode: "fork",
+            interpreter: "ts-node",
+            env: {
+                JWT_SECRET: process.env.JWT_SECRET
             }
         }
     ]

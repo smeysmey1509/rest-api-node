@@ -1,14 +1,14 @@
 import { Router, Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import User from "../models/User";
-import Product from "../models/Product";
+import User from "../../models/User";
+import Product from "../../models/Product";
 import {
   authenticateToken,
   AuthenicationRequest,
   authorizeRoles,
-} from "../middleware/auth";
-import { authorizePermission } from "../middleware/authorizePermission";
-import Category from "../models/Category";
+} from "../../middleware/auth";
+import { authorizePermission } from "../../middleware/authorizePermission";
+import Category from "../../models/Category";
 
 const router = Router();
 

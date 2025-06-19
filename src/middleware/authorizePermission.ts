@@ -1,6 +1,6 @@
 // middleware/authorizePermission.ts
 import { Request, Response, NextFunction } from "express";
-import { rolePermissions } from "../utils/permissions";
+import { rolePermissions } from "../main/utils/permissions";
 import { AuthenicationRequest } from "./auth";
 
 export const authorizePermission = (action: string) => {

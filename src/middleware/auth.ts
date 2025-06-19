@@ -25,7 +25,7 @@ export const authenticateToken = (
 
   const jwtSecret = process.env.JWT_SECRET;
   if (!jwtSecret) {
-    res.status(500).json({ error: "JWT secret not configured" });
+    res.status(500).json({ error: "JWT secret not configureddddddddd" });
     return;
   }
 

@@ -7,7 +7,7 @@ import productRoutes from "./routes/product";
 import categoryRoutes from "./routes/category";
 import roleRoutes from "./routes/role";
 import cors from "cors";
-import activityRoutes from "./routes/activity";
+import {connectRabbitMQ} from "./utils/rabbitmq";
 
 dotenv.config();
 
@@ -41,14 +41,13 @@ app.use("/api/v1", userRoutes);
 app.use("/api/v1", productRoutes);
 app.use("/api/v1", categoryRoutes);
 app.use("/api/v1", roleRoutes);
-app.use("/api/v1", activityRoutes)
 
 // Connect to DB
 mongoose
   .connect(
     process.env.MONGO_URI as string,
     {
-        maxPoolSize: 100,
+      maxPoolSize: 100,
       useNewUrlParser: true,
       useUnifiedTopology: true,
     } as mongoose.ConnectOptions
@@ -62,3 +61,5 @@ mongoose
   .catch((err: Error) => {
       console.error(`[${process.pid}] Error connecting to MongoDB:`, err);
   });
+
+connectRabbitMQ().catch(console.error);

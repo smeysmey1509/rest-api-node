@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import { Role } from "../types/Role";
+import { Role } from "../main/types/Role";
 import bcrypt from "bcryptjs";
 import { verify } from "jsonwebtoken";
 
@@ -8,6 +8,7 @@ export interface IUser extends Document {
   email: string;
   password: string;
   role: Role;
+  limit: number;
   createdAt: Date;
   modifiedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -33,13 +34,17 @@ const userSchema: Schema<IUser> = new Schema(
       type: String,
       required: true,
       minlength: 3,
-      select: false, // ⛔ Don't return password in queries
+      select: false,
     },
     role: {
       type: String,
       enum: Object.values(Role),
       default: Role.USER,
     },
+      limit: {
+          type: Number,
+          default: 10,
+      },
   },
   {
     timestamps: true,

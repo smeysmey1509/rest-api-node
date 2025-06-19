@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
-import Role from "../models/Role";
-import {AuthenicationRequest, authenticateToken, authorizeRoles} from "../middleware/auth";
+import Role from "../../models/Role";
+import {AuthenicationRequest, authenticateToken, authorizeRoles} from "../../middleware/auth";
 
 const router = Router();
 

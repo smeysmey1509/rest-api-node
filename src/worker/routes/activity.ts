@@ -1,7 +1,11 @@
-import Activity from "../models/Activity";
-import { authenticateToken } from "../middleware/auth";
+import Activity from "../../models/Activity";
+import { authenticateToken } from "../../middleware/auth";
 import { Router, Response } from "express";
-import { AuthenicationRequest } from "../middleware/auth";
+import '../../models/User'
+import { AuthenicationRequest } from "../../middleware/auth";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const router = Router();
 

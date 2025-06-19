@@ -1,24 +1,38 @@
 import express from "express";
+import mongoose from "mongoose";
+import cookieParser from "cookie-parser";
+import activityRoutes from "./routes/activity";
+import cors from "cors";
+import { consumeActivityLogs } from "./queue/activityConsumer";
+
 
 const app = express();
-const PORT = process.env.PORT || 5003;
+const PORT = 5003;
 
 app.use(express.json());
+app.use(cookieParser());
+app.use(  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+}));
 
-app.get("/api/v1/orders", (_req, res) => {
-    res.json({ message: "Order list (from new apppp)" });
-});
+app.use("/api/v1", activityRoutes)
 
-// Debug endpoint
-app.get("/debug", (_req, res) => {
-    res.json({
-        service: "order-service",
-        pid: process.pid,
-        pm_id: process.env.pm_id || "unknown",
-        timestamp: new Date().toISOString()
-    });
-});
+const startServer = async () => {
+    try {
+        await mongoose.connect("mongodb+srv://dbSmey:123@cluster0.dgk3xwx.mongodb.net/");
+        console.log("✅ MongoDB connected");
 
-app.listen(PORT, () => {
-    console.log(`Order service running on port ${PORT}`);
-});
+        // Start consuming RabbitMQ
+        await consumeActivityLogs();
+
+        app.listen(PORT, () => {
+            console.log(`🚀 Worker service running on port ${PORT}`);
+        });
+    } catch (err) {
+        console.error("❌ MongoDB connection failed:", err);
+        process.exit(1);
+    }
+};
+
+startServer();

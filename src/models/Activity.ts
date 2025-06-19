@@ -11,7 +11,7 @@ export interface IActivity extends Document {
 const ActivitySchema: Schema<IActivity> = new Schema({
     user: {type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true},
     products: [{
-        _id: { type: mongoose.Schema.Types.ObjectId, required: true },
+        _id: mongoose.Schema.Types.ObjectId,
         name: String,
         description: String,
         price: Number,

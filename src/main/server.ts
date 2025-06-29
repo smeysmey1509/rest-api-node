@@ -1,65 +1,83 @@
 import express from "express";
+import http from "http";
 import cookieParser from "cookie-parser";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import path from "path";
 import userRoutes from "./routes/user";
 import productRoutes from "./routes/product";
 import categoryRoutes from "./routes/category";
 import roleRoutes from "./routes/role";
+import sidebarItemRoute from './routes/sidebaritems'
 import cors from "cors";
-import {connectRabbitMQ} from "./utils/rabbitmq";
+import { connectRabbitMQ } from "./utils/rabbitmq";
+import { Server as SocketIOServer } from "socket.io"
 
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
 
+// Setup Socket.IO
+const io = new SocketIOServer(server, {
+    cors: {
+        origin: "http://localhost:5173",
+        credentials: true,
+    },
+});
+
+export { io };
+
+// Middleware
 app.use(express.json());
 app.use(cookieParser());
-app.use(  cors({
-    origin: "http://localhost:5173",
-    credentials: true,
-}));
+app.use(cors({ origin: "http://localhost:5173", credentials: true }));
 
-// Log every incoming request with instance identifier
 app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] Instance PID: ${process.pid}, PM2 ID: ${process.env.pm2_id}, Path: ${req.path}`);
+    console.log(`[${new Date().toISOString()}] PID: ${process.pid}, Path: ${req.path}`);
     next();
 });
 
-// Debug endpoint to identify instance
-app.get('/debug', (req, res) => {
+// Routes
+app.get("/debug", (req, res) => {
     res.json({
-        instance: `PM2 ID: ${process.env.pm2_id || 'unknown'}`,
+        instance: `PM2 ID: ${process.env.pm2_id || "unknown"}`,
         pid: process.pid,
         port: process.env.PORT || 5002,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
     });
 });
 
-// Prefix routes
+app.use("/api/v1", sidebarItemRoute)
 app.use("/api/v1", userRoutes);
 app.use("/api/v1", productRoutes);
 app.use("/api/v1", categoryRoutes);
 app.use("/api/v1", roleRoutes);
+app.use('/uploads', express.static('uploads'));
 
-// Connect to DB
+// Connect DB and then start server
 mongoose
-  .connect(
-    process.env.MONGO_URI as string,
-    {
-      maxPoolSize: 100,
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    } as mongoose.ConnectOptions
-  )
-  .then(() => {
-      console.log(`[${process.pid}] Connected to MongoDB`);
-    app.listen(process.env.PORT || 5002, () => {
-        console.log(`[${process.pid}] Server is running on port ${process.env.PORT || 5002}`);
-    });
-  })
-  .catch((err: Error) => {
-      console.error(`[${process.pid}] Error connecting to MongoDB:`, err);
-  });
+    .connect(process.env.MONGO_URI as string, {
+        maxPoolSize: 100,
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+    } as mongoose.ConnectOptions)
+    .then(() => {
+        console.log(`[${process.pid}] ✅ Connected to MongoDB`);
 
-connectRabbitMQ().catch(console.error);
+        connectRabbitMQ().catch(console.error);
+
+        server.listen(process.env.PORT || 5002, () => {
+            console.log(`[${process.pid}] 🚀 Server running on port ${process.env.PORT || 5002}`);
+        });
+    })
+    .catch((err: Error) => {
+        console.error(`[${process.pid}] ❌ MongoDB connection failed:`, err);
+    });
+
+io.on("connection", (socket) => {
+    console.log("🔌 New client connected:", socket.id);
+    socket.on("disconnect", () => {
+        console.log("❌ Client disconnected:", socket.id);
+    });
+});

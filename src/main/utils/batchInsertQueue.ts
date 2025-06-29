@@ -2,6 +2,7 @@ import Product from "../../models/Product";
 import Category from "../../models/Category";
 import {publishProductActivity} from "../utils/rabbitmq";
 import mongoose from "mongoose";
+import {io} from "../server";
 
 interface ProductInput {
     name: string;
@@ -11,6 +12,8 @@ interface ProductInput {
     category: string;
     seller: string;
     status: string;
+    tag: string[];
+    image: string[];
     userId?: string;
 }
 
@@ -30,11 +33,23 @@ async function flushBuffer() {
 
     // flush buffer
     const toInsert = buffer.splice(0, buffer.length);
+    console.log(`Flushing ${toInsert.length} products to DB...`);
 
     try {
 
-        await Product.insertMany(toInsert, { ordered: false });
-        console.log(`Inserted ${toInsert.length} products`);
+        const insertedProducts = await Product.insertMany(toInsert, { ordered: true });
+        console.log(`Inserted ${insertedProducts.length} products successfully.`);
+
+        // ✅ Emit real-time update for each product
+        for (const inserted of insertedProducts) {
+            const populatedProduct = await Product.findById(inserted._id)
+                .populate("category", "name description")
+                .populate("seller", "name email");
+
+            if (populatedProduct) {
+                io.emit("product:created", populatedProduct); // 🔥 Real-time emit
+            }
+        }
 
         // Group by userId to log activity per user
         const activityMap = new Map<string, ProductInput[]>();
@@ -57,6 +72,8 @@ async function flushBuffer() {
                         price: p.price,
                         stock: p.stock,
                         status: p.status,
+                        tag: [p.tag],
+                        image: [p.image],
                         category: categoryDoc
                             ? {
                                 _id: categoryDoc._id,
@@ -67,7 +84,6 @@ async function flushBuffer() {
                     };
                 })
             );
-
             await publishProductActivity({
                 user: userId,
                 action: "create",

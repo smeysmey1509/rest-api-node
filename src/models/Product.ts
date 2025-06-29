@@ -7,7 +7,9 @@ export interface IProduct extends Document {
     stock: number;
     category: mongoose.Types.ObjectId;
     seller: mongoose.Types.ObjectId;
-    status: "Published" | "Unpublished"
+    status: "Published" | "Unpublished";
+    tag: string[];
+    image?: string[];
     createdAt: Date;
     updatedAt: Date;
 }
@@ -47,11 +49,21 @@ const ProductSchema: Schema<IProduct> = new Schema(
             enum: ["Published", "Unpublished"],
             default: "Published",
         },
+        tag: {
+            type: [String],
+            default: []
+        },
+        image:{
+            type: [String],
+            default: [],
+        }
     },
     {
         timestamps: true,
     }
 );
+
+ProductSchema.index({ name: "text", tag: "text" });
 
 const Product: Model<IProduct> = mongoose.model<IProduct>("Product", ProductSchema);
 export default Product;

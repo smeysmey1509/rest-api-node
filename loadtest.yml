@@ -16,5 +16,5 @@ scenarios:
             description: "This is a test"
             price: 49.99
             stock: 100
-            category: "6845295eb300ea5d0e0b619d"  # <-- Replace with real ObjectId
-            seller: "683a98c03e8cc700fa11b180"    # <-- Replace with real ObjectId
+            category: "6845295eb300ea5d0e0b619d"
+            seller: "683a98c03e8cc700fa11b180"

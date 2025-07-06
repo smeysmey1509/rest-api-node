@@ -1,9 +1,11 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import Product from "../../../models/Product";
-import { publishProductActivity } from "../../utils/rabbitmq";
+import { publishProductActivity } from "../../services/activity.service";
 import { io } from "../../server";
+import {publishNotificationEvent} from "../../services/notification.service";
+import {AuthenicationRequest} from "../../../middleware/auth";
 
-export const deleteProductById = async (req: Request, res: Response): Promise<void> => {
+export const deleteProductById = async (req: AuthenicationRequest, res: Response): Promise<void> => {
     try {
         const { id } = req.params;
 
@@ -37,6 +39,14 @@ export const deleteProductById = async (req: Request, res: Response): Promise<vo
             createdAt: product.createdAt,
             updatedAt: product.updatedAt
         };
+
+        // Publish notification for other users
+        await publishNotificationEvent({
+            userId: req?.user?.id,
+            title: "Delete Product",
+            message: `Product ${product?.name} has been deleted.`,
+            read: false,
+        });
 
         // Log activity via RabbitMQ
         publishProductActivity({

@@ -2,14 +2,12 @@ import { Request, Response } from "express";
 import {AuthenicationRequest} from "../../../middleware/auth";
 import {addToBatch} from "../../utils/batchInsertQueue";
 import { io } from "../../server";
+import {publishNotificationEvent} from "../../services/notification.service";
 
 export const createProduct = async (req: AuthenicationRequest, res: Response) => {
     try{
         const { name, description, price, stock, status,category, seller, tag } = req.body;
         const userInputId = req?.user?.id
-
-        console.log("req.body:", req.body);
-        console.log("req.files:", req.files);
 
         const files = req.files as Express.Multer.File[] | undefined;
 
@@ -20,6 +18,13 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
         }
 
         addToBatch({ name, description, price, stock, status, category, seller, tag, image: imageUrls, userId: userInputId });
+
+        await publishNotificationEvent({
+            userId: userInputId,
+            title: "Created Product",
+            message: `Product ${name} has been created.`,
+            read: false,
+        });
 
         io.emit("product:created", userInputId);
 

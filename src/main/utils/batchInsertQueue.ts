@@ -1,8 +1,9 @@
 import Product from "../../models/Product";
 import Category from "../../models/Category";
-import {publishProductActivity} from "../utils/rabbitmq";
+import {publishProductActivity} from '../services/activity.service'
 import mongoose from "mongoose";
 import {io} from "../server";
+import {publishNotificationEvent} from "../services/notification.service";
 
 interface ProductInput {
     name: string;
@@ -84,6 +85,7 @@ async function flushBuffer() {
                     };
                 })
             );
+
             await publishProductActivity({
                 user: userId,
                 action: "create",

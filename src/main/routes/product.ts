@@ -12,8 +12,6 @@ import {upload} from '../../middleware/upload'
 
 const router = Router();
 
-// export const upload = multer({ storage });
-
 //Get /api/v1/products - Get All Product
 router.get(
     "/product",

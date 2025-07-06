@@ -3,14 +3,13 @@ import http from "http";
 import cookieParser from "cookie-parser";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
-import path from "path";
 import userRoutes from "./routes/user";
 import productRoutes from "./routes/product";
 import categoryRoutes from "./routes/category";
 import roleRoutes from "./routes/role";
 import sidebarItemRoute from './routes/sidebaritems'
 import cors from "cors";
-import { connectRabbitMQ } from "./utils/rabbitmq";
+import { connectRabbitMQ } from "./services/rabbitmq";
 import { Server as SocketIOServer } from "socket.io"
 
 dotenv.config();
@@ -63,7 +62,7 @@ mongoose
         useUnifiedTopology: true,
     } as mongoose.ConnectOptions)
     .then(() => {
-        console.log(`[${process.pid}] ✅ Connected to MongoDB`);
+        console.log(`[${process.pid}] ✅ Connected to MongoDB: Main`);
 
         connectRabbitMQ().catch(console.error);
 

@@ -8,6 +8,7 @@ import productRoutes from "./routes/product";
 import categoryRoutes from "./routes/category";
 import roleRoutes from "./routes/role";
 import sidebarItemRoute from './routes/sidebaritems'
+import cartRoute from "./routes/cart"
 import cors from "cors";
 import { connectRabbitMQ } from "./services/rabbitmq";
 import { Server as SocketIOServer } from "socket.io"
@@ -52,6 +53,7 @@ app.use("/api/v1", userRoutes);
 app.use("/api/v1", productRoutes);
 app.use("/api/v1", categoryRoutes);
 app.use("/api/v1", roleRoutes);
+app.use("/api/v1", cartRoute);
 app.use('/uploads', express.static('uploads'));
 
 // Connect DB and then start server

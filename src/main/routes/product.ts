@@ -47,6 +47,7 @@ router.get(
                 Product.find()
                     .populate("category", "name")
                     .populate("seller", "name email")
+                    .sort({ createdAt: -1 })
                     .skip(skip)               // skip must be a number
                     .limit(limit),            // limit must be a number
                 Product.countDocuments()

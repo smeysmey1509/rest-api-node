@@ -42,5 +42,6 @@ const CartSchema = new mongoose_1.Schema({
             quantity: { type: Number, required: true, default: 1 },
         },
     ],
+    subTotal: { type: Number, default: 0 },
 }, { timestamps: true });
 exports.default = mongoose_1.default.model("Cart", CartSchema);

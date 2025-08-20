@@ -17,10 +17,26 @@ const Cart_1 = __importDefault(require("../../models/Cart"));
 const Product_1 = __importDefault(require("../../models/Product"));
 const auth_1 = require("../../middleware/auth");
 const router = (0, express_1.Router)();
+// Helper function to calculate subtotal
+const calculateCartSubtotal = (userId) => __awaiter(void 0, void 0, void 0, function* () {
+    const cart = yield Cart_1.default.findOne({ user: userId }).populate("items.product");
+    if (!cart)
+        return 0;
+    const subtotal = cart.items.reduce((acc, item) => {
+        var _a;
+        const productPrice = ((_a = item.product) === null || _a === void 0 ? void 0 : _a.price) || 0;
+        return acc + productPrice * item.quantity;
+    }, 0);
+    return subtotal;
+});
 // GET /api/v1/cart - Get user's cart
 router.get("/cart", auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const cart = yield Cart_1.default.findOne({ user: req.user.id }).populate("items.product");
+        if (cart) {
+            cart.subTotal = yield calculateCartSubtotal(req.user.id);
+            yield cart.save();
+        }
         res.status(200).json(cart || { items: [] });
     }
     catch (err) {
@@ -49,6 +65,8 @@ router.post("/cart/add", auth_1.authenticateToken, (req, res) => __awaiter(void 
         else {
             cart.items.push({ product: productId, quantity: quantity || 1 });
         }
+        yield cart.save();
+        cart.subTotal = yield calculateCartSubtotal(req.user.id);
         yield cart.save();
         res.status(200).json(cart);
     }
@@ -84,6 +102,7 @@ router.post("/cart/clear", auth_1.authenticateToken, (req, res) => __awaiter(voi
             return;
         }
         cart.items = [];
+        cart.subTotal = 0;
         yield cart.save();
         res.status(200).json({ msg: "Cart cleared." });
     }
@@ -113,7 +132,8 @@ router.put("/cart/update/:productId", auth_1.authenticateToken, (req, res) => __
         }
         item.quantity = quantity;
         yield cart.save();
-        // Populate product for frontend response
+        cart.subTotal = yield calculateCartSubtotal(req.user.id);
+        yield cart.save();
         yield cart.populate("items.product");
         res.status(200).json(cart);
     }

@@ -7,7 +7,7 @@ import userRoutes from "./routes/user";
 import productRoutes from "./routes/product";
 import categoryRoutes from "./routes/category";
 import roleRoutes from "./routes/role";
-import sidebarItemRoute from './routes/sidebaritems'
+import sidebarItemsRoute from "./routes/sidebarItems";
 import cartRoute from "./routes/cart"
 import promocodeRoute from "./routes/promocode";
 import cors from "cors";
@@ -49,7 +49,7 @@ app.get("/debug", (req, res) => {
     });
 });
 
-app.use("/api/v1", sidebarItemRoute)
+app.use("/api/v1", sidebarItemsRoute);
 app.use("/api/v1", userRoutes);
 app.use("/api/v1", productRoutes);
 app.use("/api/v1", categoryRoutes);

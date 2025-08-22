@@ -11,17 +11,12 @@ const upload = multer();
 
 const router = Router();
 
-// Helper function to calculate subtotal
-const calculateCartSubtotal = async (userId: string): Promise<number> => {
-  const cart = await Cart.findOne({ user: userId }).populate("items.product");
-  if (!cart) return 0;
-
-  const subtotal = cart.items.reduce((acc: number, item: any) => {
-    const productPrice = item.product?.price || 0;
+// Helper function to calculate subtotal from a populated cart
+export const calculateCartSubtotal = (cart: ICart): number => {
+  return cart.items.reduce((acc: number, item: any) => {
+    const productPrice = (item.product as any)?.price || 0;
     return acc + productPrice * item.quantity;
   }, 0);
-
-  return subtotal;
 };
 
 // GET /api/v1/cart - Get user's cart
@@ -38,7 +33,7 @@ router.get(
         .exec();
 
       if (cart) {
-        const subtotal = await calculateCartSubtotal(req.user.id);
+        const subtotal = calculateCartSubtotal(cart);
         const { serviceTax, deliveryFee, total } = calculateCartTotals(
           subtotal,
           cart.discount || 0
@@ -90,23 +85,23 @@ router.post("/cart/add", authenticateToken, async (req: any, res: Response) => {
       return;
     }
 
-    let cart = await Cart.findOne({ user: req.user.id });
+    let cart = await Cart.findOne({ user: req.user.id }).populate("items.product");
     if (!cart) {
-      cart = new Cart({ user: req.user.id, items: [] });
+      cart = new Cart({ user: req.user.id, items: [], subTotal: 0 });
     }
 
+    const qty = quantity || 1;
     const itemIndex = cart.items.findIndex(
       (item) => item.product.toString() === productId
     );
     if (itemIndex > -1) {
       // Increment existing quantity
-      cart.items[itemIndex].quantity += quantity || 1;
+      cart.items[itemIndex].quantity += qty;
     } else {
-      cart.items.push({ product: productId, quantity: quantity || 1 });
+      cart.items.push({ product: productId, quantity: qty });
     }
 
-    await cart.save();
-    cart.subTotal = await calculateCartSubtotal(req.user.id);
+    cart.subTotal = (cart.subTotal || 0) + product.price * qty;
     await cart.save();
 
     res.status(200).json(cart);
@@ -126,22 +121,23 @@ router.post(
       // Now productId will be in req.body.productId (string), parsed from form-data
       const { productId } = req.body;
 
-      const cart = await Cart.findOne({ user: req.user.id });
-      if (!cart) {
-        res.status(404).json({ error: "Cart not found." });
-        return;
-      }
+        const cart = await Cart.findOne({
+          user: req.user.id,
+        }).populate("items.product");
+        if (!cart) {
+          res.status(404).json({ error: "Cart not found." });
+          return;
+        }
 
-      cart.items = cart.items.filter(
-        (item) => item.product.toString() !== productId.toString()
-      );
+        cart.items = cart.items.filter(
+          (item) => item.product.toString() !== productId.toString()
+        );
 
-      cart.subTotal = await calculateCartSubtotal(req.user.id);
-      await cart.save();
-      await cart.populate("items.product");
+        cart.subTotal = calculateCartSubtotal(cart);
+        await cart.save();
 
-      res.status(200).json(cart);
-    } catch (err) {
+        res.status(200).json(cart);
+      } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Failed to remove from cart." });
     }
@@ -154,7 +150,9 @@ router.post(
   authenticateToken,
   async (req: any, res: Response) => {
     try {
-      const cart = await Cart.findOne({ user: req.user.id });
+        const cart = await Cart.findOne({ user: req.user.id }).populate(
+          "items.product"
+        );
       if (!cart) {
         res.status(404).json({ error: "Cart not found." });
         return;
@@ -199,13 +197,10 @@ router.put(
       }
 
       item.quantity = quantity;
-      await cart.save();
+        cart.subTotal = calculateCartSubtotal(cart);
+        await cart.save();
 
-      cart.subTotal = await calculateCartSubtotal(req.user.id);
-      await cart.save();
-
-      await cart.populate("items.product");
-      res.status(200).json(cart);
+        res.status(200).json(cart);
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Failed to update cart quantity." });
@@ -269,7 +264,7 @@ router.post(
         return;
       }
 
-      const subtotal = await calculateCartSubtotal(req.user.id);
+        const subtotal = calculateCartSubtotal(cart);
 
       let discountAmount = 0;
       if (promo.discountType === "percentage") {
@@ -335,7 +330,7 @@ router.post(
       cart.discount = 0;
 
       // Recalculate totals
-      const subtotal = await calculateCartSubtotal(req.user.id);
+        const subtotal = calculateCartSubtotal(cart);
       const { serviceTax, deliveryFee, total } = calculateCartTotals(
         subtotal,
         0

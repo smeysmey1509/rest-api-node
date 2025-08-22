@@ -13,7 +13,7 @@ const user_1 = __importDefault(require("./routes/user"));
 const product_1 = __importDefault(require("./routes/product"));
 const category_1 = __importDefault(require("./routes/category"));
 const role_1 = __importDefault(require("./routes/role"));
-const sidebaritems_1 = __importDefault(require("./routes/sidebaritems"));
+const sidebarItems_1 = __importDefault(require("./routes/sidebarItems"));
 const cart_1 = __importDefault(require("./routes/cart"));
 const cors_1 = __importDefault(require("cors"));
 const rabbitmq_1 = require("./services/rabbitmq");
@@ -46,7 +46,7 @@ app.get("/debug", (req, res) => {
         timestamp: new Date().toISOString(),
     });
 });
-app.use("/api/v1", sidebaritems_1.default);
+app.use("/api/v1", sidebarItems_1.default);
 app.use("/api/v1", user_1.default);
 app.use("/api/v1", product_1.default);
 app.use("/api/v1", category_1.default);

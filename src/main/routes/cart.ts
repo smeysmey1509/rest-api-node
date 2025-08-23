@@ -3,84 +3,90 @@ import Cart, { ICart } from "../../models/Cart";
 import Product from "../../models/Product";
 import PromoCode from "../../models/PromoCode";
 import PromoUsage from "../../models/PromoUsage";
+import DeliverySetting from "../../models/DeliverySetting";
 import { authenticateToken } from "../../middleware/auth";
 import { calculateCartTotals } from "../utils/cartTotals";
 import multer from "multer";
 
 const upload = multer();
-
 const router = Router();
 
-// Helper function to calculate subtotal
+// helper: subtotal from populated cart
 const calculateCartSubtotal = async (userId: string): Promise<number> => {
   const cart = await Cart.findOne({ user: userId }).populate("items.product");
   if (!cart) return 0;
-
-  const subtotal = cart.items.reduce((acc: number, item: any) => {
-    const productPrice = item.product?.price || 0;
-    return acc + productPrice * item.quantity;
+  return cart.items.reduce((acc: number, item: any) => {
+    const price = item.product?.price || 0;
+    return acc + price * item.quantity;
   }, 0);
-
-  return subtotal;
 };
 
-// GET /api/v1/cart - Get user's cart
-router.get(
-  "/cart",
-  authenticateToken,
-  async (req: any, res: Response): Promise<void> => {
-    try {
-      // Cast cart to include timestamps
-      const cart = await Cart.findOne({ user: req.user.id })
-        .populate("items.product")
-        .populate("promoCode")
-        .lean<ICart & { createdAt: Date; updatedAt: Date }>()
-        .exec();
+// helper: chosen delivery method (lowercase), defaulting to active isActive=true or "standard"
+async function resolveDeliveryMethod(cart: any): Promise<string> {
+  // if cart has populated delivery with a method, prefer that
+  const chosen = cart?.delivery as any;
+  if (chosen?.method) return String(chosen.method).toLowerCase();
 
-      if (cart) {
-        const subtotal = await calculateCartSubtotal(req.user.id);
-        const { serviceTax, deliveryFee, total } = calculateCartTotals(
-          subtotal,
-          cart.discount || 0,
-          cart.promoCode?.method || "standard"
-        );
+  // otherwise use the active default
+  const active = await DeliverySetting.findOne({ isActive: true }).lean();
+  return String(active?.method || "standard").toLowerCase();
+}
 
-        // Update DB fields
-        await Cart.findByIdAndUpdate(cart._id, {
+// GET /api/v1/cart - Get user's cart (now includes delivery + correct totals)
+router.get("/cart", authenticateToken, async (req: any, res: Response) => {
+  try {
+    const cart = await Cart.findOne({ user: req.user.id })
+      .populate("items.product")
+      .populate("promoCode")
+      .populate("delivery")
+      .lean<ICart & { createdAt: Date; updatedAt: Date }>()
+      .exec();
+
+    if (cart) {
+      const subtotal = await calculateCartSubtotal(req.user.id);
+      const method = await resolveDeliveryMethod(cart);
+      // await is safe even if calculateCartTotals is sync
+      const { serviceTax, deliveryFee, total } = await calculateCartTotals(
+        subtotal,
+        cart.discount || 0,
+        method
+      );
+
+      // keep DB fields in sync (best effort)
+      await Cart.findByIdAndUpdate(cart._id, {
+        subTotal: subtotal,
+        serviceTax,
+        deliveryFee,
+        total,
+      });
+
+      res.status(200).json({
+        _id: cart._id,
+        user: cart.user,
+        items: cart.items,
+        promoCode: cart.promoCode,
+        delivery: cart.delivery || null,
+        summary: {
           subTotal: subtotal,
-          serviceTax,
+          discount: cart.discount || 0,
           deliveryFee,
+          serviceTax,
           total,
-        });
-
-        // Send structured response
-        res.status(200).json({
-          _id: cart._id,
-          user: cart.user,
-          items: cart.items,
-          promoCode: cart.promoCode,
-          summary: {
-            subTotal: subtotal,
-            discount: cart.discount || 0,
-            deliveryFee,
-            serviceTax,
-            total,
-          },
-          createdAt: cart.createdAt,
-          updatedAt: cart.updatedAt,
-        });
-        return;
-      }
-
-      res.status(200).json({ items: [], summary: {} });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Failed to fetch cart." });
+        },
+        createdAt: cart.createdAt,
+        updatedAt: cart.updatedAt,
+      });
+      return;
     }
-  }
-);
 
-// POST /api/v1/cart/add - Add product to cart
+    res.status(200).json({ items: [], summary: {}, delivery: null });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch cart." });
+  }
+});
+
+// POST /api/v1/cart/add - Add product to cart (recompute totals with chosen delivery)
 router.post("/cart/add", authenticateToken, async (req: any, res: Response) => {
   try {
     const { productId, quantity } = req.body;
@@ -91,25 +97,29 @@ router.post("/cart/add", authenticateToken, async (req: any, res: Response) => {
       return;
     }
 
-    let cart = await Cart.findOne({ user: req.user.id });
-    if (!cart) {
-      cart = new Cart({ user: req.user.id, items: [] });
-    }
+    let cart = await Cart.findOne({ user: req.user.id }).populate("delivery");
+    if (!cart) cart = new Cart({ user: req.user.id, items: [] });
 
-    const itemIndex = cart.items.findIndex(
-      (item) => item.product.toString() === productId
+    const idx = cart.items.findIndex((it) => it.product.toString() === productId);
+    if (idx > -1) cart.items[idx].quantity += quantity || 1;
+    else cart.items.push({ product: productId, quantity: quantity || 1 });
+
+    // recompute totals
+    const subtotal = await calculateCartSubtotal(req.user.id);
+    const method = await resolveDeliveryMethod(cart);
+    const { serviceTax, deliveryFee, total } = await calculateCartTotals(
+      subtotal,
+      cart.discount || 0,
+      method
     );
-    if (itemIndex > -1) {
-      // Increment existing quantity
-      cart.items[itemIndex].quantity += quantity || 1;
-    } else {
-      cart.items.push({ product: productId, quantity: quantity || 1 });
-    }
+
+    cart.subTotal = subtotal;
+    cart.serviceTax = serviceTax;
+    cart.deliveryFee = deliveryFee;
+    cart.total = total;
 
     await cart.save();
-    cart.subTotal = await calculateCartSubtotal(req.user.id);
-    await cart.save();
-
+    await cart.populate("items.product");
     res.status(200).json(cart);
   } catch (err) {
     console.error(err);
@@ -117,258 +127,282 @@ router.post("/cart/add", authenticateToken, async (req: any, res: Response) => {
   }
 });
 
-// POST /api/v1/cart/remove - Remove product from cart
-router.post(
-  "/cart/remove",
-  authenticateToken,
-  upload.none(),
-  async (req: any, res: Response) => {
-    try {
-      // Now productId will be in req.body.productId (string), parsed from form-data
-      const { productId } = req.body;
-
-      const cart = await Cart.findOne({ user: req.user.id });
-      if (!cart) {
-        res.status(404).json({ error: "Cart not found." });
-        return;
-      }
-
-      cart.items = cart.items.filter(
-        (item) => item.product.toString() !== productId.toString()
-      );
-
-      cart.subTotal = await calculateCartSubtotal(req.user.id);
-      await cart.save();
-      await cart.populate("items.product");
-
-      res.status(200).json(cart);
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Failed to remove from cart." });
+// POST /api/v1/cart/remove
+router.post("/cart/remove", authenticateToken, upload.none(), async (req: any, res: Response) => {
+  try {
+    const { productId } = req.body;
+    const cart = await Cart.findOne({ user: req.user.id }).populate("delivery");
+    if (!cart) {
+      res.status(404).json({ error: "Cart not found." });
+      return;
     }
+
+    cart.items = cart.items.filter((it) => it.product.toString() !== String(productId));
+
+    const subtotal = await calculateCartSubtotal(req.user.id);
+    const method = await resolveDeliveryMethod(cart);
+    const { serviceTax, deliveryFee, total } = await calculateCartTotals(
+      subtotal,
+      cart.discount || 0,
+      method
+    );
+
+    cart.subTotal = subtotal;
+    cart.serviceTax = serviceTax;
+    cart.deliveryFee = deliveryFee;
+    cart.total = total;
+
+    await cart.save();
+    await cart.populate("items.product");
+    res.status(200).json(cart);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to remove from cart." });
   }
-);
+});
 
-// POST /api/v1/cart/clear - Clear cart
-router.post(
-  "/cart/clear",
-  authenticateToken,
-  async (req: any, res: Response) => {
-    try {
-      const cart = await Cart.findOne({ user: req.user.id });
-      if (!cart) {
-        res.status(404).json({ error: "Cart not found." });
-        return;
-      }
-
-      cart.items = [];
-      cart.subTotal = 0;
-      await cart.save();
-
-      res.status(200).json({ msg: "Cart cleared." });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Failed to clear cart." });
+// POST /api/v1/cart/clear
+router.post("/cart/clear", authenticateToken, async (req: any, res: Response) => {
+  try {
+    const cart = await Cart.findOne({ user: req.user.id }).populate("delivery");
+    if (!cart) {
+      res.status(404).json({ error: "Cart not found." });
+      return;
     }
+
+    cart.items = [];
+    const subtotal = 0;
+    const method = await resolveDeliveryMethod(cart);
+    const { serviceTax, deliveryFee, total } = await calculateCartTotals(subtotal, 0, method);
+
+    cart.subTotal = subtotal;
+    cart.discount = 0;
+    cart.promoCode = null as any;
+    cart.serviceTax = serviceTax;
+    cart.deliveryFee = deliveryFee;
+    cart.total = total;
+
+    await cart.save();
+    res.status(200).json({ msg: "Cart cleared." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to clear cart." });
   }
-);
+});
 
-// PUT /api/v1/cart/update/:productId - Update quantity of product in cart
-router.put(
-  "/cart/update/:productId",
-  authenticateToken,
-  async (req: any, res: Response) => {
-    try {
-      const { productId } = req.params;
-      const { quantity } = req.body;
-
-      if (quantity < 1) {
-        res.status(400).json({ error: "Quantity must be at least 1." });
-        return;
-      }
-
-      const cart = await Cart.findOne({ user: req.user.id });
-      if (!cart) {
-        res.status(404).json({ error: "Cart not found." });
-        return;
-      }
-
-      const item = cart.items.find((i) => i.product.toString() === productId);
-      if (!item) {
-        res.status(404).json({ error: "Product not found in cart." });
-        return;
-      }
-
-      item.quantity = quantity;
-      await cart.save();
-
-      cart.subTotal = await calculateCartSubtotal(req.user.id);
-      await cart.save();
-
-      await cart.populate("items.product");
-      res.status(200).json(cart);
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Failed to update cart quantity." });
+// PUT /api/v1/cart/update/:productId
+router.put("/cart/update/:productId", authenticateToken, async (req: any, res: Response) => {
+  try {
+    const { productId } = req.params;
+    const { quantity } = req.body;
+    if (quantity < 1) {
+      res.status(400).json({ error: "Quantity must be at least 1." });
+      return;
     }
-  }
-);
 
-router.post(
-  "/cart/apply-promo",
-  authenticateToken,
-  async (req: any, res: Response) => {
-    try {
-      const { code } = req.body;
-      if (!code) {
-        res.status(400).json({ error: "Promo code is required." });
-        return;
-      }
-
-      const promo = await PromoCode.findOne({
-        code: code.toUpperCase(),
-        isActive: true,
-      });
-      if (!promo) {
-        res.status(404).json({ error: "Promo code not found or inactive." });
-        return;
-      }
-
-      if (promo.expiresAt < new Date()) {
-        res.status(400).json({ error: "Promo code has expired." });
-        return;
-      }
-
-      let usage = await PromoUsage.findOne({
-        user: req.user.id,
-        promoCode: promo._id,
-      });
-
-      if (usage) {
-        if (usage.usageCount >= promo.maxUsesPerUser) {
-          res.status(400).json({
-            error: `Promo code usage limit reached (${promo.maxUsesPerUser} times).`,
-          });
-          return;
-        }
-        usage.usageCount += 1;
-      } else {
-        usage = new PromoUsage({
-          user: req.user.id,
-          promoCode: promo._id,
-          usageCount: 1,
-        });
-      }
-
-      await usage.save();
-
-      const cart = await Cart.findOne({ user: req.user.id }).populate(
-        "items.product"
-      );
-      if (!cart) {
-        res.status(404).json({ error: "Cart not found." });
-        return;
-      }
-
-      const subtotal = await calculateCartSubtotal(req.user.id);
-
-      let discountAmount = 0;
-      if (promo.discountType === "percentage") {
-        discountAmount = subtotal * (promo.discountValue / 100);
-      } else {
-        discountAmount = promo.discountValue;
-      }
-
-      // 🔹 Apply service tax & delivery fee
-      const { serviceTax, deliveryFee, total } = calculateCartTotals(
-        subtotal,
-        discountAmount
-      );
-
-      cart.promoCode = promo._id;
-      cart.discount = discountAmount;
-      cart.subTotal = subtotal;
-      cart.serviceTax = serviceTax;
-      cart.deliveryFee = deliveryFee;
-      cart.total = total;
-
-      await cart.save();
-      await cart.populate("promoCode");
-
-      res.status(200).json({
-        success: true,
-        message: "Promo code applied successfully.",
-        promo: {
-          code: promo.code,
-          type: promo.discountType,
-          value: promo.discountValue,
-          amount: discountAmount,
-          usageCount: usage.usageCount,
-          maxUsesPerUser: promo.maxUsesPerUser,
-          expiresAt: promo.expiresAt,
-        },
-      });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Failed to apply promo code." });
+    const cart = await Cart.findOne({ user: req.user.id }).populate("delivery");
+    if (!cart) {
+      res.status(404).json({ error: "Cart not found." });
+      return;
     }
+
+    const item = cart.items.find((i) => i.product.toString() === productId);
+    if (!item) {
+      res.status(404).json({ error: "Product not found in cart." });
+      return;
+    }
+
+    item.quantity = quantity;
+
+    const subtotal = await calculateCartSubtotal(req.user.id);
+    const method = await resolveDeliveryMethod(cart);
+    const { serviceTax, deliveryFee, total } = await calculateCartTotals(
+      subtotal,
+      cart.discount || 0,
+      method
+    );
+
+    cart.subTotal = subtotal;
+    cart.serviceTax = serviceTax;
+    cart.deliveryFee = deliveryFee;
+    cart.total = total;
+
+    await cart.save();
+    await cart.populate("items.product");
+    res.status(200).json(cart);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update cart quantity." });
   }
-);
+});
 
-// Remove promo code from cart router.post(
-  "/cart/remove-promocode",
-  authenticateToken,
-  async (req: any, res: Response): Promise<void> => {
-    try {
-      // Find user's cart
-      const cart = await Cart.findOne({ user: req.user.id }).populate(
-        "items.product"
-      );
+// POST /api/v1/cart/apply-promo
+router.post("/cart/apply-promo", authenticateToken, async (req: any, res: Response) => {
+  try {
+    const { code } = req.body;
+    if (!code) {
+      res.status(400).json({ error: "Promo code is required." });
+      return;
+    }
 
-      if (!cart) {
-        res.status(404).json({ error: "Cart not found." });
+    const promo = await PromoCode.findOne({ code: code.toUpperCase(), isActive: true });
+    if (!promo) {
+      res.status(404).json({ error: "Promo code not found or inactive." });
+      return;
+    }
+    if (promo.expiresAt < new Date()) {
+      res.status(400).json({ error: "Promo code has expired." });
+      return;
+    }
+
+    let usage = await PromoUsage.findOne({ user: req.user.id, promoCode: promo._id });
+    if (usage) {
+      if (usage.usageCount >= promo.maxUsesPerUser) {
+        res.status(400).json({ error: `Promo code usage limit reached (${promo.maxUsesPerUser} times).` });
         return;
       }
-
-      // Reset promo fields
-      cart.promoCode = null;
-      cart.discount = 0;
-
-      // Recalculate totals
-      const subtotal = await calculateCartSubtotal(req.user.id);
-      const { serviceTax, deliveryFee, total } = calculateCartTotals(
-        subtotal,
-        0
-      );
-
-      cart.subTotal = subtotal;
-      cart.serviceTax = serviceTax;
-      cart.deliveryFee = deliveryFee;
-      cart.total = total;
-
-      await cart.save();
-
-      // Return updated cart
-      res.status(200).json({
-        _id: cart._id,
-        user: cart.user,
-        items: cart.items,
-        promoCode: null,
-        summary: {
-          subTotal: subtotal,
-          discount: 0,
-          deliveryFee: cart.deliveryFee,
-          serviceTax: cart.serviceTax,
-          total: cart.total,
-        },
-        createdAt: cart.createdAt,
-        updatedAt: cart.updatedAt,
-      });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Failed to remove promo code." });
+      usage.usageCount += 1;
+    } else {
+      usage = new PromoUsage({ user: req.user.id, promoCode: promo._id, usageCount: 1 });
     }
+    await usage.save();
+
+    const cart = await Cart.findOne({ user: req.user.id }).populate("items.product").populate("delivery");
+    if (!cart) {
+      res.status(404).json({ error: "Cart not found." });
+      return;
+    }
+
+    const subtotal = await calculateCartSubtotal(req.user.id);
+    const discountAmount =
+      promo.discountType === "percentage" ? subtotal * (promo.discountValue / 100) : promo.discountValue;
+
+    const method = await resolveDeliveryMethod(cart);
+    const { serviceTax, deliveryFee, total } = await calculateCartTotals(subtotal, discountAmount, method);
+
+    cart.promoCode = promo._id as any;
+    cart.discount = discountAmount;
+    cart.subTotal = subtotal;
+    cart.serviceTax = serviceTax;
+    cart.deliveryFee = deliveryFee;
+    cart.total = total;
+
+    await cart.save();
+    await cart.populate("promoCode");
+
+    res.status(200).json({
+      success: true,
+      message: "Promo code applied successfully.",
+      promo: {
+        code: promo.code,
+        type: promo.discountType,
+        value: promo.discountValue,
+        amount: discountAmount,
+        usageCount: usage.usageCount,
+        maxUsesPerUser: promo.maxUsesPerUser,
+        expiresAt: promo.expiresAt,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to apply promo code." });
   }
-);
+});
+
+// POST /api/v1/cart/remove-promocode
+router.post("/cart/remove-promocode", authenticateToken, async (req: any, res: Response) => {
+  try {
+    const cart = await Cart.findOne({ user: req.user.id }).populate("items.product").populate("delivery");
+    if (!cart) {
+      res.status(404).json({ error: "Cart not found." });
+      return;
+    }
+
+    cart.promoCode = null as any;
+    cart.discount = 0;
+
+    const subtotal = await calculateCartSubtotal(req.user.id);
+    const method = await resolveDeliveryMethod(cart);
+    const { serviceTax, deliveryFee, total } = await calculateCartTotals(subtotal, 0, method);
+
+    cart.subTotal = subtotal;
+    cart.serviceTax = serviceTax;
+    cart.deliveryFee = deliveryFee;
+    cart.total = total;
+
+    await cart.save();
+
+    res.status(200).json({
+      _id: cart._id,
+      user: cart.user,
+      items: cart.items,
+      promoCode: null,
+      summary: {
+        subTotal: subtotal,
+        discount: 0,
+        deliveryFee,
+        serviceTax,
+        total,
+      },
+      createdAt: cart.createdAt,
+      updatedAt: cart.updatedAt,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to remove promo code." });
+  }
+});
+
+// POST /api/v1/cart/select-delivery
+router.post("/cart/select-delivery", authenticateToken, async (req: any, res: Response) => {
+  try {
+    const { method } = req.body; // e.g. "standard", "express"
+    if (!method) {
+      res.status(400).json({ error: "Delivery method is required." });
+      return;
+    }
+
+    const delivery = await DeliverySetting.findOne({ method, isActive: true });
+    if (!delivery) {
+      res.status(404).json({ error: "Delivery method not found." });
+      return;
+    }
+
+    const cart = await Cart.findOne({ user: req.user.id }).populate("items.product");
+    if (!cart) {
+      res.status(404).json({ error: "Cart not found." });
+      return;
+    }
+
+    cart.delivery = delivery._id as any;
+
+    const subtotal = await calculateCartSubtotal(req.user.id);
+    const { serviceTax, deliveryFee, total } = await calculateCartTotals(
+      subtotal,
+      cart.discount || 0,
+      String(delivery.method).toLowerCase()
+    );
+
+    cart.subTotal = subtotal;
+    cart.serviceTax = serviceTax;
+    cart.deliveryFee = deliveryFee;
+    cart.total = total;
+
+    await cart.save();
+    await cart.populate("delivery");
+
+    res.status(200).json({
+      _id: cart._id,
+      user: cart.user,
+      delivery: cart.delivery,
+      summary: { subTotal: subtotal, discount: cart.discount || 0, deliveryFee, serviceTax, total },
+      createdAt: cart.createdAt,
+      updatedAt: cart.updatedAt,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to select delivery method." });
+  }
+});
 
 export default router;

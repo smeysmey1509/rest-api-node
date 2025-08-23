@@ -36,14 +36,18 @@ async function resolveDeliveryMethod(cart: any): Promise<string> {
 }
 
 // GET /api/v1/cart - Get user's cart (now includes delivery + correct totals)
-router.get("/cart", authenticateToken, async (req: any, res: Response) => {
+router.get("/cart", authenticateToken, async (req: any, res: Response): Promise<void> => {
   try {
+    // 0) Try cache first
     const cached = await getCachedCart(req.user.id);
     if (cached) {
       res.status(200).json(cached);
       return;
     }
-    
+
+    console.log('cached', cached);
+
+    // 1) Load cart (lean), with delivery populated
     const cart = await Cart.findOne({ user: req.user.id })
       .populate("items.product")
       .populate("promoCode")
@@ -51,52 +55,55 @@ router.get("/cart", authenticateToken, async (req: any, res: Response) => {
       .lean<ICart & { createdAt: Date; updatedAt: Date }>()
       .exec();
 
-    if (cart) {
-      const subtotal = subtotalFromCart(cart);
-      const method = await resolveDeliveryMethod(cart);
-      // await is safe even if calculateCartTotals is sync
-      const { serviceTax, deliveryFee, total } = await calculateCartTotals(
-        subtotal,
-        cart.discount || 0,
-        method
-      );
-
-      // keep DB fields in sync (best effort)
-      await Cart.findByIdAndUpdate(cart._id, {
-        subTotal: subtotal,
-        serviceTax,
-        deliveryFee,
-        total,
-      });
-
-      const response = {
-        _id: cart._id,
-        user: cart.user,
-        items: cart.items,
-        promoCode: cart.promoCode,
-        delivery: cart.delivery || null,
-        summary: {
-          subTotal: subtotal,
-          discount: cart.discount || 0,
-          deliveryFee,
-          serviceTax,
-          total,
-        },
-        createdAt: cart.createdAt,
-        updatedAt: cart.updatedAt,
+    if (!cart) {
+      const empty = {
+        items: [],
+        promoCode: null,
+        delivery: null,
+        summary: { subTotal: 0, discount: 0, deliveryFee: 0, serviceTax: 0, total: 0 }
       };
-      await setCachedCart(req.user.id, response);
-      res.status(200).json(response);
+      await setCachedCart(req.user.id, empty);
+      res.status(200).json(empty);
       return;
     }
 
-    res.status(200).json({ items: [], summary: {}, delivery: null });
-    const empty = { items: [], summary: {}, delivery: null };
-    await setCachedCart(req.user.id, empty);
-    res.status(200).json(empty);
+    // 2) Prefer cart.delivery; else fallback to active default (lean)
+    let deliveryDoc: any = cart.delivery || await DeliverySetting.findOne({ isActive: true }).lean();
+    if (!deliveryDoc) {
+      res.status(404).json({ error: "Delivery method not found." });
+      return;
+    }
+
+    // 3) Compute totals using the SAME delivery you return
+    const subTotal = subtotalFromCart(cart);
+    const method = String(deliveryDoc.method || "standard").toLowerCase();
+    const { serviceTax, deliveryFee, total } = await calculateCartTotals(
+      subTotal, cart.discount || 0, method
+    );
+
+    // 4) Best-effort sync (non-blocking for user)
+    await Cart.findByIdAndUpdate(cart._id, { subTotal, serviceTax, deliveryFee, total });
+
+    // 5) Shape response, cache it, return
+    const response = {
+      _id: cart._id,
+      user: cart.user,
+      items: cart.items,
+      promoCode: cart.promoCode,
+      delivery: deliveryDoc, // ← the exact doc used for totals
+      summary: { subTotal, discount: cart.discount || 0, deliveryFee, serviceTax, total },
+      createdAt: cart.createdAt,
+      updatedAt: cart.updatedAt,
+    };
+
+    await setCachedCart(req.user.id, response); // write-through cache
+    res.status(200).json(response);
+    return;
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch cart." });
+    return;
   }
 });
 
@@ -461,18 +468,6 @@ router.post(
 
       cart.delivery = delivery._id as any;
 
-      const subtotal = subtotalFromCart(cart);
-      const { serviceTax, deliveryFee, total } = await calculateCartTotals(
-        subtotal,
-        cart.discount || 0,
-        String(delivery.method).toLowerCase()
-      );
-
-      cart.subTotal = subtotal;
-      cart.serviceTax = serviceTax;
-      cart.deliveryFee = deliveryFee;
-      cart.total = total;
-
       await cart.save();
       await cart.populate("delivery");
 
@@ -480,13 +475,6 @@ router.post(
         _id: cart._id,
         user: cart.user,
         delivery: cart.delivery,
-        summary: {
-          subTotal: subtotal,
-          discount: cart.discount || 0,
-          deliveryFee,
-          serviceTax,
-          total,
-        },
         createdAt: cart.createdAt,
         updatedAt: cart.updatedAt,
       });

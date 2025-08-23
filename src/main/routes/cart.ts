@@ -7,6 +7,11 @@ import DeliverySetting from "../../models/DeliverySetting";
 import { authenticateToken } from "../../middleware/auth";
 import { calculateCartTotals } from "../utils/cartTotals";
 import multer from "multer";
+import {
+  getCachedCart,
+  setCachedCart,
+  invalidateCart,
+} from "../utils/cache";
 
 const upload = multer();
 const router = Router();
@@ -33,6 +38,12 @@ async function resolveDeliveryMethod(cart: any): Promise<string> {
 // GET /api/v1/cart - Get user's cart (now includes delivery + correct totals)
 router.get("/cart", authenticateToken, async (req: any, res: Response) => {
   try {
+    const cached = await getCachedCart(req.user.id);
+    if (cached) {
+      res.status(200).json(cached);
+      return;
+    }
+    
     const cart = await Cart.findOne({ user: req.user.id })
       .populate("items.product")
       .populate("promoCode")
@@ -58,7 +69,7 @@ router.get("/cart", authenticateToken, async (req: any, res: Response) => {
         total,
       });
 
-      res.status(200).json({
+      const response = {
         _id: cart._id,
         user: cart.user,
         items: cart.items,
@@ -73,11 +84,16 @@ router.get("/cart", authenticateToken, async (req: any, res: Response) => {
         },
         createdAt: cart.createdAt,
         updatedAt: cart.updatedAt,
-      });
+      };
+      await setCachedCart(req.user.id, response);
+      res.status(200).json(response);
       return;
     }
 
     res.status(200).json({ items: [], summary: {}, delivery: null });
+    const empty = { items: [], summary: {}, delivery: null };
+    await setCachedCart(req.user.id, empty);
+    res.status(200).json(empty);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch cart." });

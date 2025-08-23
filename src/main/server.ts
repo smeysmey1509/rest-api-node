@@ -13,12 +13,16 @@ import promocodeRoute from "./routes/promocode";
 import deliveryRoute from './routes/delivery';
 import cors from "cors";
 import { connectRabbitMQ } from "./services/rabbitmq";
-import { Server as SocketIOServer } from "socket.io"
+import { Server as SocketIOServer } from "socket.io";
+import { connectRedis } from "./utils/cache";
 
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
+
+// establish Redis connection (best effort)
+connectRedis().catch(console.error);
 
 // Setup Socket.IO
 const io = new SocketIOServer(server, {

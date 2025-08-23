@@ -24,7 +24,8 @@
     "nodemon": "^3.1.10",
     "socket.io": "^4.8.1",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "redis": "^4.6.7"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.7",

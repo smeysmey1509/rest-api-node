@@ -7,11 +7,7 @@ import DeliverySetting from "../../models/DeliverySetting";
 import { authenticateToken } from "../../middleware/auth";
 import { calculateCartTotals } from "../utils/cartTotals";
 import multer from "multer";
-import {
-  getCachedCart,
-  setCachedCart,
-  invalidateCart,
-} from "../utils/cache";
+import { getCachedCart, setCachedCart, invalidateCart } from "../utils/cache";
 
 const upload = multer();
 const router = Router();
@@ -36,76 +32,102 @@ async function resolveDeliveryMethod(cart: any): Promise<string> {
 }
 
 // GET /api/v1/cart - Get user's cart (now includes delivery + correct totals)
-router.get("/cart", authenticateToken, async (req: any, res: Response): Promise<void> => {
-  try {
-    // 0) Try cache first
-    const cached = await getCachedCart(req.user.id);
-    if (cached) {
-      res.status(200).json(cached);
-      return;
-    }
+router.get(
+  "/cart",
+  authenticateToken,
+  async (req: any, res: Response): Promise<void> => {
+    try {
+      // A) Cache fast-path
+      const cached = await getCachedCart(req.user.id);
+      if (cached) {
+        // helpful debug:
+        // console.log("[/cart] cache HIT", req.user.id);
+        res.status(200).json(cached);
+        return;
+      }
+      // console.log("[/cart] cache MISS", req.user.id);
 
-    console.log('cached', cached);
+      // B) Load cart lean (populated docs are also plain because of lean())
+      const cart = await Cart.findOne({ user: req.user.id })
+        .populate("items.product")
+        .populate("promoCode")
+        .populate("delivery")
+        .lean<ICart & { createdAt: Date; updatedAt: Date }>()
+        .exec();
 
-    // 1) Load cart (lean), with delivery populated
-    const cart = await Cart.findOne({ user: req.user.id })
-      .populate("items.product")
-      .populate("promoCode")
-      .populate("delivery")
-      .lean<ICart & { createdAt: Date; updatedAt: Date }>()
-      .exec();
+      if (!cart) {
+        const empty = {
+          items: [],
+          promoCode: null,
+          delivery: null,
+          summary: {
+            subTotal: 0,
+            discount: 0,
+            deliveryFee: 0,
+            serviceTax: 0,
+            total: 0,
+          },
+        };
+        await setCachedCart(req.user.id, empty);
+        res.status(200).json(empty);
+        return;
+      }
 
-    if (!cart) {
-      const empty = {
-        items: [],
-        promoCode: null,
-        delivery: null,
-        summary: { subTotal: 0, discount: 0, deliveryFee: 0, serviceTax: 0, total: 0 }
+      // C) Prefer cart.delivery; else safe default (no 404)
+      let deliveryDoc: any =
+        cart.delivery ||
+        (await DeliverySetting.findOne({ isActive: true }).lean());
+
+      if (!deliveryDoc) {
+        // safe default to keep GET working even if DB is empty
+        deliveryDoc = { _id: null, method: "standard", fee: 0, taxRate: 0 };
+      }
+
+      // D) Totals computed with the SAME delivery we return
+      const subTotal = subtotalFromCart(cart);
+      const method = String(deliveryDoc.method || "standard").toLowerCase();
+      const { serviceTax, deliveryFee, total } = await calculateCartTotals(
+        subTotal,
+        cart.discount || 0,
+        method
+      );
+
+      // best-effort DB sync (don’t block the response if it fails)
+      void Cart.findByIdAndUpdate(cart._id, {
+        subTotal,
+        serviceTax,
+        deliveryFee,
+        total,
+      });
+
+      const response = {
+        _id: cart._id,
+        user: cart.user,
+        items: cart.items,
+        promoCode: cart.promoCode,
+        delivery: deliveryDoc,
+        summary: {
+          subTotal,
+          discount: cart.discount || 0,
+          deliveryFee,
+          serviceTax,
+          total,
+        },
+        createdAt: cart.createdAt,
+        updatedAt: cart.updatedAt,
       };
-      await setCachedCart(req.user.id, empty);
-      res.status(200).json(empty);
+
+      // E) Write-through cache so next GET is instant
+      await setCachedCart(req.user.id, response);
+      res.status(200).json(response);
+      return;
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to fetch cart." });
       return;
     }
-
-    // 2) Prefer cart.delivery; else fallback to active default (lean)
-    let deliveryDoc: any = cart.delivery || await DeliverySetting.findOne({ isActive: true }).lean();
-    if (!deliveryDoc) {
-      res.status(404).json({ error: "Delivery method not found." });
-      return;
-    }
-
-    // 3) Compute totals using the SAME delivery you return
-    const subTotal = subtotalFromCart(cart);
-    const method = String(deliveryDoc.method || "standard").toLowerCase();
-    const { serviceTax, deliveryFee, total } = await calculateCartTotals(
-      subTotal, cart.discount || 0, method
-    );
-
-    // 4) Best-effort sync (non-blocking for user)
-    await Cart.findByIdAndUpdate(cart._id, { subTotal, serviceTax, deliveryFee, total });
-
-    // 5) Shape response, cache it, return
-    const response = {
-      _id: cart._id,
-      user: cart.user,
-      items: cart.items,
-      promoCode: cart.promoCode,
-      delivery: deliveryDoc, // ← the exact doc used for totals
-      summary: { subTotal, discount: cart.discount || 0, deliveryFee, serviceTax, total },
-      createdAt: cart.createdAt,
-      updatedAt: cart.updatedAt,
-    };
-
-    await setCachedCart(req.user.id, response); // write-through cache
-    res.status(200).json(response);
-    return;
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch cart." });
-    return;
   }
-});
+);
 
 // POST /api/v1/cart/add - Add product to cart (recompute totals with chosen delivery)
 router.post("/cart/add", authenticateToken, async (req: any, res: Response) => {
@@ -185,6 +207,7 @@ router.post(
       cart.total = total;
 
       await cart.save();
+      await invalidateCart(req.user.id);
       res.status(200).json(cart);
     } catch (err) {
       console.error(err);
@@ -224,6 +247,7 @@ router.post(
       cart.total = total;
 
       await cart.save();
+      await invalidateCart(req.user.id);
       res.status(200).json({ msg: "Cart cleared." });
     } catch (err) {
       console.error(err);
@@ -276,6 +300,7 @@ router.put(
       cart.total = total;
 
       await cart.save();
+      await invalidateCart(req.user.id);
       res.status(200).json(cart);
     } catch (err) {
       console.error(err);
@@ -315,11 +340,9 @@ router.post(
       });
       if (usage) {
         if (usage.usageCount >= promo.maxUsesPerUser) {
-          res
-            .status(400)
-            .json({
-              error: `Promo code usage limit reached (${promo.maxUsesPerUser} times).`,
-            });
+          res.status(400).json({
+            error: `Promo code usage limit reached (${promo.maxUsesPerUser} times).`,
+          });
           return;
         }
         usage.usageCount += 1;
@@ -362,6 +385,7 @@ router.post(
 
       await cart.save();
       await cart.populate("promoCode");
+      await invalidateCart(req.user.id);
 
       res.status(200).json({
         success: true,
@@ -390,8 +414,8 @@ router.post(
   async (req: any, res: Response) => {
     try {
       const cart = await Cart.findOne({ user: req.user.id })
-      .populate("items.product")
-      .populate("delivery");
+        .populate("items.product")
+        .populate("delivery");
       if (!cart) {
         res.status(404).json({ error: "Cart not found." });
         return;
@@ -414,6 +438,7 @@ router.post(
       cart.total = total;
 
       await cart.save();
+      await invalidateCart(req.user.id);
 
       res.status(200).json({
         _id: cart._id,
@@ -470,7 +495,7 @@ router.post(
 
       await cart.save();
       await cart.populate("delivery");
-
+      await invalidateCart(req.user.id);
       res.status(200).json({
         _id: cart._id,
         user: cart.user,

@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from "mongoose";
+import { IDeliverySetting } from "./DeliverySetting";
 
 export interface CartItem {
   product: mongoose.Types.ObjectId;
@@ -13,6 +14,7 @@ export interface ICart extends Document {
   discount?: number;
   serviceTax?: number;
   deliveryFee?: number;
+  delivery?: mongoose.Types.ObjectId | IDeliverySetting | null;
   total?: number;
   createdAt?: Date;
   updatedAt?: Date;
@@ -40,6 +42,11 @@ const CartSchema: Schema = new Schema(
     promoCode: {
       type: mongoose.Types.ObjectId,
       ref: "PromoCode",
+      default: null,
+    },
+    delivery: {
+      type: mongoose.Types.ObjectId,
+      ref: "DeliverySetting",
       default: null,
     },
     discount: { type: Number, default: 0 },

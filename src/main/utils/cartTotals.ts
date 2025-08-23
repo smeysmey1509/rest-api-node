@@ -1,16 +1,24 @@
-export const SERVICE_TAX_RATE = 10;
-export const DELIVERY_FEE = 5;
+import DeliverySetting from "../../models/DeliverySetting";
 
-export function calculateCartTotals(subtotal: number, discount: number = 0) {
-  const subtotalAfterDiscount = Math.max(subtotal - discount, 0);
+export async function calculateCartTotals(
+  subtotal: number,
+  discount: number,
+  method: string
+) {
+  const delivery = await DeliverySetting.findOne({ method, isActive: true });
 
-  // Tax is % of subtotal AFTER discount
-  const serviceTax = (subtotalAfterDiscount * SERVICE_TAX_RATE) / 100;
+  let deliveryFee = 0;
+  if (delivery) {
+    if (delivery.freeThreshold && subtotal >= delivery.freeThreshold) {
+      deliveryFee = 0;
+    } else {
+      deliveryFee = delivery.baseFee;
+    }
+  }
 
-  // Delivery fee stays fixed
-  const deliveryFee = DELIVERY_FEE;
+  const serviceTax = subtotal * 0.1;
 
-  const total = subtotalAfterDiscount + serviceTax + deliveryFee;
+  const total = subtotal - discount + deliveryFee + serviceTax;
 
   return { serviceTax, deliveryFee, total };
 }

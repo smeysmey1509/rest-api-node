@@ -12,6 +12,7 @@ import cartRoute from "./routes/cart"
 import promocodeRoute from "./routes/promocode";
 import deliveryRoute from './routes/delivery';
 import cors from "cors";
+import { createProxyMiddleware } from "http-proxy-middleware";
 import { connectRabbitMQ } from "./services/rabbitmq";
 import { Server as SocketIOServer } from "socket.io";
 import { connectRedis } from "./utils/cache";
@@ -44,6 +45,16 @@ app.use((req, res, next) => {
     next();
 });
 
+const proxyTarget = process.env.PROXY_TARGET;
+console.log('proxyTarget:', proxyTarget);
+if (proxyTarget) {
+    app.use("/proxy", createProxyMiddleware({
+        target: proxyTarget,
+        changeOrigin: true,
+        pathRewrite: { "^/proxy": "" },
+    }));
+}
+
 // Routes
 app.get("/debug", (req, res) => {
     res.json({
@@ -72,7 +83,7 @@ mongoose
         useUnifiedTopology: true,
     } as mongoose.ConnectOptions)
     .then(() => {
-        console.log(`[${process.pid}] ✅ Connected to MongoDB: Main`);
+        console.log(`[${process.pid}] ✅ Connected aaato MongoDB: Main`);
 
         connectRabbitMQ().catch(console.error);
 

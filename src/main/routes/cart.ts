@@ -8,6 +8,8 @@ import { authenticateToken } from "../../middleware/auth";
 import { calculateCartTotals } from "../utils/cartTotals";
 import multer from "multer";
 import { getCachedCart, setCachedCart, invalidateCart } from "../utils/cache";
+import { getDelivery, normalizeMethod } from "../utils/deliveryCache";
+import { calcTotalsSync } from "../utils/totalsFast";
 
 const upload = multer();
 const router = Router();
@@ -207,7 +209,7 @@ router.post(
       cart.total = total;
 
       await cart.save();
-      await invalidateCart(req.user.id);
+      
       res.status(200).json(cart);
     } catch (err) {
       console.error(err);
@@ -468,7 +470,7 @@ router.post(
   authenticateToken,
   async (req: any, res: Response) => {
     try {
-      const { method } = req.body; // e.g. "standard", "express"
+      const { method } = req.body;
       if (!method) {
         res.status(400).json({ error: "Delivery method is required." });
         return;

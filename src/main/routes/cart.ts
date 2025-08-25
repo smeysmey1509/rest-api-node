@@ -8,8 +8,6 @@ import { authenticateToken } from "../../middleware/auth";
 import { calculateCartTotals } from "../utils/cartTotals";
 import multer from "multer";
 import { getCachedCart, setCachedCart, invalidateCart } from "../utils/cache";
-import { getDelivery, normalizeMethod } from "../utils/deliveryCache";
-import { calcTotalsSync } from "../utils/totalsFast";
 
 const upload = multer();
 const router = Router();
@@ -32,6 +30,55 @@ async function resolveDeliveryMethod(cart: any): Promise<string> {
   const active = await DeliverySetting.findOne({ isActive: true }).lean();
   return String(active?.method || "standard").toLowerCase();
 }
+
+// builds the same shape returned by GET /cart
+async function buildCartResponse(cartDoc: any) {
+  await cartDoc.populate("items.product");
+  // prefer the cart’s delivery; else a safe default
+  let deliveryDoc: any = cartDoc.delivery ||
+    (await DeliverySetting.findOne({ isActive: true }).lean()) ||
+    { _id: null, method: "standard", fee: 0, taxRate: 0 };
+
+  const subTotal = cartDoc.items.reduce((acc: number, item: any) => {
+    const price = (item.product as any)?.price || 0;
+    return acc + price * item.quantity;
+  }, 0);
+
+  const method = String(deliveryDoc.method || "standard").toLowerCase();
+  const { serviceTax, deliveryFee, total } = await calculateCartTotals(
+    subTotal,
+    cartDoc.discount || 0,
+    method
+  );
+
+  const response = {
+    _id: cartDoc._id,
+    user: cartDoc.user,
+    items: cartDoc.items,
+    promoCode: cartDoc.promoCode,
+    delivery: deliveryDoc,
+    summary: {
+      subTotal,
+      discount: cartDoc.discount || 0,
+      deliveryFee,
+      serviceTax,
+      total,
+    },
+    createdAt: cartDoc.createdAt,
+    updatedAt: cartDoc.updatedAt,
+  };
+
+  // best‑effort background sync of computed totals
+  void Cart.findByIdAndUpdate(cartDoc._id, {
+    subTotal: response.summary.subTotal,
+    serviceTax: response.summary.serviceTax,
+    deliveryFee: response.summary.deliveryFee,
+    total: response.summary.total,
+  });
+
+  return response;
+}
+
 
 // GET /api/v1/cart - Get user's cart (now includes delivery + correct totals)
 router.get(
@@ -167,7 +214,9 @@ router.post("/cart/add", authenticateToken, async (req: any, res: Response) => {
     cart.total = total;
 
     await cart.save();
-    res.status(200).json(cart);
+    const response = await buildCartResponse(cart);
+    await setCachedCart(req.user.id, response);
+    res.status(200).json(response);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to add to cart." });
@@ -209,8 +258,9 @@ router.post(
       cart.total = total;
 
       await cart.save();
-      
-      res.status(200).json(cart);
+      const response = await buildCartResponse(cart);
+      await setCachedCart(req.user.id, response);
+      res.status(200).json(response);
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Failed to remove from cart." });

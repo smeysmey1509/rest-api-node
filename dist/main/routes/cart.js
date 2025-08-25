@@ -44,6 +44,47 @@ function resolveDeliveryMethod(cart) {
         return String((active === null || active === void 0 ? void 0 : active.method) || "standard").toLowerCase();
     });
 }
+// builds the same shape returned by GET /cart
+function buildCartResponse(cartDoc) {
+    return __awaiter(this, void 0, void 0, function* () {
+        yield cartDoc.populate("items.product");
+        // prefer the cart’s delivery; else a safe default
+        let deliveryDoc = cartDoc.delivery ||
+            (yield DeliverySetting_1.default.findOne({ isActive: true }).lean()) ||
+            { _id: null, method: "standard", fee: 0, taxRate: 0 };
+        const subTotal = cartDoc.items.reduce((acc, item) => {
+            var _a;
+            const price = ((_a = item.product) === null || _a === void 0 ? void 0 : _a.price) || 0;
+            return acc + price * item.quantity;
+        }, 0);
+        const method = String(deliveryDoc.method || "standard").toLowerCase();
+        const { serviceTax, deliveryFee, total } = yield (0, cartTotals_1.calculateCartTotals)(subTotal, cartDoc.discount || 0, method);
+        const response = {
+            _id: cartDoc._id,
+            user: cartDoc.user,
+            items: cartDoc.items,
+            promoCode: cartDoc.promoCode,
+            delivery: deliveryDoc,
+            summary: {
+                subTotal,
+                discount: cartDoc.discount || 0,
+                deliveryFee,
+                serviceTax,
+                total,
+            },
+            createdAt: cartDoc.createdAt,
+            updatedAt: cartDoc.updatedAt,
+        };
+        // best‑effort background sync of computed totals
+        void Cart_1.default.findByIdAndUpdate(cartDoc._id, {
+            subTotal: response.summary.subTotal,
+            serviceTax: response.summary.serviceTax,
+            deliveryFee: response.summary.deliveryFee,
+            total: response.summary.total,
+        });
+        return response;
+    });
+}
 // GET /api/v1/cart - Get user's cart (now includes delivery + correct totals)
 router.get("/cart", auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -152,7 +193,9 @@ router.post("/cart/add", auth_1.authenticateToken, (req, res) => __awaiter(void 
         cart.deliveryFee = deliveryFee;
         cart.total = total;
         yield cart.save();
-        res.status(200).json(cart);
+        const response = yield buildCartResponse(cart);
+        yield (0, cache_1.setCachedCart)(req.user.id, response);
+        res.status(200).json(response);
     }
     catch (err) {
         console.error(err);
@@ -178,7 +221,9 @@ router.post("/cart/remove", auth_1.authenticateToken, upload.none(), (req, res) 
         cart.deliveryFee = deliveryFee;
         cart.total = total;
         yield cart.save();
-        res.status(200).json(cart);
+        const response = yield buildCartResponse(cart);
+        yield (0, cache_1.setCachedCart)(req.user.id, response);
+        res.status(200).json(response);
     }
     catch (err) {
         console.error(err);

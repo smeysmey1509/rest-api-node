@@ -79,7 +79,6 @@ async function buildCartResponse(cartDoc: any) {
   return response;
 }
 
-
 // GET /api/v1/cart - Get user's cart (now includes delivery + correct totals)
 router.get(
   "/cart",

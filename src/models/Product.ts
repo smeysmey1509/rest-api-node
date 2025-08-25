@@ -32,18 +32,6 @@ const ProductSchema: Schema<IProduct> = new Schema(
   },
   {
     timestamps: true,
-    toJSON: { virtuals: true, versionKey: false, transform: (_doc, ret) => {
-
-      if (!Array.isArray(ret.images)) ret.images = [];
-      if (ret.primaryImageIndex < 0 || ret.primaryImageIndex >= ret.images.length) {
-        ret.primaryImageIndex = 0;
-      }
-      ret.primaryImage = ret.images.length ? ret.images[ret.primaryImageIndex] : null;
-
-      ret.image = ret.images;
-
-      return ret;
-    }},
   }
 );
 

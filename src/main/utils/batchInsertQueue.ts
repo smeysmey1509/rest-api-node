@@ -14,7 +14,7 @@ interface ProductInput {
     seller: string;
     status: string;
     tag: string[];
-    image: string[];
+    images: string[];
     userId?: string;
 }
 
@@ -48,7 +48,7 @@ async function flushBuffer() {
                 .populate("seller", "name email");
 
             if (populatedProduct) {
-                io.emit("product:created", populatedProduct); // 🔥 Real-time emit
+                io.emit("product:created", populatedProduct);
             }
         }
 
@@ -74,7 +74,7 @@ async function flushBuffer() {
                         stock: p.stock,
                         status: p.status,
                         tag: [p.tag],
-                        image: [p.image],
+                        images: p.images,
                         category: categoryDoc
                             ? {
                                 _id: categoryDoc._id,
@@ -97,7 +97,6 @@ async function flushBuffer() {
     }
 }
 
-// Periodically flush (in case batch doesn't fill up quickly)
 setInterval(flushBuffer, FLUSH_INTERVAL_MS);
 
 export { addToBatch };

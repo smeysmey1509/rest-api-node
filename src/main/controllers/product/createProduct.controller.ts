@@ -30,7 +30,7 @@ export const createProduct = async (
       category,
       seller,
       tag,
-      image: imageUrls,
+      images: imageUrls,
       userId: userInputId,
     });
 

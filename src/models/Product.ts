@@ -9,12 +9,9 @@ export interface IProduct extends Document {
   seller: mongoose.Types.ObjectId;
   status: "Published" | "Unpublished";
   tag: string[];
-
-  // ✅ New image model
-  images: string[];              // all images
-  primaryImageIndex: number;     // which one is primary (index into images[])
-  primaryImage?: string | null;  // virtual (computed)
-
+  images: string[];
+  primaryImageIndex: number;
+  primaryImage?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,7 +27,6 @@ const ProductSchema: Schema<IProduct> = new Schema(
     status: { type: String, enum: ["Published", "Unpublished"], default: "Published" },
     tag: { type: [String], default: [] },
 
-    // 🔁 Replace `image: [String]` with:
     images: { type: [String], default: [] },
     primaryImageIndex: { type: Number, default: 0 },
   },
@@ -44,8 +40,7 @@ const ProductSchema: Schema<IProduct> = new Schema(
       }
       ret.primaryImage = ret.images.length ? ret.images[ret.primaryImageIndex] : null;
 
-      // Back-compat: if someone still expects `image`, return the primary there too (remove if not needed)
-      ret.image = ret.images; // or: ret.image = ret.primaryImage;
+      ret.image = ret.images;
 
       return ret;
     }},

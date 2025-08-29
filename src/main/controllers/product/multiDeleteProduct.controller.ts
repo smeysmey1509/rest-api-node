@@ -1,10 +1,41 @@
 import {AuthenicationRequest} from "../../../middleware/auth";
-import {Response} from "express";
+import { Response } from "express";
+import { Types } from "mongoose";
 import Product from "../../../models/Product";
 import Category, {ICategory} from "../../../models/Category";
 import {publishProductActivity} from "../../services/activity.service";
 import { io } from "../../server";
 import {publishNotificationEvent} from "../../services/notification.service";
+
+// If category is populated we only read these fields
+type PopulatedCategory = { _id: Types.ObjectId; name: string; description?: string };
+
+// Lean shape that works for both old and new product schemas
+type ProductLeanBase = {
+  _id: Types.ObjectId;
+  name: string;
+  description?: string;
+  createdAt: Date;
+  updatedAt: Date;
+
+  // flat schema fields
+  price?: number;
+  stock?: number;
+
+  // variant-based schema fields
+  variants?: Array<{
+    price?: { amount?: number };
+    inventory?: {
+      onHand?: number;
+      reserved?: number;
+      safetyStock?: number;
+    };
+    isActive?: boolean;
+  }>;
+
+  // backward compatible category
+  category?: Types.ObjectId | PopulatedCategory;
+};
 
 export const multiDeleteProductController = async (req: AuthenicationRequest, res: Response) => {
     try {
@@ -12,29 +43,51 @@ export const multiDeleteProductController = async (req: AuthenicationRequest, re
         const userId = req?.user?.id
 
         // Multiple delete
-        if (Array.isArray(ids) && ids.length > 0) {           const products = await Product.find({ _id: { $in: ids } });
-            const categories: ICategory[] = await Category.find({
-                _id: { $in: products.map((p) => p.category) },
-            });
+        if (Array.isArray(ids) && ids.length > 0) {
+            const products = await Product.find({ _id: { $in: ids } })
+                .select(
+                    "name description price stock category createdAt updatedAt variants.price variants.inventory variants.isActive"
+                )
+                .populate("category", "name description")
+                .lean<ProductLeanBase[]>();
 
             // Map only the required fields
-            const productSnapshots = products.map(product => {
-                const category = categories.find(
-                    (c) => (c as any)._id.equals(product.category)
-                );
+            const productSnapshots = products.map((product) => {
+                const category =
+                    product.category && typeof product.category === "object"
+                        ? (product.category as PopulatedCategory)
+                        : null;
+
+                const price =
+                    product.price ??
+                    product.variants?.find((v) => v?.price?.amount != null)?.price
+                        ?.amount ?? 0;
+
+                const stock =
+                    product.stock ??
+                    (product.variants || []).reduce((acc, v) => {
+                        if (!v?.isActive) return acc;
+                        const onHand = v.inventory?.onHand ?? 0;
+                        const reserved = v.inventory?.reserved ?? 0;
+                        const safety = v.inventory?.safetyStock ?? 0;
+                        const available = Math.max(0, onHand - reserved - safety);
+                        return acc + available;
+                    }, 0);
                 return {
                     _id: product._id,
                     name: product.name,
                     description: product.description,
-                    price: product.price,
-                    stock: product.stock,
-                    category: category ? {
-                        _id: category._id,
-                        name: category.name,
-                        description: category.description,
-                    } : null,
+                    price,
+                    stock,
+                    category: category
+                        ? {
+                              _id: category._id,
+                              name: category.name,
+                              description: category.description,
+                          }
+                        : null,
                     createdAt: product.createdAt,
-                    updatedAt: product.updatedAt
+                    updatedAt: product.updatedAt,
                 };
             });
 

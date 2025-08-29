@@ -14,6 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.multiDeleteProductController = void 0;
 const Product_1 = __importDefault(require("../../../models/Product"));
+const Category_1 = __importDefault(require("../../../models/Category"));
 const activity_service_1 = require("../../services/activity.service");
 const server_1 = require("../../server");
 const notification_service_1 = require("../../services/notification.service");
@@ -24,42 +25,26 @@ const multiDeleteProductController = (req, res) => __awaiter(void 0, void 0, voi
         const userId = (_a = req === null || req === void 0 ? void 0 : req.user) === null || _a === void 0 ? void 0 : _a.id;
         // Multiple delete
         if (Array.isArray(ids) && ids.length > 0) {
-            const products = yield Product_1.default.find({ _id: { $in: ids } })
-                .select("name description price stock category createdAt updatedAt variants.price variants.inventory variants.isActive")
-                .populate("category", "name description")
-                .lean();
+            const products = yield Product_1.default.find({ _id: { $in: ids } });
+            const categories = yield Category_1.default.find({
+                _id: { $in: products.map((p) => p.category) },
+            });
             // Map only the required fields
-            const productSnapshots = products.map((product) => {
-                var _a, _b, _c, _d, _e, _f;
-                const category = product.category && typeof product.category === "object"
-                    ? product.category
-                    : null;
-                const price = (_e = (_a = product.price) !== null && _a !== void 0 ? _a : (_d = (_c = (_b = product.variants) === null || _b === void 0 ? void 0 : _b.find((v) => { var _a; return ((_a = v === null || v === void 0 ? void 0 : v.price) === null || _a === void 0 ? void 0 : _a.amount) != null; })) === null || _c === void 0 ? void 0 : _c.price) === null || _d === void 0 ? void 0 : _d.amount) !== null && _e !== void 0 ? _e : 0;
-                const stock = (_f = product.stock) !== null && _f !== void 0 ? _f : (product.variants || []).reduce((acc, v) => {
-                    var _a, _b, _c, _d, _e, _f;
-                    if (!(v === null || v === void 0 ? void 0 : v.isActive))
-                        return acc;
-                    const onHand = (_b = (_a = v.inventory) === null || _a === void 0 ? void 0 : _a.onHand) !== null && _b !== void 0 ? _b : 0;
-                    const reserved = (_d = (_c = v.inventory) === null || _c === void 0 ? void 0 : _c.reserved) !== null && _d !== void 0 ? _d : 0;
-                    const safety = (_f = (_e = v.inventory) === null || _e === void 0 ? void 0 : _e.safetyStock) !== null && _f !== void 0 ? _f : 0;
-                    const available = Math.max(0, onHand - reserved - safety);
-                    return acc + available;
-                }, 0);
+            const productSnapshots = products.map(product => {
+                const category = categories.find((c) => c._id.equals(product.category));
                 return {
                     _id: product._id,
                     name: product.name,
                     description: product.description,
-                    price,
-                    stock,
-                    category: category
-                        ? {
-                            _id: category._id,
-                            name: category.name,
-                            description: category.description,
-                        }
-                        : null,
+                    price: product.price,
+                    stock: product.stock,
+                    category: category ? {
+                        _id: category._id,
+                        name: category.name,
+                        description: category.description,
+                    } : null,
                     createdAt: product.createdAt,
-                    updatedAt: product.updatedAt,
+                    updatedAt: product.updatedAt
                 };
             });
             // 👇 Fire-and-forget: send to RabbitMQ

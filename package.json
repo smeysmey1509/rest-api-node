@@ -3,9 +3,13 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node-dev src/main/server.ts && src/worker/server.ts && pm2 start ecosystem.config.js",
-    "test": "node --require ts-node/register --test",
-    "migrate:images": "ts-node src/scripts/migrate-images.ts"
+    "dev": "tsx watch src/main/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main/server.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prestart": "npm run build"
   },
   "keywords": [],
   "author": "",

@@ -3,8 +3,8 @@ module.exports = {
         {
             name: "main-api",
             script: "./dist/main/server.js",
-            instances: 1,
-            exec_mode: "fork",
+            instances: "max",
+            exec_mode: "cluster",
             watch: ["dist/main"],
             env: {
                 JWT_SECRET: process.env.JWT_SECRET
@@ -13,8 +13,8 @@ module.exports = {
         {
             name: "worker",
             script: "./dist/worker/server.js",
-            instances: 1,
-            exec_mode: "fork",
+            instances: "max",
+            exec_mode: "cluster",
             watch: ["dist/worker"],
             env: {
                 JWT_SECRET: process.env.JWT_SECRET

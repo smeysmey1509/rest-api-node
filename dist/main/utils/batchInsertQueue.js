@@ -44,7 +44,7 @@ function flushBuffer() {
                     .populate("category", "name description")
                     .populate("seller", "name email");
                 if (populatedProduct) {
-                    server_1.io.emit("product:created", populatedProduct); // 🔥 Real-time emit
+                    server_1.io.emit("product:created", populatedProduct);
                 }
             }
             // Group by userId to log activity per user
@@ -67,7 +67,7 @@ function flushBuffer() {
                         stock: p.stock,
                         status: p.status,
                         tag: [p.tag],
-                        image: [p.image],
+                        images: p.images,
                         category: categoryDoc
                             ? {
                                 _id: categoryDoc._id,
@@ -89,5 +89,4 @@ function flushBuffer() {
         }
     });
 }
-// Periodically flush (in case batch doesn't fill up quickly)
 setInterval(flushBuffer, FLUSH_INTERVAL_MS);

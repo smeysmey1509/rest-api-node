@@ -25,14 +25,20 @@ const editProduct_controller_1 = require("../controllers/product/editProduct.con
 const upload_1 = require("../../middleware/upload");
 const router = (0, express_1.Router)();
 //Get /api/v1/products - Get All Product
-router.get("/product", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("read"), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.get("/product", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("read"), (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const products = yield Product_1.default.find()
-            .populate("category", "name")
-            .populate("seller", "name email");
+        const products = yield Product_1.default.find({})
+            .select("name slug price compareAtPrice currency stock status tag ratingAvg ratingCount salesCount category seller createdAt")
+            .populate({ path: "category", select: "name" })
+            .populate({ path: "seller", select: "name email" })
+            .sort({ createdAt: -1 })
+            .lean({ virtuals: true }) // faster for reads; include virtuals if you use mongoose-lean-virtuals
+            .exec();
         res.status(200).json(products);
     }
     catch (err) {
+        // log real error to server logs for diagnosis
+        console.error("GET /api/v1/product error:", err === null || err === void 0 ? void 0 : err.message, err === null || err === void 0 ? void 0 : err.stack);
         res.status(500).json({ error: "Failed to fetch products." });
     }
 }));
@@ -51,8 +57,8 @@ router.get("/products", auth_1.authenticateToken, (0, authorizePermission_1.auth
                 .populate("category", "name")
                 .populate("seller", "name email")
                 .sort({ createdAt: -1 })
-                .skip(skip) // skip must be a number
-                .limit(limit), // limit must be a number
+                .skip(skip)
+                .limit(limit),
             Product_1.default.countDocuments(),
         ]);
         res.status(200).json({

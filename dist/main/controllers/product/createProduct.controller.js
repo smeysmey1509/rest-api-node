@@ -32,7 +32,7 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             category,
             seller,
             tag,
-            image: imageUrls,
+            images: imageUrls,
             userId: userInputId,
         });
         yield (0, notification_service_1.publishNotificationEvent)({

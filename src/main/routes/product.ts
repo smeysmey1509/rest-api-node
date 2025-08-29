@@ -17,17 +17,27 @@ router.get(
   "/product",
   authenticateToken,
   authorizePermission("read"),
-  async (req: Request, res: Response) => {
+  async (_req: Request, res: Response) => {
     try {
-      const products = await Product.find()
-        .populate("category", "name")
-        .populate("seller", "name email");
+      const products = await Product.find({})
+        .select(
+          "name slug price compareAtPrice currency stock status tag ratingAvg ratingCount salesCount category seller createdAt"
+        )
+        .populate({ path: "category", select: "name" })
+        .populate({ path: "seller", select: "name email" })
+        .sort({ createdAt: -1 })
+        .lean({ virtuals: true }) // faster for reads; include virtuals if you use mongoose-lean-virtuals
+        .exec();
+
       res.status(200).json(products);
-    } catch (err) {
+    } catch (err: any) {
+      // log real error to server logs for diagnosis
+      console.error("GET /api/v1/product error:", err?.message, err?.stack);
       res.status(500).json({ error: "Failed to fetch products." });
     }
   }
 );
+
 
 // GET /api/v1/product?limit=25&page=1
 router.get(

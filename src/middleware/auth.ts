@@ -6,37 +6,26 @@ interface JwtPayload {
   role: string;
 }
 
+declare global {
+  namespace Express { interface Request { user?: JwtPayload } }
+}
+
 export interface AuthenicationRequest extends Request {
   user?: JwtPayload;
   file?: Express.Multer.File;
   files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
 }
 
-export const authenticateToken = (
-  req: AuthenicationRequest,
-  res: Response,
-  next: NextFunction
-): void => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
-
-  if (!token) {
-    res.status(401).json({ message: "No token provided" });
-    return;
-  }
+export const authenticateToken: RequestHandler = (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ message: "Unauthorized" });
 
   const jwtSecret = process.env.JWT_SECRET;
-  if (!jwtSecret) {
-    res.status(500).json({ error: "JWT secret not configureddddddddd" });
-    return;
-  }
+  if (!jwtSecret) return res.status(500).json({ error: "Server misconfiguration" });
 
   jwt.verify(token, jwtSecret, (err, user) => {
-    if (err) {
-      res.status(403).json({ message: "Invalid token" });
-      return;
-    }
-    (req.user = user as JwtPayload), { expiresIn: "100s" };
+    if (err) return res.status(403).json({ message: "Invalid token" });
+    req.user = user as JwtPayload;
     next();
   });
 };

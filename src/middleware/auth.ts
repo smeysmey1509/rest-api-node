@@ -16,16 +16,31 @@ export interface AuthenicationRequest extends Request {
   files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
 }
 
-export const authenticateToken: RequestHandler = (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ message: "Unauthorized" });
+export const authenticateToken = (
+  req: AuthenicationRequest,
+  res: Response,
+  next: NextFunction
+): void => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    res.status(401).json({ message: "No token provided" });
+    return;
+  }
 
   const jwtSecret = process.env.JWT_SECRET;
-  if (!jwtSecret) return res.status(500).json({ error: "Server misconfiguration" });
+  if (!jwtSecret) {
+    res.status(500).json({ error: "JWT secret not configureddddddddd" });
+    return;
+  }
 
   jwt.verify(token, jwtSecret, (err, user) => {
-    if (err) return res.status(403).json({ message: "Invalid token" });
-    req.user = user as JwtPayload;
+    if (err) {
+      res.status(403).json({ message: "Invalid token" });
+      return;
+    }
+    (req.user = user as JwtPayload), { expiresIn: "100s" };
     next();
   });
 };

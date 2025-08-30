@@ -77,28 +77,25 @@ function parseJSON(v, fallback) {
     return fallback;
 }
 function parseTags(input) {
-    // Accept: array, JSON string '["a","b"]', comma string "a,b"
     if (Array.isArray(input))
         return [...new Set(input.map((t) => String(t).trim()).filter(Boolean))];
     if (typeof input === "string") {
-        // try JSON first
         const json = parseJSON(input, []);
         if (json.length)
             return [...new Set(json.map((t) => t.trim()).filter(Boolean))];
-        // fallback to comma-separated
         return [...new Set(input.split(",").map((t) => t.trim()).filter(Boolean))];
     }
     return [];
 }
 function ensureObjectId(id, field) {
-    if (!id || !mongoose_1.default.isValidObjectId(id)) {
+    if (!id || !mongoose_1.default.isValidObjectId(id))
         throw new Error(`Invalid ${field} id`);
-    }
     return new mongoose_1.Types.ObjectId(String(id));
 }
 function normalizeVariants(raw) {
     const arr = parseJSON(raw, []);
-    return arr.map((v) => {
+    return arr
+        .map((v) => {
         const price = toNumber(v.price, 0);
         const stock = toNumber(v.stock, 0);
         const inv = v.inventory
@@ -107,23 +104,19 @@ function normalizeVariants(raw) {
                 reserved: toNumber(v.inventory.reserved, 0),
                 safetyStock: toNumber(v.inventory.safetyStock, 0),
             }
-            : {
-                onHand: stock || 0,
-                reserved: 0,
-                safetyStock: 0,
-            };
+            : { onHand: stock || 0, reserved: 0, safetyStock: 0 };
         return {
             sku: String(v.sku || "").trim(),
             price,
-            stock, // kept for backward-compat with your schema
+            stock, // legacy compatibility
             inventory: inv,
             attributes: v.attributes || {},
             images: Array.isArray(v.images) ? v.images : [],
             isActive: v.isActive !== false,
         };
-    }).filter(v => v.sku && Number.isFinite(v.price));
+    })
+        .filter((v) => v.sku && Number.isFinite(v.price));
 }
-/** attributes & seo parsers (accept object or JSON string) */
 function normalizeAttributes(raw) {
     const obj = parseJSON(raw, {});
     const clean = {};
@@ -135,9 +128,11 @@ function normalizeSeo(raw) {
     const seo = parseJSON(raw, undefined);
     if (!seo)
         return undefined;
-    const keywords = Array.isArray(seo.keywords) ? seo.keywords.map((k) => String(k)) :
-        typeof seo.keywords === "string" && seo.keywords.trim() ? seo.keywords.split(",").map((k) => k.trim()) :
-            [];
+    const keywords = Array.isArray(seo.keywords)
+        ? seo.keywords.map((k) => String(k))
+        : typeof seo.keywords === "string" && seo.keywords.trim()
+            ? seo.keywords.split(",").map((k) => k.trim())
+            : [];
     return {
         title: typeof seo.title === "string" ? seo.title : "",
         description: typeof seo.description === "string" ? seo.description : "",
@@ -163,7 +158,14 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         }
         const categoryId = ensureObjectId(category, "category");
         const sellerId = ensureObjectId(seller, "seller");
-        // images from Multer
+        // Canonical identifiers (match schema)
+        const canonicalSlug = slug ? slugify(slug) : slugify(name);
+        const dedupeKey = [
+            String(name).trim().toLowerCase(),
+            String(brand || "").trim().toLowerCase(),
+            String(categoryId),
+        ].join("|");
+        // Images (Multer + optional body URLs)
         const files = req.files;
         const uploaded = (files === null || files === void 0 ? void 0 : files.length) ? files.map((f) => `/uploads/${f.filename}`) : [];
         const imageUrls = Array.isArray(req.body.images)
@@ -181,35 +183,47 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 height: toNumber(dimsObj.height, 0),
             }
             : undefined;
-        const productDoc = yield Product_1.default.create({
-            name: String(name).trim(),
-            slug: slug ? slugify(slug) : slugify(name),
-            description: typeof description === "string" ? description : "",
-            brand: typeof brand === "string" ? brand : "",
-            price: toNumber(price, 0),
-            compareAtPrice: compareAtPrice != null ? toNumber(compareAtPrice) : undefined,
-            currency: typeof currency === "string" && currency.length ? currency.toUpperCase() : "USD",
-            stock: toNumber(stock, 0),
-            category: categoryId,
+        // If variants exist, don't accept top-level price/stock (avoid redundancy drift)
+        const topLevelPrice = Array.isArray(normVariants) && normVariants.length ? undefined : toNumber(price, 0);
+        const topLevelStock = Array.isArray(normVariants) && normVariants.length ? undefined : toNumber(stock, 0);
+        // ---------- STRICT DUP CHECKS ----------
+        // A) Slug or dedupeKey already exists for this seller?
+        const slugOrKey = yield Product_1.default.findOne({
             seller: sellerId,
-            status: status === "Unpublished" ? "Unpublished" : "Published",
-            tag: normTags,
-            images: imageUrls,
-            primaryImageIndex: 0,
-            ratingAvg: 0,
-            ratingCount: 0,
-            salesCount: 0,
-            isTrending: false,
-            attributes: normAttrs,
-            variants: normVariants,
-            dimensions: dims,
-            weight: weight != null ? toNumber(weight, 0) : 0,
-            seo: normSeo,
-            isAdult: isAdult === true || isAdult === "true",
-            isHazardous: isHazardous === true || isHazardous === "true",
-            // soft-delete defaults handled by schema
-        });
-        // notification + socket
+            isDeleted: { $ne: true },
+            $or: [{ slug: canonicalSlug }, { dedupeKey }],
+        })
+            .collation({ locale: "en", strength: 2 })
+            .select("_id slug")
+            .lean();
+        if (slugOrKey) {
+            res.status(409).json({
+                error: "Duplicate product",
+                details: { conflictOn: slugOrKey.slug === canonicalSlug ? "slug" : "dedupeKey" },
+            });
+            return;
+        }
+        // B) Any incoming variant SKU already taken by this seller?
+        if (normVariants.length) {
+            const incomingSkus = normVariants.map((v) => v.sku);
+            const skuConflict = yield Product_1.default.findOne({
+                seller: sellerId,
+                isDeleted: { $ne: true },
+                "variants.sku": { $in: incomingSkus },
+            })
+                .select("_id")
+                .lean();
+            if (skuConflict) {
+                res.status(409).json({
+                    error: "Duplicate SKU",
+                    details: { skus: incomingSkus },
+                });
+                return;
+            }
+        }
+        // ---------- END DUP CHECKS ----------
+        const productDoc = yield Product_1.default.create(Object.assign(Object.assign(Object.assign({ name: String(name).trim(), slug: canonicalSlug, description: typeof description === "string" ? description : "", brand: typeof brand === "string" ? brand : "", currency: typeof currency === "string" && currency.length ? currency.toUpperCase() : "USD" }, (topLevelPrice !== undefined ? { price: topLevelPrice } : {})), (topLevelStock !== undefined ? { stock: topLevelStock } : {})), { compareAtPrice: compareAtPrice != null ? toNumber(compareAtPrice, 0) : undefined, category: categoryId, seller: sellerId, status: status === "Unpublished" ? "Unpublished" : "Published", tag: normTags, images: imageUrls, primaryImageIndex: 0, ratingAvg: 0, ratingCount: 0, salesCount: 0, isTrending: false, attributes: normAttrs, variants: normVariants, dimensions: dims, weight: weight != null ? toNumber(weight, 0) : 0, seo: normSeo, isAdult: isAdult === true || isAdult === "true", isHazardous: isHazardous === true || isHazardous === "true", dedupeKey }));
+        // events
         const userInputId = (_a = req === null || req === void 0 ? void 0 : req.user) === null || _a === void 0 ? void 0 : _a.id;
         yield (0, notification_service_1.publishNotificationEvent)({
             userId: userInputId,
@@ -224,8 +238,8 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         });
     }
     catch (err) {
-        // duplicate key (e.g., seller+slug or variants.sku)
         if ((err === null || err === void 0 ? void 0 : err.code) === 11000) {
+            // unique index collision: (seller, slug) / (seller, dedupeKey) / (seller, variants.sku)
             res.status(409).json({ error: "Duplicate key", details: err.keyValue });
             return;
         }

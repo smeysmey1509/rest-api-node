@@ -1,10 +1,6 @@
 // models/Product.ts
 import mongoose, { Schema, Model, Types, Document } from "mongoose";
 
-/* =========================
-   Types
-========================= */
-
 export type PublishStatus = "Published" | "Unpublished";
 
 export interface IDimensions {
@@ -14,15 +10,15 @@ export interface IDimensions {
 }
 
 export interface IInventory {
-  onHand: number;      // physical stock
-  reserved: number;    // held for carts / open orders
-  safetyStock: number; // buffer never sold below
+  onHand: number;
+  reserved: number;
+  safetyStock: number;
 }
 
 export interface IProductVariant {
   sku: string;
-  price: number;       // keep as major units (e.g., USD) for now
-  stock?: number;      // legacy (will be mapped to inventory.onHand if inventory missing)
+  price: number;
+  stock?: number;
   inventory?: IInventory;
   attributes: Record<string, string>;
   images: string[];
@@ -31,13 +27,14 @@ export interface IProductVariant {
 
 export interface IProduct extends Document {
   // core
+  productId: string;
   name: string;
-  slug: string;                 // SEO id (unique per seller)
+  slug: string; // SEO id (unique per seller)
   description?: string;
 
   // merchandising (LEGACY top-level, used when no variants exist)
   brand?: string;
-  price: number;                // use variants[].price in new products
+  price: number; // use variants[].price in new products
   compareAtPrice?: number;
   currency?: string;
 
@@ -50,14 +47,14 @@ export interface IProduct extends Document {
 
   // status & tags
   status: PublishStatus;
-  tag: string[];                // (kept as `tag` to avoid breaking routes)
+  tag: string[]; // (kept as `tag` to avoid breaking routes)
 
   // media
   images: string[];
   primaryImageIndex: number;
 
   // analytics (denormalized for speed)
-  ratingAvg: number;            // 0..5
+  ratingAvg: number; // 0..5
   ratingCount: number;
   salesCount: number;
   isTrending?: boolean;
@@ -84,23 +81,33 @@ export interface IProduct extends Document {
   discountPercent?: number;
   availableTotal?: number;
 
+  dedupeKey: string;
+
   createdAt: Date;
   updatedAt: Date;
+};
+
+function generateCustomId(prefix = "PRD"): string {
+  // 3–4 pieces: prefix + base36 timestamp + 4-char random
+  const ts = Date.now().toString(36).toUpperCase();      // e.g. "MBC123"
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `${prefix}-${ts}-${rand}`;                       // e.g. "PRD-MBC123-8XQK"
 }
 
-/* =========================
-   Helpers
-========================= */
+const CUSTOM_ID_RE = /^[A-Z0-9][A-Z0-9._-]{2,31}$/; // 3..32 chars, A-Z 0-9 . _ -
+function normalizeCustomId(v: unknown): string | undefined {
+  if (v == null) return undefined;
+  const s = String(v).trim().toUpperCase();
+  return s.length ? s : undefined;
+}
 
 const slugify = (s: string) =>
-  s.toLowerCase().trim()
+  s
+    .toLowerCase()
+    .trim()
     .replace(/['"]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-
-/* =========================
-   Sub-schemas
-========================= */
 
 const InventorySchema = new Schema<IInventory>(
   {
@@ -115,8 +122,8 @@ const VariantSchema = new Schema<IProductVariant>(
   {
     sku: { type: String, required: true, trim: true },
     price: { type: Number, required: true, min: 0 },
-    stock: { type: Number, min: 0, default: 0 },                  // legacy
-    inventory: { type: InventorySchema, default: undefined },     // preferred
+    stock: { type: Number, min: 0, default: 0 }, // legacy
+    inventory: { type: InventorySchema, default: undefined }, // preferred
     attributes: { type: Map, of: String, default: {} },
     images: { type: [String], default: [] },
     isActive: { type: Boolean, default: true, index: true },
@@ -124,47 +131,103 @@ const VariantSchema = new Schema<IProductVariant>(
   { _id: true, timestamps: true }
 );
 
-/* =========================
-   Product schema
-========================= */
-
 const ProductSchema = new Schema<IProduct>(
   {
     // core
-    name: { type: String, required: true, trim: true, minlength: 2, maxlength: 200, index: true },
+    productId: {
+      type: String,
+      trim: true,
+      immutable: true,               // cannot change after create
+      required: false,               // we’ll fill it in pre-validate if missing
+      validate: {
+        validator(v: string) {
+          if (!v) return true;       // empty handled in pre-validate
+          return CUSTOM_ID_RE.test(v);
+        },
+        message: "customId must be 3–32 chars, A–Z, 0–9, dot, underscore or dash (no spaces).",
+      },
+    },
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+      minlength: 2,
+      maxlength: 200,
+      index: true,
+    },
     slug: { type: String, required: false, index: true }, // enforced unique per seller below
     description: { type: String, default: "", maxlength: 50_000 },
 
     // merchandising (legacy top-level)
     brand: { type: String, trim: true, default: "", index: true },
-    price: { type: Number, required: true, min: 0, index: true },
+    price: {
+      type: Number,
+      min: 0,
+      index: true,
+      required: function (this: IProduct) {
+        return !(Array.isArray(this.variants) && this.variants.length > 0);
+      },
+    },
     compareAtPrice: {
       type: Number,
       min: 0,
       validate: {
         validator(this: IProduct, v?: number) {
-          if (v == null) return true;
-          return v >= this.price;
+          if (v == null) return true;           // optional
+          const base = getEffectivePrice(this); // top-level or min variant
+          if (typeof base !== "number") return true;
+          return v >= base;
         },
         message: "compareAtPrice must be ≥ price",
       },
     },
-    currency: { type: String, default: "USD", uppercase: true, minlength: 3, maxlength: 3 },
+    currency: {
+      type: String,
+      default: "USD",
+      uppercase: true,
+      minlength: 3,
+      maxlength: 3,
+    },
 
     // inventory (legacy top-level)
-    stock: { type: Number, required: true, default: 0, min: 0, index: true },
+    stock: {
+      type: Number,
+      default: 0,
+      min: 0,
+      index: true,
+      required: function (this: IProduct) {
+        return !(Array.isArray(this.variants) && this.variants.length > 0);
+      },
+    },
 
     // relations
-    category: { type: Schema.Types.ObjectId, ref: "Category", required: true, index: true },
-    seller: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    category: {
+      type: Schema.Types.ObjectId,
+      ref: "Category",
+      required: true,
+      index: true,
+    },
+    seller: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
 
     // status & tags
-    status: { type: String, enum: ["Published", "Unpublished"], default: "Published", index: true },
+    status: {
+      type: String,
+      enum: ["Published", "Unpublished"],
+      default: "Published",
+      index: true,
+    },
     tag: {
       type: [String],
       default: [],
       set: (arr: string[]) =>
-        Array.from(new Set((arr || []).map((t) => String(t).trim()).filter(Boolean))),
+        Array.from(
+          new Set((arr || []).map((t) => String(t).trim()).filter(Boolean))
+        ),
       index: true,
     },
 
@@ -207,6 +270,8 @@ const ProductSchema = new Schema<IProduct>(
     isAdult: { type: Boolean, default: false, index: true },
     isHazardous: { type: Boolean, default: false },
 
+    dedupeKey: { type: String, select: false, index: true },
+
     // soft delete
     isDeleted: { type: Boolean, default: false, index: true },
     deletedAt: { type: Date },
@@ -219,14 +284,44 @@ const ProductSchema = new Schema<IProduct>(
   }
 );
 
-/* =========================
-   Hygiene / constraints
-========================= */
+// Build the dedupe key in the same way your controller does
+function buildDedupeKey(doc: any) {
+  const name = (doc.name || "").toString().trim().toLowerCase();
+  const brand = (doc.brand || "").toString().trim().toLowerCase();
+  const category = (doc.category ?? "").toString();
+  return [name, brand, category].join("|");
+}
+
+// helper inside models/Product.ts (top of file or near helpers)
+function getEffectivePrice(doc: any): number | undefined {
+  if (typeof doc.price === "number") return doc.price;
+  if (Array.isArray(doc.variants) && doc.variants.length) {
+    const prices = doc.variants
+      .filter((v: any) => v?.isActive !== false)
+      .map((v: any) => Number(v.price))
+      .filter((n: any) => Number.isFinite(n));
+    if (prices.length) return Math.min(...prices);
+  }
+  return undefined;
+}
 
 // Normalize & generate slug
 ProductSchema.pre("validate", function (next) {
+  // existing slug logic...
   if (!this.slug && this.name) this.slug = slugify(this.name);
   if (this.slug) this.slug = slugify(this.slug);
+
+  // normalize incoming productId to UPPER
+  if (this.productId) this.productId = normalizeCustomId(this.productId)!;
+
+  // if none provided, auto-generate
+  if (!this.productId) {
+    // you can pass brand prefix if you like:
+    const prefix = this.brand ? String(this.brand).replace(/[^A-Za-z0-9]/g, "").slice(0,3).toUpperCase() : "PRD";
+    this.productId = generateCustomId(prefix);
+  }
+
+  // (keep your other pre-validate code, e.g., dedupeKey build if you use it)
   next();
 });
 
@@ -263,21 +358,20 @@ ProductSchema.path("variants").validate(function (variants: IProductVariant[]) {
   return typeof this.price === "number" && this.price >= 0;
 }, "Either provide variants[] or a valid top-level price.");
 
-/* =========================
-   Virtuals
-========================= */
-
 // Prefer product images; fall back to first variant image
 ProductSchema.virtual("primaryImage").get(function (this: IProduct) {
-  if (this.images?.length) return this.images[this.primaryImageIndex] ?? this.images[0] ?? null;
-  const v0 = this.variants?.find(v => v.images?.length);
+  if (this.images?.length)
+    return this.images[this.primaryImageIndex] ?? this.images[0] ?? null;
+  const v0 = this.variants?.find((v) => v.images?.length);
   return v0 ? v0.images[0] : null;
 });
 
 // Simple percent off from legacy top-level pricing (if used)
 ProductSchema.virtual("discountPercent").get(function (this: IProduct) {
-  if (!this.compareAtPrice || this.compareAtPrice <= this.price) return 0;
-  return Math.round(((this.compareAtPrice - this.price) / this.compareAtPrice) * 100);
+  const base = getEffectivePrice(this);
+  if (!this.compareAtPrice || typeof base !== "number" || this.compareAtPrice <= 0) return 0;
+  if (this.compareAtPrice <= base) return 0;
+  return Math.round(((this.compareAtPrice - base) / this.compareAtPrice) * 100);
 });
 
 // Sum available across variants; if no variants, use legacy stock
@@ -296,27 +390,42 @@ ProductSchema.virtual("availableTotal").get(function (this: IProduct) {
   return Math.max(0, this.stock ?? 0);
 });
 
-/* =========================
-   Indexes
-========================= */
-
 // Text search across key fields
 ProductSchema.index(
-  { name: "text", brand: "text", description: "text", tag: "text", "seo.title": "text" },
-  { name: "product_text", weights: { name: 10, brand: 5, description: 3, tag: 2 } }
+  {
+    name: "text",
+    brand: "text",
+    description: "text",
+    tag: "text",
+    "seo.title": "text",
+  },
+  {
+    name: "product_text",
+    weights: { name: 10, brand: 5, description: 3, tag: 2 },
+  }
 );
 
 // Storefront filters / sorts
 ProductSchema.index({ status: 1, category: 1, price: 1, createdAt: -1 });
 ProductSchema.index(
-  { seller: 1, slug: 1 },
+  { seller: 1, slug: 1, name: 1 },
   {
     unique: true,
     partialFilterExpression: { isDeleted: { $ne: true } },
-    collation: { locale: "en", strength: 2 } // case-insensitive
+    collation: { locale: "en", strength: 2 }, // case-insensitive
   }
 );
 ProductSchema.index({ isTrending: 1, salesCount: -1, ratingAvg: -1 });
+
+// unique (seller, customId)
+ProductSchema.index(
+  { seller: 1, customId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { isDeleted: { $ne: true } },
+    collation: { locale: "en", strength: 2 }, // case-insensitive
+  }
+);
 
 // Unique slug per seller (ignores soft-deleted)
 ProductSchema.index(
@@ -329,10 +438,6 @@ ProductSchema.index(
   { seller: 1, "variants.sku": 1 },
   { unique: true, partialFilterExpression: { isDeleted: { $ne: true } } }
 );
-
-/* =========================
-   Model
-========================= */
 
 const Product: Model<IProduct> =
   mongoose.models.Product || mongoose.model<IProduct>("Product", ProductSchema);

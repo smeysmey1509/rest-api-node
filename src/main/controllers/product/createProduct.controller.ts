@@ -71,7 +71,7 @@ function normalizeVariants(raw: unknown): any[] {
       return {
         sku: String(v.sku || "").trim(),
         price,
-        stock, // kept for legacy compatibility with schema
+        stock, // legacy compatibility
         inventory: inv,
         attributes: v.attributes || {},
         images: Array.isArray(v.images) ? v.images : [],
@@ -131,24 +131,23 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
       isHazardous,
     } = req.body;
 
-    if (!name)   { res.status(400).json({ error: "name is required" }); return; }
-    if (!category) { res.status(400).json({ error: "category is required" }); return; }
-    if (!seller)   { res.status(400).json({ error: "seller is required" }); return; }
+    if (!name)    { res.status(400).json({ error: "name is required" }); return; }
+    if (!category){ res.status(400).json({ error: "category is required" }); return; }
+    if (!seller)  { res.status(400).json({ error: "seller is required" }); return; }
 
     const categoryId = ensureObjectId(category, "category");
     const sellerId   = ensureObjectId(seller, "seller");
 
-    // Canonical identifiers
-    const canonicalSlug = slug ? slugify(slug) : slugify(name);
 
-    // dedupeKey: (name, brand, category) normalized — must match schema logic
+    // Canonical identifiers (match schema)
+    const canonicalSlug = slug ? slugify(slug) : slugify(name);
     const dedupeKey = [
       String(name).trim().toLowerCase(),
       String(brand || "").trim().toLowerCase(),
       String(categoryId),
     ].join("|");
 
-    // Images from Multer + optional body images
+    // Images (Multer + optional body URLs)
     const files = req.files as Express.Multer.File[] | undefined;
     const uploaded = files?.length ? files.map((f) => `/uploads/${f.filename}`) : [];
     const imageUrls: string[] = Array.isArray(req.body.images)
@@ -160,10 +159,7 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
     const normAttrs    = normalizeAttributes(attributes);
     const normSeo      = normalizeSeo(seo);
 
-    const dimsObj = parseJSON<{ length?: any; width?: any; height?: any }>(
-      dimensions,
-      undefined as any
-    );
+    const dimsObj = parseJSON<{ length?: any; width?: any; height?: any }>(dimensions, undefined as any);
     const dims =
       dimsObj && (dimsObj.length || dimsObj.width || dimsObj.height)
         ? {
@@ -173,18 +169,57 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
           }
         : undefined;
 
-    // If variants are provided, ignore incoming top-level price/stock (will be derived by hooks)
+    // If variants exist, don't accept top-level price/stock (avoid redundancy drift)
     const topLevelPrice = Array.isArray(normVariants) && normVariants.length ? undefined : toNumber(price, 0);
     const topLevelStock = Array.isArray(normVariants) && normVariants.length ? undefined : toNumber(stock, 0);
 
-    const baseDoc: any = {
+    // ---------- STRICT DUP CHECKS ----------
+    // A) Slug or dedupeKey already exists for this seller?
+    const slugOrKey = await Product.findOne({
+      seller: sellerId,
+      isDeleted: { $ne: true },
+      $or: [{ slug: canonicalSlug }, { dedupeKey }],
+    })
+      .collation({ locale: "en", strength: 2 })
+      .select("_id slug")
+      .lean();
+
+    if (slugOrKey) {
+      res.status(409).json({
+        error: "Duplicate product",
+        details: { conflictOn: slugOrKey.slug === canonicalSlug ? "slug" : "dedupeKey" },
+      });
+      return;
+    }
+
+    // B) Any incoming variant SKU already taken by this seller?
+    if (normVariants.length) {
+      const incomingSkus = normVariants.map((v) => v.sku);
+      const skuConflict = await Product.findOne({
+        seller: sellerId,
+        isDeleted: { $ne: true },
+        "variants.sku": { $in: incomingSkus },
+      })
+        .select("_id")
+        .lean();
+
+      if (skuConflict) {
+        res.status(409).json({
+          error: "Duplicate SKU",
+          details: { skus: incomingSkus },
+        });
+        return;
+      }
+    }
+    // ---------- END DUP CHECKS ----------
+
+    const productDoc = await Product.create({
       name: String(name).trim(),
       slug: canonicalSlug,
       description: typeof description === "string" ? description : "",
       brand: typeof brand === "string" ? brand : "",
       currency: typeof currency === "string" && currency.length ? currency.toUpperCase() : "USD",
 
-      // legacy top-level; omitted when variants exist
       ...(topLevelPrice !== undefined ? { price: topLevelPrice } : {}),
       ...(topLevelStock !== undefined ? { stock: topLevelStock } : {}),
       compareAtPrice: compareAtPrice != null ? toNumber(compareAtPrice, 0) : undefined,
@@ -197,7 +232,6 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
       images: imageUrls,
       primaryImageIndex: 0,
 
-      // analytics defaults
       ratingAvg: 0,
       ratingCount: 0,
       salesCount: 0,
@@ -212,85 +246,26 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
       isAdult: isAdult === true || isAdult === "true",
       isHazardous: isHazardous === true || isHazardous === "true",
 
-      dedupeKey, // used by unique index & duplicate detection
-    };
+      dedupeKey, // schema will also set this; sending here is fine
+    });
 
-    // ---- Duplicate handling: strict (409) vs upsert (200/201) ----
-    const upsert = req.query.upsert === "true";
+    // events
+    const userInputId = req?.user?.id;
+    await publishNotificationEvent({
+      userId: userInputId,
+      title: "Created Product",
+      message: `Product ${productDoc.name} has been created.`,
+      read: false,
+    });
+    io.emit("product:created", String(productDoc._id));
 
-    if (!upsert) {
-      // Strict: pre-check duplicates by (seller, slug) OR (seller, dedupeKey)
-      const existing = await Product.findOne({
-        seller: sellerId,
-        $or: [{ slug: canonicalSlug }, { dedupeKey }],
-        isDeleted: { $ne: true },
-      })
-        .collation({ locale: "en", strength: 2 })
-        .select("_id slug")
-        .lean();
-
-      if (existing) {
-        res.status(409).json({
-          error: "Duplicate product",
-          details: { conflictOn: existing.slug === canonicalSlug ? "slug" : "dedupeKey" },
-        });
-        return;
-      }
-
-      const productDoc = await Product.create(baseDoc);
-
-      // events
-      const userInputId = req?.user?.id;
-      await publishNotificationEvent({
-        userId: userInputId,
-        title: "Created Product",
-        message: `Product ${productDoc.name} has been created.`,
-        read: false,
-      });
-      io.emit("product:created", String(productDoc._id));
-
-      res.status(201).json({
-        msg: "Product created.",
-        product: productDoc.toObject({ virtuals: true }),
-      });
-      return;
-    }
-
-    // Upsert mode: create if absent, otherwise return the existing document
-    const productDoc = await Product.findOneAndUpdate(
-      { seller: sellerId, $or: [{ slug: canonicalSlug }, { dedupeKey }], isDeleted: { $ne: true } },
-      { $setOnInsert: baseDoc },
-      {
-        upsert: true,
-        new: true,
-        setDefaultsOnInsert: true,
-        runValidators: true,
-        context: "query",
-        collation: { locale: "en", strength: 2 },
-      }
-    );
-
-    // crude created vs existing signal: if just inserted, createdAt ~ updatedAt on first save
-    const created = productDoc.createdAt?.toString() === productDoc.updatedAt?.toString();
-
-    if (created) {
-      const userInputId = req?.user?.id;
-      await publishNotificationEvent({
-        userId: userInputId,
-        title: "Created Product",
-        message: `Product ${productDoc.name} has been created.`,
-        read: false,
-      });
-      io.emit("product:created", String(productDoc._id));
-    }
-
-    res.status(created ? 201 : 200).json({
-      msg: created ? "Product created." : "Product already exists.",
+    res.status(201).json({
+      msg: "Product created.",
       product: productDoc.toObject({ virtuals: true }),
     });
   } catch (err: any) {
     if (err?.code === 11000) {
-      // unique index collision: (seller, slug) or (seller, dedupeKey) or (seller, variants.sku)
+      // unique index collision: (seller, slug) / (seller, dedupeKey) / (seller, variants.sku)
       res.status(409).json({ error: "Duplicate key", details: err.keyValue });
       return;
     }

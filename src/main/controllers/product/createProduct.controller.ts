@@ -4,7 +4,7 @@ import mongoose, { Types } from "mongoose";
 import Product from "../../../models/Product";
 import { AuthenicationRequest } from "../../../middleware/auth";
 import { io } from "../../server";
-import { publishNotificationEvent } from "../../services/notification.service";
+import { publishNotificationEvent } from "../../services/notification.service"
 
 /** ---------------- helpers ---------------- */
 const slugify = (s: string) =>

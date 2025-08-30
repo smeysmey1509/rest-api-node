@@ -284,14 +284,6 @@ const ProductSchema = new Schema<IProduct>(
   }
 );
 
-// Build the dedupe key in the same way your controller does
-function buildDedupeKey(doc: any) {
-  const name = (doc.name || "").toString().trim().toLowerCase();
-  const brand = (doc.brand || "").toString().trim().toLowerCase();
-  const category = (doc.category ?? "").toString();
-  return [name, brand, category].join("|");
-}
-
 // helper inside models/Product.ts (top of file or near helpers)
 function getEffectivePrice(doc: any): number | undefined {
   if (typeof doc.price === "number") return doc.price;
@@ -417,7 +409,7 @@ ProductSchema.index(
 );
 ProductSchema.index({ isTrending: 1, salesCount: -1, ratingAvg: -1 });
 
-// unique (seller, customId)
+// Unique product ID per seller (prefix+number), ignores soft-deleted
 ProductSchema.index(
   { seller: 1, customId: 1 },
   {
@@ -431,6 +423,16 @@ ProductSchema.index(
 ProductSchema.index(
   { seller: 1, slug: 1 },
   { unique: true, partialFilterExpression: { isDeleted: { $ne: true } } }
+);
+
+// unique (seller, customId)
+ProductSchema.index(
+  { seller: 1, customId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { isDeleted: { $ne: true } },
+    collation: { locale: "en", strength: 2 }, // case-insensitive
+  }
 );
 
 // Unique SKU per seller across variants

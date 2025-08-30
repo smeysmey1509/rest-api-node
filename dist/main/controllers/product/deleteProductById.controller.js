@@ -25,7 +25,7 @@ const deleteProductById = (req, res) => __awaiter(void 0, void 0, void 0, functi
             res.status(400).json({ msg: "Noo valid id provided for deletion." });
             return;
         }
-        // Fetch product before deletion
+        // Fetch product before deletion d
         const product = yield Product_1.default.findById(id).populate("category", "name description");
         if (!product) {
             res.status(404).json({ msg: "Product not found." });

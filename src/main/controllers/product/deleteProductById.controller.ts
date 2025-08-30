@@ -14,7 +14,7 @@ export const deleteProductById = async (req: AuthenicationRequest, res: Response
             return
         }
 
-        // Fetch product before deletion
+        // Fetch product before deletion d
         const product = await Product.findById(id).populate("category", "name description");
 
         if (!product) {

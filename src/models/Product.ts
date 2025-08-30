@@ -308,7 +308,14 @@ ProductSchema.index(
 
 // Storefront filters / sorts
 ProductSchema.index({ status: 1, category: 1, price: 1, createdAt: -1 });
-ProductSchema.index({ seller: 1, status: 1, createdAt: -1 });
+ProductSchema.index(
+  { seller: 1, slug: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { isDeleted: { $ne: true } },
+    collation: { locale: "en", strength: 2 } // case-insensitive
+  }
+);
 ProductSchema.index({ isTrending: 1, salesCount: -1, ratingAvg: -1 });
 
 // Unique slug per seller (ignores soft-deleted)

@@ -78,15 +78,12 @@ const ProductSchema = new mongoose_1.Schema({
         required: false, // we’ll fill it in pre-validate if missing
         validate: {
             validator(v) {
-                if (v == null)
-                    return true;
-                const base = getEffectivePrice(this);
-                if (typeof base !== "number")
-                    return true;
-                return v >= base;
+                if (!v)
+                    return true; // empty handled in pre-validate
+                return CUSTOM_ID_RE.test(v);
             },
-            message: "compareAtPrice must be ≥ price",
-        }
+            message: "customId must be 3–32 chars, A–Z, 0–9, dot, underscore or dash (no spaces).",
+        },
     },
     name: {
         type: String,
@@ -114,8 +111,8 @@ const ProductSchema = new mongoose_1.Schema({
         validate: {
             validator(v) {
                 if (v == null)
-                    return true;
-                const base = getEffectivePrice(this);
+                    return true; // optional
+                const base = getEffectivePrice(this); // top-level or min variant
                 if (typeof base !== "number")
                     return true;
                 return v >= base;

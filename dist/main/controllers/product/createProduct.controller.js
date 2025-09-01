@@ -186,6 +186,9 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         // If variants exist, don't accept top-level price/stock (avoid redundancy drift)
         const topLevelPrice = Array.isArray(normVariants) && normVariants.length ? undefined : toNumber(price, 0);
         const topLevelStock = Array.isArray(normVariants) && normVariants.length ? undefined : toNumber(stock, 0);
+        // normalize optional compare-at price
+        const rawCompare = compareAtPrice != null ? toNumber(compareAtPrice, NaN) : NaN;
+        const normCompareAtPrice = Number.isFinite(rawCompare) && rawCompare > 0 ? rawCompare : undefined;
         // ---------- STRICT DUP CHECKS ----------
         // A) Slug or dedupeKey already exists for this seller?
         const slugOrKey = yield Product_1.default.findOne({
@@ -222,7 +225,7 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             }
         }
         // ---------- END DUP CHECKS ----------
-        const productDoc = yield Product_1.default.create(Object.assign(Object.assign(Object.assign({ name: String(name).trim(), slug: canonicalSlug, description: typeof description === "string" ? description : "", brand: typeof brand === "string" ? brand : "", currency: typeof currency === "string" && currency.length ? currency.toUpperCase() : "USD" }, (topLevelPrice !== undefined ? { price: topLevelPrice } : {})), (topLevelStock !== undefined ? { stock: topLevelStock } : {})), { compareAtPrice: compareAtPrice != null ? toNumber(compareAtPrice, 0) : undefined, category: categoryId, seller: sellerId, status: status === "Unpublished" ? "Unpublished" : "Published", tag: normTags, images: imageUrls, primaryImageIndex: 0, ratingAvg: 0, ratingCount: 0, salesCount: 0, isTrending: false, attributes: normAttrs, variants: normVariants, dimensions: dims, weight: weight != null ? toNumber(weight, 0) : 0, seo: normSeo, isAdult: isAdult === true || isAdult === "true", isHazardous: isHazardous === true || isHazardous === "true", dedupeKey }));
+        const productDoc = yield Product_1.default.create(Object.assign(Object.assign(Object.assign(Object.assign({ name: String(name).trim(), slug: canonicalSlug, description: typeof description === "string" ? description : "", brand: typeof brand === "string" ? brand : "", currency: typeof currency === "string" && currency.length ? currency.toUpperCase() : "USD" }, (topLevelPrice !== undefined ? { price: topLevelPrice } : {})), (topLevelStock !== undefined ? { stock: topLevelStock } : {})), (normCompareAtPrice !== undefined ? { compareAtPrice: normCompareAtPrice } : {})), { category: categoryId, seller: sellerId, status: status === "Unpublished" ? "Unpublished" : "Published", tag: normTags, images: imageUrls, primaryImageIndex: 0, ratingAvg: 0, ratingCount: 0, salesCount: 0, isTrending: false, attributes: normAttrs, variants: normVariants, dimensions: dims, weight: weight != null ? toNumber(weight, 0) : 0, seo: normSeo, isAdult: isAdult === true || isAdult === "true", isHazardous: isHazardous === true || isHazardous === "true", dedupeKey }));
         // events
         const userInputId = (_a = req === null || req === void 0 ? void 0 : req.user) === null || _a === void 0 ? void 0 : _a.id;
         yield (0, notification_service_1.publishNotificationEvent)({

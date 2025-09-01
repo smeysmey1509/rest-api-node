@@ -138,7 +138,6 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
     const categoryId = ensureObjectId(category, "category");
     const sellerId   = ensureObjectId(seller, "seller");
 
-
     // Canonical identifiers (match schema)
     const canonicalSlug = slug ? slugify(slug) : slugify(name);
     const dedupeKey = [
@@ -172,6 +171,10 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
     // If variants exist, don't accept top-level price/stock (avoid redundancy drift)
     const topLevelPrice = Array.isArray(normVariants) && normVariants.length ? undefined : toNumber(price, 0);
     const topLevelStock = Array.isArray(normVariants) && normVariants.length ? undefined : toNumber(stock, 0);
+
+    // normalize optional compare-at price
+    const rawCompare = compareAtPrice != null ? toNumber(compareAtPrice, NaN) : NaN;
+    const normCompareAtPrice = Number.isFinite(rawCompare) && rawCompare > 0 ? rawCompare : undefined;
 
     // ---------- STRICT DUP CHECKS ----------
     // A) Slug or dedupeKey already exists for this seller?
@@ -222,7 +225,7 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
 
       ...(topLevelPrice !== undefined ? { price: topLevelPrice } : {}),
       ...(topLevelStock !== undefined ? { stock: topLevelStock } : {}),
-      compareAtPrice: compareAtPrice != null ? toNumber(compareAtPrice, 0) : undefined,
+      ...(normCompareAtPrice !== undefined ? { compareAtPrice: normCompareAtPrice } : {}),
 
       category: categoryId,
       seller: sellerId,

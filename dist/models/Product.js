@@ -35,7 +35,6 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 // models/Product.ts
 const mongoose_1 = __importStar(require("mongoose"));
-;
 function generateCustomId(prefix = "PRD") {
     // 3–4 pieces: prefix + base36 timestamp + 4-char random
     const ts = Date.now().toString(36).toUpperCase(); // e.g. "MBC123"
@@ -74,12 +73,12 @@ const ProductSchema = new mongoose_1.Schema({
     productId: {
         type: String,
         trim: true,
-        immutable: true, // cannot change after create
-        required: false, // we’ll fill it in pre-validate if missing
+        immutable: true,
+        required: false,
         validate: {
             validator(v) {
                 if (!v)
-                    return true; // empty handled in pre-validate
+                    return true;
                 return CUSTOM_ID_RE.test(v);
             },
             message: "customId must be 3–32 chars, A–Z, 0–9, dot, underscore or dash (no spaces).",
@@ -229,7 +228,12 @@ ProductSchema.pre("validate", function (next) {
     // if none provided, auto-generate
     if (!this.productId) {
         // you can pass brand prefix if you like:
-        const prefix = this.brand ? String(this.brand).replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase() : "PRD";
+        const prefix = this.brand
+            ? String(this.brand)
+                .replace(/[^A-Za-z0-9]/g, "")
+                .slice(0, 3)
+                .toUpperCase()
+            : "PRD";
         this.productId = generateCustomId(prefix);
     }
     // (keep your other pre-validate code, e.g., dedupeKey build if you use it)
@@ -278,7 +282,9 @@ ProductSchema.virtual("primaryImage").get(function () {
 // Simple percent off from legacy top-level pricing (if used)
 ProductSchema.virtual("discountPercent").get(function () {
     const base = getEffectivePrice(this);
-    if (!this.compareAtPrice || typeof base !== "number" || this.compareAtPrice <= 0)
+    if (!this.compareAtPrice ||
+        typeof base !== "number" ||
+        this.compareAtPrice <= 0)
         return 0;
     if (this.compareAtPrice <= base)
         return 0;

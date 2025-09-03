@@ -1,38 +1,22 @@
-// models/Review.ts
-import { Schema, model, Types, Document } from "mongoose";
+import mongoose, { Schema, Types, Model, Document } from "mongoose";
 
 export interface IReview extends Document {
   product: Types.ObjectId;
   user: Types.ObjectId;
-  orderItem?: Types.ObjectId;
   rating: number;
   title?: string;
-  comment?: string;
-  photos?: string[];
-  isVerifiedPurchase: boolean;
-  helpfulCount: number;
-  reportedCount: number;
-  createdAt: Date;
-  updatedAt: Date;
+  body?: string;
 }
 
 const ReviewSchema = new Schema<IReview>({
   product: { type: Schema.Types.ObjectId, ref: "Product", required: true, index: true },
   user:    { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-  orderItem: { type: Schema.Types.ObjectId, ref: "OrderItem" },
-  rating:  { type: Number, required: true, min: 1, max: 5 },
-  title:   { type: String, trim: true, maxlength: 140 },
-  comment: { type: String, trim: true, maxlength: 10000 },
-  photos:  { type: [String], default: [] },
-  isVerifiedPurchase: { type: Boolean, default: false },
-  helpfulCount: { type: Number, default: 0 },
-  reportedCount: { type: Number, default: 0 },
+  rating:  { type: Number, min: 1, max: 5, required: true },
+  title:   { type: String, trim: true },
+  body:    { type: String, trim: true, maxlength: 2000 },
 }, { timestamps: true });
 
-// 1 review per (user, product). If you allow updates, this is perfect.
-ReviewSchema.index({ product: 1, user: 1 }, { unique: true });
+ReviewSchema.index({ product: 1, user: 1 }, { unique: true }); // one review per user per product
 
-// (Optional) speed up store pages: star histograms
-ReviewSchema.index({ product: 1, rating: 1 });
-
-export default model<IReview>("Review", ReviewSchema);
+const Review: Model<IReview> = mongoose.models.Review || mongoose.model("Review", ReviewSchema);
+export default Review;

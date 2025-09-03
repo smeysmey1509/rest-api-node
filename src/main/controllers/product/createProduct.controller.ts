@@ -57,8 +57,10 @@ type InputVariant = {
 
 function normalizeVariants(raw: unknown): any[] {
   const arr = parseJSON<InputVariant[]>(raw, []);
-  return arr
-    .map((v) => {
+  const list = Array.isArray(arr) ? arr : Object.values(arr as any);
+
+  return list
+    .map((v: any) => {
       const price = toNumber(v.price, 0);
       const stock = toNumber(v.stock, 0);
       const inv = v.inventory
@@ -68,12 +70,16 @@ function normalizeVariants(raw: unknown): any[] {
             safetyStock: toNumber(v.inventory.safetyStock, 0),
           }
         : { onHand: stock || 0, reserved: 0, safetyStock: 0 };
+
+      const attrsObj = normalizeAttributes(v.attributes);
+      const attrsMap = new Map(Object.entries(attrsObj));
+
       return {
         sku: String(v.sku || "").trim(),
         price,
-        stock, // legacy compatibility
+        stock,
         inventory: inv,
-        attributes: v.attributes || {},
+        attributes: attrsMap,
         images: Array.isArray(v.images) ? v.images : [],
         isActive: v.isActive !== false,
       };
@@ -249,7 +255,7 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
       isAdult: isAdult === true || isAdult === "true",
       isHazardous: isHazardous === true || isHazardous === "true",
 
-      dedupeKey, // schema will also set this; sending here is fine
+      dedupeKey,
     });
 
     // events
@@ -263,8 +269,7 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
     io.emit("product:created", String(productDoc._id));
 
     res.status(201).json({
-      msg: "Product created.",
-      product: productDoc.toObject({ virtuals: true }),
+      msg: `Product ${productDoc.name} has been created.`,
     });
   } catch (err: any) {
     if (err?.code === 11000) {

@@ -94,7 +94,8 @@ function ensureObjectId(id, field) {
 }
 function normalizeVariants(raw) {
     const arr = parseJSON(raw, []);
-    return arr
+    const list = Array.isArray(arr) ? arr : Object.values(arr);
+    return list
         .map((v) => {
         const price = toNumber(v.price, 0);
         const stock = toNumber(v.stock, 0);
@@ -105,12 +106,14 @@ function normalizeVariants(raw) {
                 safetyStock: toNumber(v.inventory.safetyStock, 0),
             }
             : { onHand: stock || 0, reserved: 0, safetyStock: 0 };
+        const attrsObj = normalizeAttributes(v.attributes);
+        const attrsMap = new Map(Object.entries(attrsObj));
         return {
             sku: String(v.sku || "").trim(),
             price,
-            stock, // legacy compatibility
+            stock,
             inventory: inv,
-            attributes: v.attributes || {},
+            attributes: attrsMap,
             images: Array.isArray(v.images) ? v.images : [],
             isActive: v.isActive !== false,
         };
@@ -236,8 +239,7 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         });
         server_1.io.emit("product:created", String(productDoc._id));
         res.status(201).json({
-            msg: "Product created.",
-            product: productDoc.toObject({ virtuals: true }),
+            msg: `Product ${productDoc.name} has been created.`,
         });
     }
     catch (err) {

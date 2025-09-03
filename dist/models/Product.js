@@ -35,14 +35,12 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 // models/Product.ts
 const mongoose_1 = __importStar(require("mongoose"));
-;
 function generateCustomId(prefix = "PRD") {
-    // 3–4 pieces: prefix + base36 timestamp + 4-char random
-    const ts = Date.now().toString(36).toUpperCase(); // e.g. "MBC123"
+    const ts = Date.now().toString(36).toUpperCase();
     const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
-    return `${prefix}-${ts}-${rand}`; // e.g. "PRD-MBC123-8XQK"
+    return `${prefix}-${ts}-${rand}`;
 }
-const CUSTOM_ID_RE = /^[A-Z0-9][A-Z0-9._-]{2,31}$/; // 3..32 chars, A-Z 0-9 . _ -
+const CUSTOM_ID_RE = /^[A-Z0-9][A-Z0-9._-]{2,31}$/; // 3..32
 function normalizeCustomId(v) {
     if (v == null)
         return undefined;
@@ -64,7 +62,7 @@ const VariantSchema = new mongoose_1.Schema({
     sku: { type: String, required: true, trim: true },
     price: { type: Number, required: true, min: 0 },
     stock: { type: Number, min: 0, default: 0 }, // legacy
-    inventory: { type: InventorySchema, default: undefined }, // preferred
+    inventory: { type: InventorySchema, default: undefined },
     attributes: { type: Map, of: String, default: {} },
     images: { type: [String], default: [] },
     isActive: { type: Boolean, default: true, index: true },
@@ -74,15 +72,15 @@ const ProductSchema = new mongoose_1.Schema({
     productId: {
         type: String,
         trim: true,
-        immutable: true, // cannot change after create
-        required: false, // we’ll fill it in pre-validate if missing
+        immutable: true,
+        required: false,
         validate: {
             validator(v) {
                 if (!v)
-                    return true; // empty handled in pre-validate
+                    return true;
                 return CUSTOM_ID_RE.test(v);
             },
-            message: "customId must be 3–32 chars, A–Z, 0–9, dot, underscore or dash (no spaces).",
+            message: "productId must be 3–32 chars, A–Z, 0–9, dot, underscore or dash (no spaces).",
         },
     },
     name: {
@@ -93,7 +91,7 @@ const ProductSchema = new mongoose_1.Schema({
         maxlength: 200,
         index: true,
     },
-    slug: { type: String, required: false, index: true }, // enforced unique per seller below
+    slug: { type: String, required: false, index: true },
     description: { type: String, default: "", maxlength: 50000 },
     // merchandising (legacy top-level)
     brand: { type: String, trim: true, default: "", index: true },
@@ -111,13 +109,13 @@ const ProductSchema = new mongoose_1.Schema({
         validate: {
             validator(v) {
                 if (v == null)
-                    return true; // optional
-                const base = getEffectivePrice(this); // top-level or min variant
+                    return true;
+                const base = getEffectiveBasePrice(this); // price or min variant
                 if (typeof base !== "number")
                     return true;
                 return v >= base;
             },
-            message: "compareAtPrice must be ≥ price",
+            message: "compareAtPrice must be ≥ the effective price.",
         },
     },
     currency: {
@@ -166,7 +164,7 @@ const ProductSchema = new mongoose_1.Schema({
     // media
     images: { type: [String], default: [] },
     primaryImageIndex: { type: Number, default: 0, min: 0 },
-    // analytics (denormalized)
+    // analytics
     ratingAvg: { type: Number, default: 0, min: 0, max: 5, index: true },
     ratingCount: { type: Number, default: 0, min: 0 },
     salesCount: { type: Number, default: 0, min: 0, index: true },
@@ -196,43 +194,77 @@ const ProductSchema = new mongoose_1.Schema({
     // soft delete
     isDeleted: { type: Boolean, default: false, index: true },
     deletedAt: { type: Date },
+    // ======= NEW: stored summary prices for fast listing/filtering =======
+    priceMin: { type: Number, min: 0, index: true },
+    priceMax: { type: Number, min: 0, index: true },
+    defaultPrice: { type: Number, min: 0, index: true },
 }, {
     timestamps: true,
     versionKey: false,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
+    toJSON: { virtuals: true, flattenMaps: true },
+    toObject: { virtuals: true, flattenMaps: true },
 });
-// helper inside models/Product.ts (top of file or near helpers)
-function getEffectivePrice(doc) {
+// ---- Helpers ----
+function getActiveVariantPrices(doc) {
+    if (!Array.isArray(doc.variants) || !doc.variants.length)
+        return [];
+    return doc.variants
+        .filter((v) => (v === null || v === void 0 ? void 0 : v.isActive) !== false)
+        .map((v) => Number(v === null || v === void 0 ? void 0 : v.price))
+        .filter((n) => Number.isFinite(n) && n >= 0);
+}
+function getEffectiveBasePrice(doc) {
+    // Prefer legacy top-level price if present, otherwise min active variant price
     if (typeof doc.price === "number")
         return doc.price;
-    if (Array.isArray(doc.variants) && doc.variants.length) {
-        const prices = doc.variants
-            .filter((v) => (v === null || v === void 0 ? void 0 : v.isActive) !== false)
-            .map((v) => Number(v.price))
-            .filter((n) => Number.isFinite(n));
-        if (prices.length)
-            return Math.min(...prices);
-    }
-    return undefined;
+    const prices = getActiveVariantPrices(doc);
+    return prices.length ? Math.min(...prices) : undefined;
 }
-// Normalize & generate slug
+function recomputePriceSummaries(doc) {
+    const prices = getActiveVariantPrices(doc);
+    if (prices.length) {
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        doc.priceMin = min;
+        doc.priceMax = max;
+        doc.defaultPrice = min; // business rule: default is the entry price
+    }
+    else {
+        // no variants → mirror legacy top-level price if available, else unset
+        if (typeof doc.price === "number") {
+            doc.priceMin = doc.price;
+            doc.priceMax = doc.price;
+            doc.defaultPrice = doc.price;
+        }
+        else {
+            doc.priceMin = undefined;
+            doc.priceMax = undefined;
+            doc.defaultPrice = undefined;
+        }
+    }
+}
+// ---- Hooks ----
+// Normalize slug & productId and compute price summaries early
 ProductSchema.pre("validate", function (next) {
-    // existing slug logic...
     if (!this.slug && this.name)
         this.slug = slugify(this.name);
     if (this.slug)
         this.slug = slugify(this.slug);
-    // normalize incoming productId to UPPER
     if (this.productId)
         this.productId = normalizeCustomId(this.productId);
-    // if none provided, auto-generate
     if (!this.productId) {
-        // you can pass brand prefix if you like:
-        const prefix = this.brand ? String(this.brand).replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase() : "PRD";
+        const prefix = this.brand
+            ? String(this.brand)
+                .replace(/[^A-Za-z0-9]/g, "")
+                .slice(0, 3)
+                .toUpperCase()
+            : "PRD";
         this.productId = generateCustomId(prefix);
     }
-    // (keep your other pre-validate code, e.g., dedupeKey build if you use it)
+    // derive price summaries whenever variants/price changed (or on new doc)
+    if (this.isNew || this.isModified("variants") || this.isModified("price")) {
+        recomputePriceSummaries(this);
+    }
     next();
 });
 // Clamp primaryImageIndex, normalize images
@@ -246,6 +278,10 @@ ProductSchema.pre("save", function (next) {
         this.primaryImageIndex >= this.images.length) {
         this.primaryImageIndex = 0;
     }
+    // double-safety: if something else mutated variants after validate
+    if (this.isModified("variants") || this.isModified("price")) {
+        recomputePriceSummaries(this);
+    }
     next();
 });
 // Default scope: hide soft-deleted unless explicitly opted in
@@ -258,16 +294,13 @@ ProductSchema.pre(/^find/, function (next) {
     }
     next();
 });
-// Validation to reduce redundancy footguns:
-// If variants exist, top-level price/stock are optional; if no variants, they must be meaningful.
+// Require either variants[] or a valid top-level price
 ProductSchema.path("variants").validate(function (variants) {
     if (Array.isArray(variants) && variants.length > 0)
         return true;
-    // If no variants, enforce non-negative price/stock already handled by schema,
-    // but require price > 0 for a sellable product.
     return typeof this.price === "number" && this.price >= 0;
 }, "Either provide variants[] or a valid top-level price.");
-// Prefer product images; fall back to first variant image
+// Virtuals
 ProductSchema.virtual("primaryImage").get(function () {
     var _a, _b, _c, _d;
     if ((_a = this.images) === null || _a === void 0 ? void 0 : _a.length)
@@ -275,16 +308,16 @@ ProductSchema.virtual("primaryImage").get(function () {
     const v0 = (_d = this.variants) === null || _d === void 0 ? void 0 : _d.find((v) => { var _a; return (_a = v.images) === null || _a === void 0 ? void 0 : _a.length; });
     return v0 ? v0.images[0] : null;
 });
-// Simple percent off from legacy top-level pricing (if used)
 ProductSchema.virtual("discountPercent").get(function () {
-    const base = getEffectivePrice(this);
-    if (!this.compareAtPrice || typeof base !== "number" || this.compareAtPrice <= 0)
+    const base = getEffectiveBasePrice(this);
+    if (!this.compareAtPrice ||
+        typeof base !== "number" ||
+        this.compareAtPrice <= 0)
         return 0;
     if (this.compareAtPrice <= base)
         return 0;
     return Math.round(((this.compareAtPrice - base) / this.compareAtPrice) * 100);
 });
-// Sum available across variants; if no variants, use legacy stock
 ProductSchema.virtual("availableTotal").get(function () {
     var _a;
     if (Array.isArray(this.variants) && this.variants.length) {
@@ -301,7 +334,7 @@ ProductSchema.virtual("availableTotal").get(function () {
     }
     return Math.max(0, (_a = this.stock) !== null && _a !== void 0 ? _a : 0);
 });
-// Text search across key fields
+// Indexes
 ProductSchema.index({
     name: "text",
     brand: "text",
@@ -313,28 +346,22 @@ ProductSchema.index({
     weights: { name: 10, brand: 5, description: 3, tag: 2 },
 });
 // Storefront filters / sorts
-ProductSchema.index({ status: 1, category: 1, price: 1, createdAt: -1 });
+ProductSchema.index({ status: 1, category: 1, priceMin: 1, createdAt: -1 }); // use priceMin for sort
 ProductSchema.index({ seller: 1, slug: 1, name: 1 }, {
     unique: true,
     partialFilterExpression: { isDeleted: { $ne: true } },
-    collation: { locale: "en", strength: 2 }, // case-insensitive
+    collation: { locale: "en", strength: 2 },
 });
 ProductSchema.index({ isTrending: 1, salesCount: -1, ratingAvg: -1 });
-// Unique product ID per seller (prefix+number), ignores soft-deleted
-ProductSchema.index({ seller: 1, customId: 1 }, {
+// Unique productId per seller (ignores soft-deleted)
+ProductSchema.index({ seller: 1, productId: 1 }, {
     unique: true,
     partialFilterExpression: { isDeleted: { $ne: true } },
-    collation: { locale: "en", strength: 2 }, // case-insensitive
+    collation: { locale: "en", strength: 2 },
 });
 // Unique slug per seller (ignores soft-deleted)
 ProductSchema.index({ seller: 1, slug: 1 }, { unique: true, partialFilterExpression: { isDeleted: { $ne: true } } });
-// unique (seller, customId)
-ProductSchema.index({ seller: 1, customId: 1 }, {
-    unique: true,
-    partialFilterExpression: { isDeleted: { $ne: true } },
-    collation: { locale: "en", strength: 2 }, // case-insensitive
-});
-// Unique SKU per seller across variants
+// Unique SKU per seller across variants (ignores soft-deleted)
 ProductSchema.index({ seller: 1, "variants.sku": 1 }, { unique: true, partialFilterExpression: { isDeleted: { $ne: true } } });
 const Product = mongoose_1.default.models.Product || mongoose_1.default.model("Product", ProductSchema);
 exports.default = Product;

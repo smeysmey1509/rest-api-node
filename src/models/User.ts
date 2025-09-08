@@ -1,7 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 import { Role } from "../main/types/Role";
 import bcrypt from "bcryptjs";
-import { verify } from "jsonwebtoken";
 
 export interface IUser extends Document {
   name: string;

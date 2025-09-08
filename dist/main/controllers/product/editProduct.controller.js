@@ -56,7 +56,9 @@ const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             res.status(404).json({ msg: "Product not found" });
             return;
         }
-        const updatedProduct = yield Product_1.default.findByIdAndUpdate(id, updates, { new: true });
+        const updatedProduct = yield Product_1.default.findByIdAndUpdate(id, updates, {
+            new: true,
+        });
         if (!updatedProduct) {
             res.status(404).json({ msg: "Product not found after update" });
             return;
@@ -73,9 +75,9 @@ const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             user: userId,
             action: "update",
             products: [
-                Object.assign({ _id: id }, updates)
-            ]
-        }).catch(err => console.error("🐇 Failed to log update activity:", err));
+                Object.assign({ _id: id }, updates),
+            ],
+        }).catch((err) => console.error("🐇 Failed to log update activity:", err));
         server_1.io.emit("product:edited", updatedProduct);
         res.status(200).json({
             msg: "Product updated successfully.",

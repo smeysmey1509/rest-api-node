@@ -9,6 +9,7 @@ import { createProduct } from "../controllers/product/createProduct.controller";
 import { multiDeleteProductController } from "../controllers/product/multiDeleteProduct.controller";
 import { editProduct } from "../controllers/product/editProduct.controller";
 import { upload } from "../../middleware/upload";
+import { listProducts } from "../controllers/product/listProducts.controller";
 
 const router = Router();
 
@@ -21,12 +22,21 @@ router.get(
     try {
       const products = await Product.find()
         .populate("category", "name")
-        .populate("seller", "name email");
+        .populate("seller", "name email")
+        .sort({ createdAt: -1 });
       res.status(200).json(products);
     } catch (err) {
       res.status(500).json({ error: "Failed to fetch products." });
     }
   }
+);
+
+//Filter Product
+router.get(
+  "/products",
+  authenticateToken,
+  authorizePermission("read"),
+  listProducts
 );
 
 // GET /api/v1/product?limit=25&page=1

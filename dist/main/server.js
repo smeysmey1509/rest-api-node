@@ -17,6 +17,7 @@ const sidebaritems_1 = __importDefault(require("./routes/sidebaritems"));
 const cart_1 = __importDefault(require("./routes/cart"));
 const promocode_1 = __importDefault(require("./routes/promocode"));
 const delivery_1 = __importDefault(require("./routes/delivery"));
+const review_1 = __importDefault(require("./routes/review"));
 const cors_1 = __importDefault(require("cors"));
 const http_proxy_middleware_1 = require("http-proxy-middleware");
 const rabbitmq_1 = require("./services/rabbitmq");
@@ -69,6 +70,7 @@ app.use("/api/v1", role_1.default);
 app.use("/api/v1", cart_1.default);
 app.use("/api/v1", promocode_1.default);
 app.use("/api/v1", delivery_1.default);
+app.use("/api/v1", review_1.default);
 app.use('/uploads', express_1.default.static('uploads'));
 // Connect DB and then start server
 mongoose_1.default

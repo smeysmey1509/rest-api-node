@@ -1,12 +1,22 @@
 import mongoose, {Document, Schema} from "mongoose";
 
 export interface ICategory extends Document{
-    name: string;
+    categoryId?: string;
+    categoryName?: string;
+    productCount?: number;
+    totalStock?: number;
+    avgPrice?: number;
+    totalSales?: number;
     description?: string;
 }
 
 const CategorySchema = new Schema<ICategory>({
-    name: {type: String, required: true, unique: true, trim: true,},
+    categoryId: {type: String, required: true, unique: true, trim: true,},
+    categoryName: {type: String, required: true, unique: true, trim: true,},
+    productCount: {type: Number, default: 0},
+    totalStock: {type: Number, default: 0},
+    avgPrice: {type: Number, default: 0},
+    totalSales: {type: Number, default: 0},
     description: {type: String, default: ''},
 })
 

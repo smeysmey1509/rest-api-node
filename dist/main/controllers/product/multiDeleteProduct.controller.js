@@ -40,7 +40,7 @@ const multiDeleteProductController = (req, res) => __awaiter(void 0, void 0, voi
                     stock: product.stock,
                     category: category ? {
                         _id: category._id,
-                        name: category.name,
+                        name: category.categoryName,
                         description: category.description,
                     } : null,
                     createdAt: product.createdAt,

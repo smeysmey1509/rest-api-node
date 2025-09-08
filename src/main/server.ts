@@ -11,6 +11,7 @@ import sidebarItemRoute from './routes/sidebaritems'
 import cartRoute from "./routes/cart"
 import promocodeRoute from "./routes/promocode";
 import deliveryRoute from './routes/delivery';
+import reviewRoute from './routes/review';
 import cors from "cors";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { connectRabbitMQ } from "./services/rabbitmq";
@@ -73,6 +74,7 @@ app.use("/api/v1", roleRoutes);
 app.use("/api/v1", cartRoute);
 app.use("/api/v1", promocodeRoute);
 app.use("/api/v1", deliveryRoute);
+app.use("/api/v1", reviewRoute);
 app.use('/uploads', express.static('uploads'));
 
 // Connect DB and then start server

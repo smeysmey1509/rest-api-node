@@ -23,19 +23,23 @@ const createProduct_controller_1 = require("../controllers/product/createProduct
 const multiDeleteProduct_controller_1 = require("../controllers/product/multiDeleteProduct.controller");
 const editProduct_controller_1 = require("../controllers/product/editProduct.controller");
 const upload_1 = require("../../middleware/upload");
+const listProducts_controller_1 = require("../controllers/product/listProducts.controller");
 const router = (0, express_1.Router)();
 //Get /api/v1/products - Get All Product
 router.get("/product", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("read"), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const products = yield Product_1.default.find()
             .populate("category", "name")
-            .populate("seller", "name email");
+            .populate("seller", "name email")
+            .sort({ createdAt: -1 });
         res.status(200).json(products);
     }
     catch (err) {
         res.status(500).json({ error: "Failed to fetch products." });
     }
 }));
+//Filter Product
+router.get("/products", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("read"), listProducts_controller_1.listProducts);
 // GET /api/v1/product?limit=25&page=1
 router.get("/products", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("read"), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;

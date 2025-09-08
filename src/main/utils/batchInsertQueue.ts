@@ -3,7 +3,6 @@ import Category from "../../models/Category";
 import {publishProductActivity} from '../services/activity.service'
 import mongoose from "mongoose";
 import {io} from "../server";
-import {publishNotificationEvent} from "../services/notification.service";
 
 interface ProductInput {
     name: string;
@@ -78,7 +77,7 @@ async function flushBuffer() {
                         category: categoryDoc
                             ? {
                                 _id: categoryDoc._id,
-                                name: categoryDoc.name,
+                                name: categoryDoc.categoryName,
                                 description: categoryDoc.description,
                             }
                             : null,

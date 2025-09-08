@@ -71,7 +71,7 @@ function flushBuffer() {
                         category: categoryDoc
                             ? {
                                 _id: categoryDoc._id,
-                                name: categoryDoc.name,
+                                name: categoryDoc.categoryName,
                                 description: categoryDoc.description,
                             }
                             : null,

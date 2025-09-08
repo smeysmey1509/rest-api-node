@@ -1,20 +1,26 @@
-import { Request, Response } from "express";
+// src/main/controllers/category/listCategories.controller.ts
+import { Response } from "express";
 import Category from "../../../models/Category";
 import { AuthenicationRequest } from "../../../middleware/auth";
 
-export const listCategories = async (req: AuthenicationRequest, res: Response) => {
+export const listCategories = async (
+  req: AuthenicationRequest,
+  res: Response
+) => {
   try {
     const q = String(req.query.q ?? "").trim();
-    const page = Math.max(parseInt(String(req.query.page || "1"), 10), 1);
-    const limit = Math.min(Math.max(parseInt(String(req.query.limit || "25"), 10), 1), 100);
+    const page = Math.max(parseInt(String(req.query.page ?? "1"), 10), 1);
+    const limit = Math.min(
+      Math.max(parseInt(String(req.query.limit ?? "25"), 10), 1),
+      100
+    );
     const skip = (page - 1) * limit;
 
-    // Sorting: ?sort=createdAt:-1 or ?sort=categoryName:1,totalSales:-1
-    const sortStr = String(req.query.sort ?? "createdAt:-1");
+    const sortStr = String(req.query.sort ?? "categoryName:1");
     const sort: Record<string, 1 | -1> = {};
-    sortStr.split(",").forEach(pair => {
+    sortStr.split(",").forEach((pair) => {
       const [field, dir] = pair.split(":");
-      if (field) sort[field] = (dir === "-1" ? -1 : 1);
+      if (field) sort[field] = dir === "-1" ? -1 : 1;
     });
 
     const filter: any = {};
@@ -27,7 +33,52 @@ export const listCategories = async (req: AuthenicationRequest, res: Response) =
     }
 
     const [items, total] = await Promise.all([
-      Category.find(filter).sort(sort).skip(skip).limit(limit).lean(),
+      Category.aggregate([
+        { $match: filter },
+        {
+          $lookup: {
+            from: "products",
+            let: { catId: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$category", "$$catId"] },
+                  isDeleted: { $ne: true },
+                },
+              },
+              {
+                $project: {
+                  stock: { $ifNull: ["$stock", 0] },
+                  price: { $ifNull: ["$priceMin", "$price"] },
+                  salesCount: { $ifNull: ["$salesCount", 0] },
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  productCount: { $sum: 1 },
+                  totalStock: { $sum: "$stock" },
+                  avgPrice: { $avg: "$price" },
+                  totalSales: { $sum: "$salesCount" },
+                },
+              },
+            ],
+            as: "stats",
+          },
+        },
+        {
+          $addFields: {
+            productCount: { $ifNull: [{ $first: "$stats.productCount" }, 0] },
+            totalStock: { $ifNull: [{ $first: "$stats.totalStock" }, 0] },
+            avgPrice: { $ifNull: [{ $first: "$stats.avgPrice" }, 0] },
+            totalSales: { $ifNull: [{ $first: "$stats.totalSales" }, 0] },
+          },
+        },
+        { $project: { stats: 0 } },
+        { $sort: sort },
+        { $skip: skip },
+        { $limit: limit },
+      ]),
       Category.countDocuments(filter),
     ]);
 

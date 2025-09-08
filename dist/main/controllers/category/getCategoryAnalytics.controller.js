@@ -19,10 +19,10 @@ const getCategoryAnalytics = (req, res) => __awaiter(void 0, void 0, void 0, fun
         const analytics = yield Product_1.default.aggregate([
             {
                 $group: {
-                    _id: "$category", // group by category ObjectId
+                    _id: "$category",
                     productCount: { $sum: 1 },
                     totalStock: { $sum: "$stock" },
-                    avgPrice: { $avg: "$priceMin" }, // or "$price" if no variants
+                    avgPrice: { $avg: "$priceMin" },
                     totalSales: { $sum: "$salesCount" },
                 },
             },
@@ -34,21 +34,19 @@ const getCategoryAnalytics = (req, res) => __awaiter(void 0, void 0, void 0, fun
                     as: "category",
                 },
             },
-            {
-                $unwind: "$category",
-            },
+            { $unwind: "$category" },
             {
                 $project: {
                     _id: 0,
-                    categoryId: "$category._id",
-                    categoryName: "$category.name",
+                    categoryId: "$category.categoryId",
+                    categoryName: "$category.categoryName",
                     productCount: 1,
                     totalStock: 1,
                     avgPrice: { $round: ["$avgPrice", 2] },
                     totalSales: 1,
                 },
             },
-            { $sort: { totalSales: -1 } }, // sort by best-selling
+            { $sort: { totalSales: -1 } },
         ]);
         res.status(200).json(analytics);
     }

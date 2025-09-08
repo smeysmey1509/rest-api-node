@@ -89,7 +89,7 @@ export const listProducts = async (req: AuthenicationRequest, res: Response) => 
       .limit(limit)
       .lean({ virtuals: true });
 
-    res.status(200).json(products); // products only
+    res.status(200).json(products);
   } catch (err) {
     console.error("listProducts error:", err);
     res.status(500).json({ error: "Failed to fetch products." });

@@ -14,7 +14,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.listProducts = void 0;
 const Product_1 = __importDefault(require("../../../models/Product"));
+const Category_1 = __importDefault(require("../../../models/Category"));
 const User_1 = __importDefault(require("../../../models/User"));
+const mongoose_1 = require("mongoose");
 function buildSort(sortParam) {
     switch ((sortParam || "").toLowerCase()) {
         case "price_asc": return { priceMin: 1, createdAt: -1, _id: -1 };
@@ -24,7 +26,6 @@ function buildSort(sortParam) {
         default: return { createdAt: -1, _id: -1 };
     }
 }
-// helpers
 const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 const endOfDay = (d) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
 function resolvePeriod(period) {
@@ -43,20 +44,22 @@ function resolvePeriod(period) {
             return { from: startOfDay(y), to: endOfDay(y) };
         }
         case "last7d": {
-            const from = new Date(now);
-            from.setDate(now.getDate() - 6);
-            return { from: startOfDay(from), to: todayEnd };
+            const f = new Date(now);
+            f.setDate(now.getDate() - 6);
+            return { from: startOfDay(f), to: todayEnd };
         }
         case "last30d": {
-            const from = new Date(now);
-            from.setDate(now.getDate() - 29);
-            return { from: startOfDay(from), to: todayEnd };
+            const f = new Date(now);
+            f.setDate(now.getDate() - 29);
+            return { from: startOfDay(f), to: todayEnd };
         }
         case "this_month": return { from: startOfDay(firstOfThisMonth), to: todayEnd };
         case "prev_month": return { from: startOfDay(firstOfPrevMonth), to: endOfDay(endOfPrevMonth) };
         default: return {};
     }
 }
+// helpers for category parsing
+const toArrayParam = (v) => v == null ? [] : (Array.isArray(v) ? v : String(v).split(",")).map(s => s.trim()).filter(Boolean);
 const listProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c, _d, _e;
     try {
@@ -66,8 +69,8 @@ const listProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         const limit = Math.max(parseInt(String((_c = req.query.limit) !== null && _c !== void 0 ? _c : "")) || defaultLimit, 1);
         const page = Math.max(parseInt(String((_d = req.query.page) !== null && _d !== void 0 ? _d : "")) || 1, 1);
         const skip = (page - 1) * limit;
-        const sort = buildSort(String((_e = req.query.sort) !== null && _e !== void 0 ? _e : "")); // price_asc | price_desc | date_desc | date_asc
-        // 🔑 Date published filter
+        const sort = buildSort(String((_e = req.query.sort) !== null && _e !== void 0 ? _e : ""));
+        // Date published filter
         const hasPublishedAt = !!Product_1.default.schema.path("publishedAt");
         const dateField = hasPublishedAt ? "publishedAt" : "createdAt";
         const { publishedOn, publishedFrom, publishedTo, period } = req.query;
@@ -90,7 +93,6 @@ const listProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* (
                 if (!isNaN(t.getTime()))
                     range.$lte = endOfDay(t);
             }
-            // period shortcuts (overrides/merges if provided)
             const p = resolvePeriod(period);
             if (p.from)
                 range.$gte = p.from;
@@ -100,10 +102,30 @@ const listProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         const query = { isDeleted: { $ne: true } };
         if (range.$gte || range.$lte)
             query[dateField] = range;
+        const categoryParams = [
+            ...toArrayParam(req.query.category),
+            ...toArrayParam(req.query.categories),
+        ];
+        if (categoryParams.length) {
+            const objectIds = [];
+            const keys = [];
+            for (const token of categoryParams) {
+                if (mongoose_1.Types.ObjectId.isValid(token))
+                    objectIds.push(new mongoose_1.Types.ObjectId(token));
+                else
+                    keys.push(token);
+            }
+            if (keys.length) {
+                const cats = yield Category_1.default.find({ $or: [{ categoryId: { $in: keys } }, { categoryName: { $in: keys } }] }, { _id: 1 }).lean();
+                objectIds.push(...cats.map(c => c._id));
+            }
+            query.category = { $in: objectIds.length ? objectIds : [new mongoose_1.Types.ObjectId("000000000000000000000000")] };
+        }
         const products = yield Product_1.default.find(query)
             .select("-dedupeKey")
-            .populate("category", "name")
+            .populate("category", "categoryId categoryName productCount")
             .populate("seller", "name email")
+            .populate("brand", "name slug isActive")
             .sort(sort)
             .skip(skip)
             .limit(limit)

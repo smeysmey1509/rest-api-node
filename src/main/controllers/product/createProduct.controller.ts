@@ -143,6 +143,7 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
 
     const categoryId = ensureObjectId(category, "category");
     const sellerId   = ensureObjectId(seller, "seller");
+    const brandId   = brand ? ensureObjectId(brand, "brand") : undefined;
 
     // Canonical identifiers (match schema)
     const canonicalSlug = slug ? slugify(slug) : slugify(name);
@@ -226,7 +227,6 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
       name: String(name).trim(),
       slug: canonicalSlug,
       description: typeof description === "string" ? description : "",
-      brand: typeof brand === "string" ? brand : "",
       currency: typeof currency === "string" && currency.length ? currency.toUpperCase() : "USD",
 
       ...(topLevelPrice !== undefined ? { price: topLevelPrice } : {}),
@@ -235,6 +235,7 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
 
       category: categoryId,
       seller: sellerId,
+      brand: brandId,
       status: status === "Unpublished" ? "Unpublished" : "Published",
       tag: normTags,
 

@@ -21,7 +21,8 @@ router.get(
   async (req: Request, res: Response) => {
     try {
       const products = await Product.find()
-        .populate("category", "name")
+        .populate("brand", "name slug isActive")
+        .populate("category", "categoryId categoryName productCount")
         .populate("seller", "name email")
         .sort({ createdAt: -1 });
       res.status(200).json(products);

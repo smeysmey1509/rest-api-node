@@ -94,7 +94,7 @@ const ProductSchema = new mongoose_1.Schema({
     slug: { type: String, required: false, index: true },
     description: { type: String, default: "", maxlength: 50000 },
     // merchandising (legacy top-level)
-    brand: { type: String, trim: true, default: "", index: true },
+    brand: { type: mongoose_1.Schema.Types.ObjectId, ref: "Brand", index: true },
     price: {
         type: Number,
         min: 0,

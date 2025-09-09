@@ -33,8 +33,8 @@ export interface IProduct extends Document {
   description?: string;
 
   // merchandising (LEGACY top-level, used when no variants exist)
-  brand?: string;
-  price: number; // legacy single price
+  brand?: Types.ObjectId;
+  price: number;
   compareAtPrice?: number;
   currency?: string;
 
@@ -164,7 +164,7 @@ const ProductSchema = new Schema<IProduct>(
     description: { type: String, default: "", maxlength: 50_000 },
 
     // merchandising (legacy top-level)
-    brand: { type: String, trim: true, default: "", index: true },
+    brand: { type: Schema.Types.ObjectId, ref: "Brand", index: true },
     price: {
       type: Number,
       min: 0,

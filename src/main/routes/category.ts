@@ -7,13 +7,11 @@ import { listCategories } from "../controllers/category/listCategories.controlle
 import { getCategoryById } from "../controllers/category/getCategoryById.controller";
 import { updateCategory } from "../controllers/category/updateCategory.controller";
 import { deleteCategory } from "../controllers/category/deleteCategory.controller";
-import { getCategoryAnalytics } from "../controllers/category/getCategoryAnalytics.controller";
 
 const router = Router();
 
 router.get("/categories", authenticateToken, authorizePermission("read"), listCategories);
 router.get("/categories/:id", authenticateToken, authorizePermission("read"), getCategoryById);
-router.get("/categories/analytics", authenticateToken, authorizePermission("read"), getCategoryAnalytics);
 router.post("/categories", authenticateToken, authorizePermission("create"), createCategory);
 router.patch("/categories/:id", authenticateToken, authorizePermission("update"), updateCategory);
 router.delete("/categories/:id", authenticateToken, authorizePermission("delete"), deleteCategory);

@@ -29,7 +29,8 @@ const router = (0, express_1.Router)();
 router.get("/product", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("read"), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const products = yield Product_1.default.find()
-            .populate("category", "name")
+            .populate("brand", "name slug isActive")
+            .populate("category", "categoryId categoryName productCount")
             .populate("seller", "name email")
             .sort({ createdAt: -1 });
         res.status(200).json(products);

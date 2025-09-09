@@ -8,11 +8,9 @@ const listCategories_controller_1 = require("../controllers/category/listCategor
 const getCategoryById_controller_1 = require("../controllers/category/getCategoryById.controller");
 const updateCategory_controller_1 = require("../controllers/category/updateCategory.controller");
 const deleteCategory_controller_1 = require("../controllers/category/deleteCategory.controller");
-const getCategoryAnalytics_controller_1 = require("../controllers/category/getCategoryAnalytics.controller");
 const router = (0, express_1.Router)();
 router.get("/categories", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("read"), listCategories_controller_1.listCategories);
 router.get("/categories/:id", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("read"), getCategoryById_controller_1.getCategoryById);
-router.get("/categories/analytics", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("read"), getCategoryAnalytics_controller_1.getCategoryAnalytics);
 router.post("/categories", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("create"), createCategory_controller_1.createCategory);
 router.patch("/categories/:id", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("update"), updateCategory_controller_1.updateCategory);
 router.delete("/categories/:id", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("delete"), deleteCategory_controller_1.deleteCategory);

@@ -13,6 +13,7 @@ import promocodeRoute from "./routes/promocode";
 import deliveryRoute from './routes/delivery';
 import reviewRoute from './routes/review';
 import brandRoute from './routes/brand';
+import wishlistRoute from './routes/wishlist'
 import cors from "cors";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { connectRabbitMQ } from "./services/rabbitmq";
@@ -77,6 +78,7 @@ app.use("/api/v1", promocodeRoute);
 app.use("/api/v1", deliveryRoute);
 app.use("/api/v1", reviewRoute);
 app.use("/api/v1", brandRoute);
+app.use("/api/v1", wishlistRoute)
 app.use('/uploads', express.static('uploads'));
 
 // Connect DB and then start server

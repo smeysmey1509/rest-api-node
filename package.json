@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx watch src/main/server.ts",
+    "dev": "ts-node-dev --respawn src/main/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main/server.js",
     "lint": "eslint .",

@@ -5,7 +5,7 @@ export interface IBrand extends Document {
   name: string;
   slug: string;
   isActive: boolean;
-  count?: number;
+  productCount?: number;
   createdAt: Date;
   updatedAt: Date;
 }

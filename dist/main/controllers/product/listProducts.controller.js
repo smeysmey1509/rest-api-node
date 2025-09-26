@@ -19,15 +19,28 @@ const User_1 = __importDefault(require("../../../models/User"));
 const mongoose_1 = require("mongoose");
 function buildSort(sortParam) {
     switch ((sortParam || "").toLowerCase()) {
-        case "price_asc": return { priceMin: 1, createdAt: -1, _id: -1 };
-        case "price_desc": return { priceMin: -1, createdAt: -1, _id: -1 };
-        case "date_asc": return { createdAt: 1, _id: 1 };
-        case "date_desc": return { createdAt: -1, _id: -1 };
-        default: return { createdAt: -1, _id: -1 };
+        case "price_asc":
+            return { priceMin: 1, createdAt: -1, _id: -1 };
+        case "price_desc":
+            return { priceMin: -1, createdAt: -1, _id: -1 };
+        case "date_asc":
+            return { createdAt: 1, _id: 1 };
+        case "date_desc":
+            return { createdAt: -1, _id: -1 };
+        default:
+            return { createdAt: -1, _id: -1 };
     }
 }
-const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
-const endOfDay = (d) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
+const startOfDay = (d) => {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x;
+};
+const endOfDay = (d) => {
+    const x = new Date(d);
+    x.setHours(23, 59, 59, 999);
+    return x;
+};
 function resolvePeriod(period) {
     if (!period)
         return {};
@@ -37,7 +50,8 @@ function resolvePeriod(period) {
     const firstOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfPrevMonth = endOfDay(new Date(now.getFullYear(), now.getMonth(), 0));
     switch (period) {
-        case "today": return { from: todayStart, to: todayEnd };
+        case "today":
+            return { from: todayStart, to: todayEnd };
         case "yesterday": {
             const y = new Date(now);
             y.setDate(now.getDate() - 1);
@@ -53,13 +67,23 @@ function resolvePeriod(period) {
             f.setDate(now.getDate() - 29);
             return { from: startOfDay(f), to: todayEnd };
         }
-        case "this_month": return { from: startOfDay(firstOfThisMonth), to: todayEnd };
-        case "prev_month": return { from: startOfDay(firstOfPrevMonth), to: endOfDay(endOfPrevMonth) };
-        default: return {};
+        case "this_month":
+            return { from: startOfDay(firstOfThisMonth), to: todayEnd };
+        case "prev_month":
+            return {
+                from: startOfDay(firstOfPrevMonth),
+                to: endOfDay(endOfPrevMonth),
+            };
+        default:
+            return {};
     }
 }
 // helpers for category parsing
-const toArrayParam = (v) => v == null ? [] : (Array.isArray(v) ? v : String(v).split(",")).map(s => s.trim()).filter(Boolean);
+const toArrayParam = (v) => v == null
+    ? []
+    : (Array.isArray(v) ? v : String(v).split(","))
+        .map((s) => s.trim())
+        .filter(Boolean);
 const listProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c, _d, _e;
     try {
@@ -72,7 +96,9 @@ const listProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         const sort = buildSort(String((_e = req.query.sort) !== null && _e !== void 0 ? _e : ""));
         // Date published filter
         const hasPublishedAt = !!Product_1.default.schema.path("publishedAt");
-        const dateField = hasPublishedAt ? "publishedAt" : "createdAt";
+        const dateField = hasPublishedAt
+            ? "publishedAt"
+            : "createdAt";
         const { publishedOn, publishedFrom, publishedTo, period } = req.query;
         const range = {};
         if (publishedOn) {
@@ -116,16 +142,24 @@ const listProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* (
                     keys.push(token);
             }
             if (keys.length) {
-                const cats = yield Category_1.default.find({ $or: [{ categoryId: { $in: keys } }, { categoryName: { $in: keys } }] }, { _id: 1 }).lean();
-                objectIds.push(...cats.map(c => c._id));
+                const cats = yield Category_1.default.find({
+                    $or: [
+                        { categoryId: { $in: keys } },
+                        { categoryName: { $in: keys } },
+                    ],
+                }, { _id: 1 }).lean();
+                objectIds.push(...cats.map((c) => c._id));
             }
-            query.category = { $in: objectIds.length ? objectIds : [new mongoose_1.Types.ObjectId("000000000000000000000000")] };
+            query.category = {
+                $in: objectIds.length
+                    ? objectIds
+                    : [new mongoose_1.Types.ObjectId("000000000000000000000000")],
+            };
         }
         const products = yield Product_1.default.find(query)
             .select("-dedupeKey")
             .populate("category", "categoryId categoryName productCount")
             .populate("seller", "name email")
-            .populate("brand", "name slug isActive")
             .sort(sort)
             .skip(skip)
             .limit(limit)

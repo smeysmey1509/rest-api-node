@@ -1,9 +1,22 @@
 import { AuthenicationRequest } from "../../../middleware/auth";
 import { Response } from "express";
-import Product from "../../../models/Product";
+import { HydratedDocument } from "mongoose";
+import Product, { IProduct } from "../../../models/Product";
 import { publishProductActivity } from "../../services/activity.service";
 import { io } from "../../server";
 import { publishNotificationEvent } from "../../services/notification.service";
+import {
+  buildDedupeKey,
+  ensureObjectId,
+  normalizeAttributes,
+  normalizeDimensions,
+  normalizeSeo,
+  normalizeVariants,
+  parseJSON,
+  parseTags,
+  slugify,
+  toNumber,
+} from "../../utils/productNormalization";
 
 function detectChangedFieldsSummary(original: any, updates: any): string {
   const changes: string[] = [];
@@ -40,32 +53,388 @@ function detectChangedFieldsSummary(original: any, updates: any): string {
   return "Changes: " + changes.join(", ");
 }
 
+const hasOwn = (obj: Record<string, any>, key: string) =>
+  Object.prototype.hasOwnProperty.call(obj, key);
+
+const normalizeBoolean = (value: unknown): boolean | undefined => {
+  if (value === undefined) return undefined;
+  if (value === null) return false;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const lowered = value.toLowerCase();
+    if (["true", "1", "yes", "on"].includes(lowered)) return true;
+    if (["false", "0", "no", "off"].includes(lowered)) return false;
+  }
+  return undefined;
+};
+
+const toImageArray = (input: unknown): string[] => {
+  if (Array.isArray(input)) return input.map((img) => String(img));
+  if (typeof input === "string" && input.trim().length) {
+    const parsed = parseJSON<string[]>(input, []);
+    if (Array.isArray(parsed) && parsed.length) {
+      return parsed.map((img) => String(img));
+    }
+    return [input];
+  }
+  return [];
+};
+
+const prepareVariantSummary = (variants: any[]) =>
+  variants.map((variant) => ({
+    sku: variant.sku,
+    price: variant.price,
+    stock: variant.stock,
+    inventory: variant.inventory,
+    attributes: Object.fromEntries(variant.attributes ?? []),
+    images: variant.images,
+    isActive: variant.isActive,
+  }));
+
 export const editProduct = async (
   req: AuthenicationRequest,
   res: Response
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const body = req.body ?? {};
     const userId = req.user?.id;
 
-    const originalProduct = await Product.findById(id).lean();
+    const productDoc = await Product.findById(id);
 
-    if (!originalProduct) {
+    if (!productDoc) {
       res.status(404).json({ msg: "Product not found" });
       return;
     }
 
-    const updatedProduct = await Product.findByIdAndUpdate(id, updates, {
-      new: true,
+    const originalProduct = productDoc.toObject({
+      depopulate: true,
+      flattenMaps: true,
     });
 
-    if (!updatedProduct) {
+    if (!originalProduct) {
       res.status(404).json({ msg: "Product not found after update" });
       return;
     }
 
-    const changeSummary = detectChangedFieldsSummary(originalProduct, updates);
+    const updatesForSummary: Record<string, any> = {};
+
+    let sellerId = productDoc.seller;
+    if (hasOwn(body, "seller")) {
+      const newSeller = ensureObjectId(body.seller, "seller");
+      if (String(newSeller) !== String(productDoc.seller)) {
+        productDoc.seller = newSeller as any;
+        updatesForSummary.seller = String(newSeller);
+      }
+      sellerId = productDoc.seller;
+    }
+
+    let categoryId: any = productDoc.category;
+    if (hasOwn(body, "category")) {
+      const newCategory = ensureObjectId(body.category, "category");
+      if (String(newCategory) !== String(productDoc.category)) {
+        productDoc.category = newCategory as any;
+        updatesForSummary.category = String(newCategory);
+      }
+      categoryId = productDoc.category;
+    }
+
+    if (!categoryId) {
+      res.status(400).json({ error: "category is required" });
+      return;
+    }
+    if (hasOwn(body, "brand")) {
+      const newBrand = body.brand
+        ? ensureObjectId(body.brand, "brand")
+        : undefined;
+      if (String(newBrand || "") !== String(productDoc.brand || "")) {
+        productDoc.brand = newBrand as any;
+        updatesForSummary.brand = newBrand ? String(newBrand) : undefined;
+      }
+    }
+
+    if (hasOwn(body, "name")) {
+      const trimmed = String(body.name || "").trim();
+      if (!trimmed) {
+        res.status(400).json({ error: "name is required" });
+        return;
+      }
+      if (trimmed !== productDoc.name) {
+        productDoc.name = trimmed;
+        updatesForSummary.name = trimmed;
+      }
+    }
+
+    if (hasOwn(body, "description")) {
+      const description =
+        typeof body.description === "string" ? body.description : "";
+      if (description !== productDoc.description) {
+        productDoc.description = description;
+        updatesForSummary.description = description;
+      }
+    }
+
+    if (hasOwn(body, "currency")) {
+      const currency =
+        typeof body.currency === "string" && body.currency.trim().length
+          ? body.currency.trim().toUpperCase()
+          : productDoc.currency;
+      if (currency && currency !== productDoc.currency) {
+        productDoc.currency = currency;
+        updatesForSummary.currency = currency;
+      }
+    }
+
+    if (hasOwn(body, "status")) {
+      const status =
+        body.status === "Unpublished" ? "Unpublished" : "Published";
+      if (status !== productDoc.status) {
+        productDoc.status = status;
+        updatesForSummary.status = status;
+      }
+    }
+
+    if (hasOwn(body, "slug")) {
+      const rawSlug = String(body.slug || "").trim();
+      const newSlug = rawSlug.length
+        ? slugify(rawSlug)
+        : slugify(productDoc.name);
+      if (!newSlug) {
+        res.status(400).json({ error: "slug must not be empty" });
+        return;
+      }
+      if (newSlug !== productDoc.slug) {
+        productDoc.slug = newSlug;
+        updatesForSummary.slug = newSlug;
+      }
+    }
+
+    if (hasOwn(body, "tag")) {
+      const tags = parseTags(body.tag);
+      productDoc.tag = tags;
+      updatesForSummary.tag = tags;
+    }
+
+    if (hasOwn(body, "attributes")) {
+      const attrs = normalizeAttributes(body.attributes);
+      productDoc.set("attributes", attrs);
+      updatesForSummary.attributes = attrs;
+    }
+
+    let variantsForDoc: any[] | undefined;
+    if (hasOwn(body, "variants")) {
+      variantsForDoc = normalizeVariants(body.variants);
+      const skus = variantsForDoc.map((v) => v.sku);
+      const skuSet = new Set(skus);
+      if (skuSet.size !== skus.length) {
+        res.status(400).json({ error: "Duplicate SKUs in variants payload" });
+        return;
+      }
+      productDoc.variants = variantsForDoc as any;
+      updatesForSummary.variants = prepareVariantSummary(variantsForDoc);
+
+      if (variantsForDoc.length) {
+        if (productDoc.price !== undefined) {
+          productDoc.set("price", undefined);
+          updatesForSummary.price = undefined;
+        }
+        if (productDoc.stock !== undefined) {
+          productDoc.set("stock", undefined);
+          updatesForSummary.stock = undefined;
+        }
+      }
+    }
+
+    if (hasOwn(body, "price") && !variantsForDoc?.length) {
+      const raw = body.price;
+      if (raw === null || raw === "") {
+        if (productDoc.price !== undefined) {
+          productDoc.set("price", undefined);
+          updatesForSummary.price = undefined;
+        }
+      } else {
+        const priceVal = toNumber(raw, NaN);
+        if (!Number.isFinite(priceVal) || priceVal < 0) {
+          res
+            .status(400)
+            .json({ error: "price must be a non-negative number" });
+          return;
+        }
+        if (productDoc.price !== priceVal) {
+          productDoc.price = priceVal;
+          updatesForSummary.price = priceVal;
+        }
+      }
+    }
+
+    if (hasOwn(body, "stock") && !variantsForDoc?.length) {
+      const raw = body.stock;
+      if (raw === null || raw === "") {
+        if (productDoc.stock !== undefined) {
+          productDoc.set("stock", undefined);
+          updatesForSummary.stock = undefined;
+        }
+      } else {
+        const stockVal = Math.max(0, Math.floor(toNumber(raw, 0)));
+        if (productDoc.stock !== stockVal) {
+          productDoc.stock = stockVal;
+          updatesForSummary.stock = stockVal;
+        }
+      }
+    }
+
+    if (hasOwn(body, "compareAtPrice")) {
+      const raw = body.compareAtPrice;
+      if (raw === null || raw === "") {
+        if (productDoc.compareAtPrice !== undefined) {
+          productDoc.set("compareAtPrice", undefined);
+          updatesForSummary.compareAtPrice = undefined;
+        }
+      } else {
+        const compareVal = toNumber(raw, NaN);
+        if (!Number.isFinite(compareVal) || compareVal < 0) {
+          res
+            .status(400)
+            .json({ error: "compareAtPrice must be a non-negative number" });
+          return;
+        }
+        if (productDoc.compareAtPrice !== compareVal) {
+          productDoc.compareAtPrice = compareVal;
+          updatesForSummary.compareAtPrice = compareVal;
+        }
+      }
+    }
+
+    if (hasOwn(body, "dimensions")) {
+      const dims = normalizeDimensions(body.dimensions);
+      productDoc.dimensions = dims as any;
+      updatesForSummary.dimensions = dims;
+    }
+
+    if (hasOwn(body, "weight")) {
+      const weight = toNumber(body.weight, 0);
+      if (productDoc.weight !== weight) {
+        productDoc.weight = weight;
+        updatesForSummary.weight = weight;
+      }
+    }
+
+    if (hasOwn(body, "seo")) {
+      const seo = normalizeSeo(body.seo);
+      if (seo) {
+        productDoc.seo = seo as any;
+        updatesForSummary.seo = seo;
+      } else {
+        productDoc.set("seo", { title: "", description: "", keywords: [] });
+        updatesForSummary.seo = productDoc.seo;
+      }
+    }
+
+    if (hasOwn(body, "isAdult")) {
+      const bool = normalizeBoolean(body.isAdult);
+      if (bool !== undefined && bool !== productDoc.isAdult) {
+        productDoc.isAdult = bool;
+        updatesForSummary.isAdult = bool;
+      }
+    }
+
+    if (hasOwn(body, "isHazardous")) {
+      const bool = normalizeBoolean(body.isHazardous);
+      if (bool !== undefined && bool !== productDoc.isHazardous) {
+        productDoc.isHazardous = bool;
+        updatesForSummary.isHazardous = bool;
+      }
+    }
+
+    if (hasOwn(body, "images")) {
+      const images = toImageArray(body.images);
+      productDoc.images = images;
+      updatesForSummary.images = images;
+    }
+
+    if (hasOwn(body, "primaryImageIndex")) {
+      const idx = Math.max(0, Math.floor(toNumber(body.primaryImageIndex, 0)));
+      if (idx !== productDoc.primaryImageIndex) {
+        productDoc.primaryImageIndex = idx;
+        updatesForSummary.primaryImageIndex = idx;
+      }
+    }
+
+    if (hasOwn(body, "isTrending")) {
+      const bool = normalizeBoolean(body.isTrending);
+      if (bool !== undefined && bool !== productDoc.isTrending) {
+        productDoc.isTrending = bool as any;
+        updatesForSummary.isTrending = bool;
+      }
+    }
+
+    const canonicalSlug = productDoc.slug
+      ? slugify(productDoc.slug)
+      : slugify(productDoc.name);
+
+    if (canonicalSlug !== productDoc.slug) {
+      productDoc.slug = canonicalSlug;
+      if (!hasOwn(updatesForSummary, "slug")) {
+        updatesForSummary.slug = canonicalSlug;
+      }
+    }
+
+    const dedupeKey = buildDedupeKey(
+      productDoc.name,
+      productDoc.brand as any,
+      productDoc.category as any
+    );
+    productDoc.set("dedupeKey", dedupeKey);
+
+    const slugOrKey = await Product.findOne({
+      _id: { $ne: productDoc._id },
+      seller: sellerId,
+      isDeleted: { $ne: true },
+      $or: [{ slug: canonicalSlug }, { dedupeKey }],
+    })
+      .collation({ locale: "en", strength: 2 })
+      .select("_id slug")
+      .lean();
+
+    if (slugOrKey) {
+      res.status(409).json({
+        error: "Duplicate product",
+        details: {
+          conflictOn: slugOrKey.slug === canonicalSlug ? "slug" : "dedupeKey",
+        },
+      });
+      return;
+    }
+
+    const skusToCheck = (variantsForDoc ?? productDoc.variants ?? []).map(
+      (v: any) => v.sku
+    );
+    if (skusToCheck.length) {
+      const skuConflict = await Product.findOne({
+        _id: { $ne: productDoc._id },
+        seller: sellerId,
+        isDeleted: { $ne: true },
+        "variants.sku": { $in: skusToCheck },
+      })
+        .select("_id")
+        .lean();
+
+      if (skuConflict) {
+        res.status(409).json({
+          error: "Duplicate SKU",
+          details: { skus: skusToCheck },
+        });
+        return;
+      }
+    }
+
+    const updatedProduct: HydratedDocument<IProduct> = await productDoc.save();
+
+    const changeSummary = detectChangedFieldsSummary(
+      originalProduct,
+      updatesForSummary
+    );
 
     await publishNotificationEvent({
       userId: req?.user?.id,
@@ -81,7 +450,7 @@ export const editProduct = async (
       products: [
         {
           _id: id,
-          ...updates,
+          ...updatesForSummary,
         },
       ],
     }).catch((err) => console.error("🐇 Failed to log update activity:", err));
@@ -93,6 +462,7 @@ export const editProduct = async (
       product: updatedProduct,
     });
   } catch (err) {
+    console.error("Failed to update product", err);
     res.status(500).json({ error: "Failed to update product." });
   }
 };

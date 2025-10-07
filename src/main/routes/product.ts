@@ -48,36 +48,47 @@ router.get(
   async (req: AuthenicationRequest, res: Response) => {
     try {
       const userId = req.user?.id;
-      const user = await User.findById(userId);
+      const user = await User.findById(userId).lean();
 
+      // 🧩 Parse pagination safely
       const defaultLimit = user?.limit || 25;
+      const limitParam = Number(req.query.limit);
+      const pageParam = Number(req.query.page);
 
-      const limit = Math.max(
-        parseInt(req.query.limit as string) || defaultLimit,
-        1
-      );
-      const page = Math.max(parseInt(req.query.page as string) || 1, 1);
+      const limit =
+        !isNaN(limitParam) && limitParam > 0 ? limitParam : defaultLimit;
+      const page = !isNaN(pageParam) && pageParam > 0 ? pageParam : 1;
       const skip = (page - 1) * limit;
 
+      // 🧩 Query products
       const [products, total] = await Promise.all([
-        Product.find()
-          .populate("category", "name")
-          .populate("seller", "name email")
+        Product.find({ isDeleted: { $ne: true } })
+          .populate("category")
+          .populate("seller")
+          .populate("brand")
           .sort({ createdAt: -1 })
           .skip(skip)
-          .limit(limit),
-        Product.countDocuments(),
+          .limit(limit)
+          .lean(),
+        Product.countDocuments({ isDeleted: { $ne: true } }),
       ]);
 
+      const totalPages = Math.ceil(total / limit);
+
+      // 🧩 Pagination metadata
       res.status(200).json({
+        pagination: {
+          total,
+          page,
+          perPage: limit,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
         products,
-        total,
-        page,
-        perPage: limit,
-        totalPages: Math.ceil(total / limit),
       });
     } catch (err) {
-      console.error("Error fetching paginated products:", err);
+      console.error("❌ Error fetching paginated products:", err);
       res.status(500).json({ error: "Failed to fetch products." });
     }
   }
@@ -92,7 +103,11 @@ router.get(
     try {
       const { id } = req.params;
 
-      const product = await Product.findById(id);
+      const product = await Product.findById(id)
+        .populate("category")
+        .populate("brand")
+        .populate("seller")
+        .lean();
 
       if (!product) {
         res.status(404).json({ msg: "Product not found" });

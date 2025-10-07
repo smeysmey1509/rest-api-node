@@ -46,30 +46,42 @@ router.get("/products", auth_1.authenticateToken, (0, authorizePermission_1.auth
     var _a;
     try {
         const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
-        const user = yield User_1.default.findById(userId);
+        const user = yield User_1.default.findById(userId).lean();
+        // 🧩 Parse pagination safely
         const defaultLimit = (user === null || user === void 0 ? void 0 : user.limit) || 25;
-        const limit = Math.max(parseInt(req.query.limit) || defaultLimit, 1);
-        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limitParam = Number(req.query.limit);
+        const pageParam = Number(req.query.page);
+        const limit = !isNaN(limitParam) && limitParam > 0 ? limitParam : defaultLimit;
+        const page = !isNaN(pageParam) && pageParam > 0 ? pageParam : 1;
         const skip = (page - 1) * limit;
+        // 🧩 Query products
         const [products, total] = yield Promise.all([
-            Product_1.default.find()
-                .populate("category", "name")
-                .populate("seller", "name email")
+            Product_1.default.find({ isDeleted: { $ne: true } })
+                .populate("category")
+                .populate("seller")
+                .populate("brand")
                 .sort({ createdAt: -1 })
                 .skip(skip)
-                .limit(limit),
-            Product_1.default.countDocuments(),
+                .limit(limit)
+                .lean(),
+            Product_1.default.countDocuments({ isDeleted: { $ne: true } }),
         ]);
+        const totalPages = Math.ceil(total / limit);
+        // 🧩 Pagination metadata
         res.status(200).json({
+            pagination: {
+                total,
+                page,
+                perPage: limit,
+                totalPages,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1,
+            },
             products,
-            total,
-            page,
-            perPage: limit,
-            totalPages: Math.ceil(total / limit),
         });
     }
     catch (err) {
-        console.error("Error fetching paginated products:", err);
+        console.error("❌ Error fetching paginated products:", err);
         res.status(500).json({ error: "Failed to fetch products." });
     }
 }));
@@ -77,7 +89,11 @@ router.get("/products", auth_1.authenticateToken, (0, authorizePermission_1.auth
 router.get("/product/:id", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("read"), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
-        const product = yield Product_1.default.findById(id);
+        const product = yield Product_1.default.findById(id)
+            .populate("category")
+            .populate("brand")
+            .populate("seller")
+            .lean();
         if (!product) {
             res.status(404).json({ msg: "Product not found" });
             return;

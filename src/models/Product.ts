@@ -31,6 +31,7 @@ export interface IProduct extends Document {
   name: string;
   slug: string;
   description?: string;
+  feature?: string;
 
   // merchandising (LEGACY top-level, used when no variants exist)
   brand?: Types.ObjectId;
@@ -161,7 +162,8 @@ const ProductSchema = new Schema<IProduct>(
       index: true,
     },
     slug: { type: String, required: false, index: true },
-    description: { type: String, default: "", maxlength: 50_000 },
+    description: { type: String, default: "", maxlength: 256 },
+    feature: { type: String, default: "", maxlength: 1_024 },
 
     // merchandising (legacy top-level)
     brand: { type: Schema.Types.ObjectId, ref: "Brand", index: true },

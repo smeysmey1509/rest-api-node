@@ -40,60 +40,6 @@ router.get(
   listProducts
 );
 
-// GET /api/v1/product?limit=25&page=1
-router.get(
-  "/products",
-  authenticateToken,
-  authorizePermission("read"),
-  async (req: AuthenicationRequest, res: Response) => {
-    try {
-      const userId = req.user?.id;
-      const user = await User.findById(userId).lean();
-
-      // 🧩 Parse pagination safely
-      const defaultLimit = user?.limit || 25;
-      const limitParam = Number(req.query.limit);
-      const pageParam = Number(req.query.page);
-
-      const limit =
-        !isNaN(limitParam) && limitParam > 0 ? limitParam : defaultLimit;
-      const page = !isNaN(pageParam) && pageParam > 0 ? pageParam : 1;
-      const skip = (page - 1) * limit;
-
-      // 🧩 Query products
-      const [products, total] = await Promise.all([
-        Product.find({ isDeleted: { $ne: true } })
-          .populate("category")
-          .populate("seller")
-          .populate("brand")
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(limit)
-          .lean(),
-        Product.countDocuments({ isDeleted: { $ne: true } }),
-      ]);
-
-      const totalPages = Math.ceil(total / limit);
-
-      // 🧩 Pagination metadata
-      res.status(200).json({
-        pagination: {
-          total,
-          page,
-          perPage: limit,
-          totalPages,
-          hasNextPage: page < totalPages,
-          hasPrevPage: page > 1,
-        },
-        products,
-      });
-    } catch (err) {
-      console.error("❌ Error fetching paginated products:", err);
-      res.status(500).json({ error: "Failed to fetch products." });
-    }
-  }
-);
-
 //Product by ID
 router.get(
   "/product/:id",

@@ -166,16 +166,32 @@ export const listProducts = async (
       };
     }
 
-    const products = await Product.find(query)
-      .select("-dedupeKey")
-      .populate("category", "categoryId categoryName productCount")
-      .populate("seller", "name email")
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .lean({ virtuals: true });
+    const [products, total] = await Promise.all([
+      Product.find(query)
+        .select("-dedupeKey")
+        .populate("category")
+        .populate("seller")
+        .populate("brand")
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .lean({ virtuals: true }),
+      Product.countDocuments(query),
+    ]);
 
-    res.status(200).json(products);
+    const totalPages = Math.ceil(total / limit);
+
+    res.status(200).json({
+      pagination: {
+        total,
+        page,
+        perPage: limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+      products,
+    });
   } catch (err) {
     console.error("listProducts error:", err);
     res.status(500).json({ error: "Failed to fetch products." });

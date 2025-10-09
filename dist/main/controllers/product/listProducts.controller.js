@@ -156,15 +156,30 @@ const listProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* (
                     : [new mongoose_1.Types.ObjectId("000000000000000000000000")],
             };
         }
-        const products = yield Product_1.default.find(query)
-            .select("-dedupeKey")
-            .populate("category", "categoryId categoryName productCount")
-            .populate("seller", "name email")
-            .sort(sort)
-            .skip(skip)
-            .limit(limit)
-            .lean({ virtuals: true });
-        res.status(200).json(products);
+        const [products, total] = yield Promise.all([
+            Product_1.default.find(query)
+                .select("-dedupeKey")
+                .populate("category")
+                .populate("seller")
+                .populate("brand")
+                .sort(sort)
+                .skip(skip)
+                .limit(limit)
+                .lean({ virtuals: true }),
+            Product_1.default.countDocuments(query),
+        ]);
+        const totalPages = Math.ceil(total / limit);
+        res.status(200).json({
+            pagination: {
+                total,
+                page,
+                perPage: limit,
+                totalPages,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1,
+            },
+            products,
+        });
     }
     catch (err) {
         console.error("listProducts error:", err);

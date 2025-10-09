@@ -4,7 +4,7 @@ import mongoose, { Types } from "mongoose";
 import Product from "../../../models/Product";
 import { AuthenicationRequest } from "../../../middleware/auth";
 import { io } from "../../server";
-import { publishNotificationEvent } from "../../services/notification.service"
+import { publishNotificationEvent } from "../../services/notification.service";
 
 /** ---------------- helpers ---------------- */
 const slugify = (s: string) =>
@@ -24,23 +24,37 @@ function parseJSON<T>(v: unknown, fallback: T): T {
   if (v == null) return fallback;
   if (typeof v === "object") return v as T;
   if (typeof v === "string" && v.trim().length) {
-    try { return JSON.parse(v) as T; } catch { return fallback; }
+    try {
+      return JSON.parse(v) as T;
+    } catch {
+      return fallback;
+    }
   }
   return fallback;
 }
 
 function parseTags(input: unknown): string[] {
-  if (Array.isArray(input)) return [...new Set(input.map((t) => String(t).trim()).filter(Boolean))];
+  if (Array.isArray(input))
+    return [...new Set(input.map((t) => String(t).trim()).filter(Boolean))];
   if (typeof input === "string") {
     const json = parseJSON<string[]>(input, []);
-    if (json.length) return [...new Set(json.map((t) => t.trim()).filter(Boolean))];
-    return [...new Set(input.split(",").map((t) => t.trim()).filter(Boolean))];
+    if (json.length)
+      return [...new Set(json.map((t) => t.trim()).filter(Boolean))];
+    return [
+      ...new Set(
+        input
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean)
+      ),
+    ];
   }
   return [];
 }
 
 function ensureObjectId(id: any, field: string): Types.ObjectId {
-  if (!id || !mongoose.isValidObjectId(id)) throw new Error(`Invalid ${field} id`);
+  if (!id || !mongoose.isValidObjectId(id))
+    throw new Error(`Invalid ${field} id`);
   return new Types.ObjectId(String(id));
 }
 
@@ -52,7 +66,11 @@ type InputVariant = {
   attributes?: Record<string, string>;
   images?: string[];
   isActive?: boolean;
-  inventory?: { onHand?: number | string; reserved?: number | string; safetyStock?: number | string };
+  inventory?: {
+    onHand?: number | string;
+    reserved?: number | string;
+    safetyStock?: number | string;
+  };
 };
 
 function normalizeVariants(raw: unknown): any[] {
@@ -99,12 +117,11 @@ function normalizeSeo(
 ): { title?: string; description?: string; keywords?: string[] } | undefined {
   const seo = parseJSON<any>(raw, undefined as any);
   if (!seo) return undefined;
-  const keywords =
-    Array.isArray(seo.keywords)
-      ? seo.keywords.map((k: any) => String(k))
-      : typeof seo.keywords === "string" && seo.keywords.trim()
-      ? seo.keywords.split(",").map((k: string) => k.trim())
-      : [];
+  const keywords = Array.isArray(seo.keywords)
+    ? seo.keywords.map((k: any) => String(k))
+    : typeof seo.keywords === "string" && seo.keywords.trim()
+    ? seo.keywords.split(",").map((k: string) => k.trim())
+    : [];
   return {
     title: typeof seo.title === "string" ? seo.title : "",
     description: typeof seo.description === "string" ? seo.description : "",
@@ -113,12 +130,16 @@ function normalizeSeo(
 }
 
 /** ---------------- controller ---------------- */
-export const createProduct = async (req: AuthenicationRequest, res: Response) => {
+export const createProduct = async (
+  req: AuthenicationRequest,
+  res: Response
+) => {
   try {
     const {
       name,
       slug,
       description,
+      feature,
       brand,
       price,
       compareAtPrice,
@@ -137,35 +158,63 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
       isHazardous,
     } = req.body;
 
-    if (!name)    { res.status(400).json({ error: "name is required" }); return; }
-    if (!category){ res.status(400).json({ error: "category is required" }); return; }
-    if (!seller)  { res.status(400).json({ error: "seller is required" }); return; }
+    if (!name) {
+      res.status(400).json({ error: "name is required" });
+      return;
+    }
+    if (!category) {
+      res.status(400).json({ error: "category is required" });
+      return;
+    }
+    if (!seller) {
+      res.status(400).json({ error: "seller is required" });
+      return;
+    }
 
     const categoryId = ensureObjectId(category, "category");
-    const sellerId   = ensureObjectId(seller, "seller");
-    const brandId   = brand ? ensureObjectId(brand, "brand") : undefined;
+    const sellerId = ensureObjectId(seller, "seller");
+    const brandId = brand ? ensureObjectId(brand, "brand") : undefined;
 
     // Canonical identifiers (match schema)
     const canonicalSlug = slug ? slugify(slug) : slugify(name);
     const dedupeKey = [
       String(name).trim().toLowerCase(),
-      String(brand || "").trim().toLowerCase(),
+      String(brand || "")
+        .trim()
+        .toLowerCase(),
       String(categoryId),
     ].join("|");
 
     // Images (Multer + optional body URLs)
     const files = req.files as Express.Multer.File[] | undefined;
-    const uploaded = files?.length ? files.map((f) => `/uploads/${f.filename}`) : [];
+    const uploaded = files?.length
+      ? files.map((f) => `/uploads/${f.filename}`)
+      : [];
     const imageUrls: string[] = Array.isArray(req.body.images)
       ? (req.body.images as string[]).concat(uploaded)
       : uploaded;
 
-    const normTags     = parseTags(tag);
+    const normTags = parseTags(tag);
     const normVariants = normalizeVariants(variants);
-    const normAttrs    = normalizeAttributes(attributes);
-    const normSeo      = normalizeSeo(seo);
+    const normAttrs = normalizeAttributes(attributes);
+    const normSeo = normalizeSeo(seo);
 
-    const dimsObj = parseJSON<{ length?: any; width?: any; height?: any }>(dimensions, undefined as any);
+    let totalStock = 0;
+    if (Array.isArray(normVariants) && normVariants.length > 0) {
+      totalStock = normVariants.reduce((acc, v) => {
+        if (v?.inventory) {
+          const { onHand = 0, reserved = 0, safetyStock = 0 } = v.inventory;
+          // count only available (onHand - reserved - safetyStock)
+          return acc + Math.max(0, onHand - reserved - safetyStock);
+        }
+        return acc + Math.max(0, v.stock ?? 0);
+      }, 0);
+    }
+
+    const dimsObj = parseJSON<{ length?: any; width?: any; height?: any }>(
+      dimensions,
+      undefined as any
+    );
     const dims =
       dimsObj && (dimsObj.length || dimsObj.width || dimsObj.height)
         ? {
@@ -176,12 +225,20 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
         : undefined;
 
     // If variants exist, don't accept top-level price/stock (avoid redundancy drift)
-    const topLevelPrice = Array.isArray(normVariants) && normVariants.length ? undefined : toNumber(price, 0);
-    const topLevelStock = Array.isArray(normVariants) && normVariants.length ? undefined : toNumber(stock, 0);
+    const topLevelPrice =
+      Array.isArray(normVariants) && normVariants.length
+        ? undefined
+        : toNumber(price, 0);
+    const topLevelStock =
+      Array.isArray(normVariants) && normVariants.length
+        ? undefined
+        : toNumber(stock, 0);
 
     // normalize optional compare-at price
-    const rawCompare = compareAtPrice != null ? toNumber(compareAtPrice, NaN) : NaN;
-    const normCompareAtPrice = Number.isFinite(rawCompare) && rawCompare > 0 ? rawCompare : undefined;
+    const rawCompare =
+      compareAtPrice != null ? toNumber(compareAtPrice, NaN) : NaN;
+    const normCompareAtPrice =
+      Number.isFinite(rawCompare) && rawCompare > 0 ? rawCompare : undefined;
 
     // ---------- STRICT DUP CHECKS ----------
     // A) Slug or dedupeKey already exists for this seller?
@@ -197,7 +254,9 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
     if (slugOrKey) {
       res.status(409).json({
         error: "Duplicate product",
-        details: { conflictOn: slugOrKey.slug === canonicalSlug ? "slug" : "dedupeKey" },
+        details: {
+          conflictOn: slugOrKey.slug === canonicalSlug ? "slug" : "dedupeKey",
+        },
       });
       return;
     }
@@ -227,11 +286,17 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
       name: String(name).trim(),
       slug: canonicalSlug,
       description: typeof description === "string" ? description : "",
-      currency: typeof currency === "string" && currency.length ? currency.toUpperCase() : "USD",
+      feature: typeof feature === "string" ? feature : "",
+      currency:
+        typeof currency === "string" && currency.length
+          ? currency.toUpperCase()
+          : "USD",
 
       ...(topLevelPrice !== undefined ? { price: topLevelPrice } : {}),
       ...(topLevelStock !== undefined ? { stock: topLevelStock } : {}),
-      ...(normCompareAtPrice !== undefined ? { compareAtPrice: normCompareAtPrice } : {}),
+      ...(normCompareAtPrice !== undefined
+        ? { compareAtPrice: normCompareAtPrice }
+        : {}),
 
       category: categoryId,
       seller: sellerId,
@@ -257,6 +322,8 @@ export const createProduct = async (req: AuthenicationRequest, res: Response) =>
       isHazardous: isHazardous === true || isHazardous === "true",
 
       dedupeKey,
+
+      stock: totalStock,
     });
 
     // events

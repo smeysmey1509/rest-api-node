@@ -14,7 +14,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const Product_1 = __importDefault(require("../../models/Product"));
-const User_1 = __importDefault(require("../../models/User"));
 const auth_1 = require("../../middleware/auth");
 const authorizePermission_1 = require("../../middleware/authorizePermission");
 const searchProduct_controller_1 = require("../controllers/product/searchProduct.controller");
@@ -41,50 +40,6 @@ router.get("/product", auth_1.authenticateToken, (0, authorizePermission_1.autho
 }));
 //Filter Product
 router.get("/products", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("read"), listProducts_controller_1.listProducts);
-// GET /api/v1/product?limit=25&page=1
-router.get("/products", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("read"), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
-    try {
-        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
-        const user = yield User_1.default.findById(userId).lean();
-        // 🧩 Parse pagination safely
-        const defaultLimit = (user === null || user === void 0 ? void 0 : user.limit) || 25;
-        const limitParam = Number(req.query.limit);
-        const pageParam = Number(req.query.page);
-        const limit = !isNaN(limitParam) && limitParam > 0 ? limitParam : defaultLimit;
-        const page = !isNaN(pageParam) && pageParam > 0 ? pageParam : 1;
-        const skip = (page - 1) * limit;
-        // 🧩 Query products
-        const [products, total] = yield Promise.all([
-            Product_1.default.find({ isDeleted: { $ne: true } })
-                .populate("category")
-                .populate("seller")
-                .populate("brand")
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .lean(),
-            Product_1.default.countDocuments({ isDeleted: { $ne: true } }),
-        ]);
-        const totalPages = Math.ceil(total / limit);
-        // 🧩 Pagination metadata
-        res.status(200).json({
-            pagination: {
-                total,
-                page,
-                perPage: limit,
-                totalPages,
-                hasNextPage: page < totalPages,
-                hasPrevPage: page > 1,
-            },
-            products,
-        });
-    }
-    catch (err) {
-        console.error("❌ Error fetching paginated products:", err);
-        res.status(500).json({ error: "Failed to fetch products." });
-    }
-}));
 //Product by ID
 router.get("/product/:id", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("read"), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {

@@ -83,7 +83,12 @@ function parseTags(input) {
         const json = parseJSON(input, []);
         if (json.length)
             return [...new Set(json.map((t) => t.trim()).filter(Boolean))];
-        return [...new Set(input.split(",").map((t) => t.trim()).filter(Boolean))];
+        return [
+            ...new Set(input
+                .split(",")
+                .map((t) => t.trim())
+                .filter(Boolean)),
+        ];
     }
     return [];
 }
@@ -146,7 +151,7 @@ function normalizeSeo(raw) {
 const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
-        const { name, slug, description, brand, price, compareAtPrice, currency, stock, status, category, seller, tag, attributes, variants, dimensions, weight, seo, isAdult, isHazardous, } = req.body;
+        const { name, slug, description, feature, brand, price, compareAtPrice, currency, stock, status, category, seller, tag, attributes, variants, dimensions, weight, seo, isAdult, isHazardous, } = req.body;
         if (!name) {
             res.status(400).json({ error: "name is required" });
             return;
@@ -166,12 +171,16 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         const canonicalSlug = slug ? slugify(slug) : slugify(name);
         const dedupeKey = [
             String(name).trim().toLowerCase(),
-            String(brand || "").trim().toLowerCase(),
+            String(brand || "")
+                .trim()
+                .toLowerCase(),
             String(categoryId),
         ].join("|");
         // Images (Multer + optional body URLs)
         const files = req.files;
-        const uploaded = (files === null || files === void 0 ? void 0 : files.length) ? files.map((f) => `/uploads/${f.filename}`) : [];
+        const uploaded = (files === null || files === void 0 ? void 0 : files.length)
+            ? files.map((f) => `/uploads/${f.filename}`)
+            : [];
         const imageUrls = Array.isArray(req.body.images)
             ? req.body.images.concat(uploaded)
             : uploaded;
@@ -179,6 +188,18 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         const normVariants = normalizeVariants(variants);
         const normAttrs = normalizeAttributes(attributes);
         const normSeo = normalizeSeo(seo);
+        let totalStock = 0;
+        if (Array.isArray(normVariants) && normVariants.length > 0) {
+            totalStock = normVariants.reduce((acc, v) => {
+                var _a;
+                if (v === null || v === void 0 ? void 0 : v.inventory) {
+                    const { onHand = 0, reserved = 0, safetyStock = 0 } = v.inventory;
+                    // count only available (onHand - reserved - safetyStock)
+                    return acc + Math.max(0, onHand - reserved - safetyStock);
+                }
+                return acc + Math.max(0, (_a = v.stock) !== null && _a !== void 0 ? _a : 0);
+            }, 0);
+        }
         const dimsObj = parseJSON(dimensions, undefined);
         const dims = dimsObj && (dimsObj.length || dimsObj.width || dimsObj.height)
             ? {
@@ -188,8 +209,12 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             }
             : undefined;
         // If variants exist, don't accept top-level price/stock (avoid redundancy drift)
-        const topLevelPrice = Array.isArray(normVariants) && normVariants.length ? undefined : toNumber(price, 0);
-        const topLevelStock = Array.isArray(normVariants) && normVariants.length ? undefined : toNumber(stock, 0);
+        const topLevelPrice = Array.isArray(normVariants) && normVariants.length
+            ? undefined
+            : toNumber(price, 0);
+        const topLevelStock = Array.isArray(normVariants) && normVariants.length
+            ? undefined
+            : toNumber(stock, 0);
         // normalize optional compare-at price
         const rawCompare = compareAtPrice != null ? toNumber(compareAtPrice, NaN) : NaN;
         const normCompareAtPrice = Number.isFinite(rawCompare) && rawCompare > 0 ? rawCompare : undefined;
@@ -206,7 +231,9 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         if (slugOrKey) {
             res.status(409).json({
                 error: "Duplicate product",
-                details: { conflictOn: slugOrKey.slug === canonicalSlug ? "slug" : "dedupeKey" },
+                details: {
+                    conflictOn: slugOrKey.slug === canonicalSlug ? "slug" : "dedupeKey",
+                },
             });
             return;
         }
@@ -229,7 +256,11 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             }
         }
         // ---------- END DUP CHECKS ----------
-        const productDoc = yield Product_1.default.create(Object.assign(Object.assign(Object.assign(Object.assign({ name: String(name).trim(), slug: canonicalSlug, description: typeof description === "string" ? description : "", currency: typeof currency === "string" && currency.length ? currency.toUpperCase() : "USD" }, (topLevelPrice !== undefined ? { price: topLevelPrice } : {})), (topLevelStock !== undefined ? { stock: topLevelStock } : {})), (normCompareAtPrice !== undefined ? { compareAtPrice: normCompareAtPrice } : {})), { category: categoryId, seller: sellerId, brand: brandId, status: status === "Unpublished" ? "Unpublished" : "Published", tag: normTags, images: imageUrls, primaryImageIndex: 0, ratingAvg: 0, ratingCount: 0, salesCount: 0, isTrending: false, attributes: normAttrs, variants: normVariants, dimensions: dims, weight: weight != null ? toNumber(weight, 0) : 0, seo: normSeo, isAdult: isAdult === true || isAdult === "true", isHazardous: isHazardous === true || isHazardous === "true", dedupeKey }));
+        const productDoc = yield Product_1.default.create(Object.assign(Object.assign(Object.assign(Object.assign({ name: String(name).trim(), slug: canonicalSlug, description: typeof description === "string" ? description : "", feature: typeof feature === "string" ? feature : "", currency: typeof currency === "string" && currency.length
+                ? currency.toUpperCase()
+                : "USD" }, (topLevelPrice !== undefined ? { price: topLevelPrice } : {})), (topLevelStock !== undefined ? { stock: topLevelStock } : {})), (normCompareAtPrice !== undefined
+            ? { compareAtPrice: normCompareAtPrice }
+            : {})), { category: categoryId, seller: sellerId, brand: brandId, status: status === "Unpublished" ? "Unpublished" : "Published", tag: normTags, images: imageUrls, primaryImageIndex: 0, ratingAvg: 0, ratingCount: 0, salesCount: 0, isTrending: false, attributes: normAttrs, variants: normVariants, dimensions: dims, weight: weight != null ? toNumber(weight, 0) : 0, seo: normSeo, isAdult: isAdult === true || isAdult === "true", isHazardous: isHazardous === true || isHazardous === "true", dedupeKey, stock: totalStock }));
         // events
         const userInputId = (_a = req === null || req === void 0 ? void 0 : req.user) === null || _a === void 0 ? void 0 : _a.id;
         yield (0, notification_service_1.publishNotificationEvent)({

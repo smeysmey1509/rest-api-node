@@ -151,7 +151,7 @@ function normalizeSeo(raw) {
 const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     try {
-        const { name, slug, description, feature, brand, price, compareAtPrice, currency, stock, status, category, seller, tag, attributes, variants, dimensions, weight, seo, isAdult, isHazardous, } = req.body;
+        const { name, slug, description, feature, brand, productType, price, compareAtPrice, currency, stock, status, category, seller, tag, actualPrice, dealerPrice, finalPrice, attributes, variants, dimensions, weight, seo, isAdult, isHazardous, } = req.body;
         if (!name) {
             res.status(400).json({ error: "name is required" });
             return;
@@ -256,11 +256,14 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             }
         }
         // ---------- END DUP CHECKS ----------
-        const productDoc = yield Product_1.default.create(Object.assign(Object.assign(Object.assign(Object.assign({ name: String(name).trim(), slug: canonicalSlug, description: typeof description === "string" ? description : "", feature: typeof feature === "string" ? feature : "", currency: typeof currency === "string" && currency.length
+        const productDoc = yield Product_1.default.create(Object.assign(Object.assign(Object.assign(Object.assign({ name: String(name).trim(), slug: canonicalSlug, description: typeof description === "string" ? description : "", feature: typeof feature === "string" ? feature : "", productType: typeof productType === "string" ? productType : "", currency: typeof currency === "string" && currency.length
                 ? currency.toUpperCase()
                 : "USD" }, (topLevelPrice !== undefined ? { price: topLevelPrice } : {})), (topLevelStock !== undefined ? { stock: topLevelStock } : {})), (normCompareAtPrice !== undefined
             ? { compareAtPrice: normCompareAtPrice }
-            : {})), { category: categoryId, seller: sellerId, brand: brandId, status: status === "Unpublished" ? "Unpublished" : "Published", tag: normTags, images: imageUrls, primaryImageIndex: 0, ratingAvg: 0, ratingCount: 0, salesCount: 0, isTrending: false, attributes: normAttrs, variants: normVariants, dimensions: dims, weight: weight != null ? toNumber(weight, 0) : 0, seo: normSeo, isAdult: isAdult === true || isAdult === "true", isHazardous: isHazardous === true || isHazardous === "true", dedupeKey, stock: totalStock }));
+            : {})), { category: categoryId, seller: sellerId, brand: brandId, status: status === "Unpublished" ? "Unpublished" : "Published", tag: normTags, images: imageUrls, primaryImageIndex: 0, ratingAvg: 0, ratingCount: 0, salesCount: 0, isTrending: false, attributes: normAttrs, variants: normVariants, dimensions: dims, weight: weight != null ? toNumber(weight, 0) : 0, seo: normSeo, isAdult: isAdult === true || isAdult === "true", isHazardous: isHazardous === true || isHazardous === "true", dedupeKey,
+            actualPrice,
+            dealerPrice,
+            finalPrice, stock: totalStock }));
         // events
         const userInputId = (_a = req === null || req === void 0 ? void 0 : req.user) === null || _a === void 0 ? void 0 : _a.id;
         yield (0, notification_service_1.publishNotificationEvent)({

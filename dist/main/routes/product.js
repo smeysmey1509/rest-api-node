@@ -47,8 +47,7 @@ router.get("/product/:id", auth_1.authenticateToken, (0, authorizePermission_1.a
         const product = yield Product_1.default.findById(id)
             .populate("category")
             .populate("brand")
-            .populate("seller")
-            .lean();
+            .populate("seller");
         if (!product) {
             res.status(404).json({ msg: "Product not found" });
             return;

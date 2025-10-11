@@ -199,6 +199,10 @@ const ProductSchema = new mongoose_1.Schema({
     priceMin: { type: Number, min: 0, index: true },
     priceMax: { type: Number, min: 0, index: true },
     defaultPrice: { type: Number, min: 0, index: true },
+    productType: { type: String, default: "" },
+    //price
+    actualPrice: { type: Number, min: 0, index: true },
+    dealerPrice: { type: Number, min: 0, index: true },
 }, {
     timestamps: true,
     versionKey: false,
@@ -364,5 +368,26 @@ ProductSchema.index({ seller: 1, productId: 1 }, {
 ProductSchema.index({ seller: 1, slug: 1 }, { unique: true, partialFilterExpression: { isDeleted: { $ne: true } } });
 // Unique SKU per seller across variants (ignores soft-deleted)
 ProductSchema.index({ seller: 1, "variants.sku": 1 }, { unique: true, partialFilterExpression: { isDeleted: { $ne: true } } });
+// --- Virtuals: Split date and time ---
+ProductSchema.virtual("createdDate").get(function () {
+    if (!this.createdAt)
+        return null;
+    return this.createdAt.toISOString().split("T")[0]; // "YYYY-MM-DD"
+});
+ProductSchema.virtual("createdTime").get(function () {
+    if (!this.createdAt)
+        return null;
+    return this.createdAt.toISOString().split("T")[1].split(".")[0]; // "HH:MM:SS"
+});
+ProductSchema.virtual("updatedDate").get(function () {
+    if (!this.updatedAt)
+        return null;
+    return this.updatedAt.toISOString().split("T")[0];
+});
+ProductSchema.virtual("updatedTime").get(function () {
+    if (!this.updatedAt)
+        return null;
+    return this.updatedAt.toISOString().split("T")[1].split(".")[0];
+});
 const Product = mongoose_1.default.models.Product || mongoose_1.default.model("Product", ProductSchema);
 exports.default = Product;

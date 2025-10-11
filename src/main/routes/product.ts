@@ -53,7 +53,6 @@ router.get(
         .populate("category")
         .populate("brand")
         .populate("seller")
-        .lean();
 
       if (!product) {
         res.status(404).json({ msg: "Product not found" });

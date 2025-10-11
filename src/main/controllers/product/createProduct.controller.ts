@@ -141,6 +141,7 @@ export const createProduct = async (
       description,
       feature,
       brand,
+      productType,
       price,
       compareAtPrice,
       currency,
@@ -149,6 +150,9 @@ export const createProduct = async (
       category,
       seller,
       tag,
+      actualPrice,
+      dealerPrice,
+      finalPrice,
       attributes,
       variants,
       dimensions,
@@ -287,6 +291,7 @@ export const createProduct = async (
       slug: canonicalSlug,
       description: typeof description === "string" ? description : "",
       feature: typeof feature === "string" ? feature : "",
+      productType: typeof productType === "string" ? productType : "",
       currency:
         typeof currency === "string" && currency.length
           ? currency.toUpperCase()
@@ -322,6 +327,10 @@ export const createProduct = async (
       isHazardous: isHazardous === true || isHazardous === "true",
 
       dedupeKey,
+
+      actualPrice,
+      dealerPrice,
+      finalPrice,
 
       stock: totalStock,
     });

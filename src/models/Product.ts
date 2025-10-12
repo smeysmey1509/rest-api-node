@@ -16,11 +16,11 @@ export interface IInventory {
 }
 
 export interface IProductVariant {
-  sku: string;
-  price: number;
+  sku?: string;
+  price?: number;
   stock?: number;
   inventory?: IInventory;
-  attributes: Record<string, string>;
+  attributes?: Record<string, string>;
   images: string[];
   isActive?: boolean;
 }

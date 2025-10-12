@@ -117,10 +117,36 @@ const prepareVariantSummary = (variants) => variants.map((variant) => {
     });
 });
 const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f;
     try {
         const { id } = req.params;
         const body = (_a = req.body) !== null && _a !== void 0 ? _a : {};
+        // 🔹 Parse JSON strings when sent via form-data
+        const parseIfJson = (value) => {
+            if (typeof value === "string") {
+                try {
+                    return JSON.parse(value);
+                }
+                catch (_a) {
+                    return value;
+                }
+            }
+            return value;
+        };
+        // Parse these fields if they come in as JSON text
+        ["variants", "attributes", "seo", "dimensions", "tag"].forEach((field) => {
+            if (hasOwn(body, field)) {
+                body[field] = parseIfJson(body[field]);
+            }
+        });
+        if (!hasOwn(body, "variants")) {
+            if (hasOwn(body, "variant")) {
+                body.variants = body.variant;
+            }
+            else if (hasOwn(body, "varaint")) {
+                body.variants = body.varaint;
+            }
+        }
         const userId = (_b = req.user) === null || _b === void 0 ? void 0 : _b.id;
         const rawFiles = req.files;
         const files = Array.isArray(rawFiles)
@@ -240,24 +266,26 @@ const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         }
         let variantsForDoc;
         if (hasOwn(body, "variants")) {
-            variantsForDoc = (0, productNormalization_1.normalizeVariants)(body.variants);
-            const skus = variantsForDoc.map((v) => v.sku);
-            const skuSet = new Set(skus);
-            if (skuSet.size !== skus.length) {
-                res.status(400).json({ error: "Duplicate SKUs in variants payload" });
-                return;
-            }
-            productDoc.variants = variantsForDoc;
-            updatesForSummary.variants = prepareVariantSummary(variantsForDoc);
-            if (variantsForDoc.length) {
-                if (productDoc.price !== undefined) {
-                    productDoc.set("price", undefined);
-                    updatesForSummary.price = undefined;
-                }
-                if (productDoc.stock !== undefined) {
-                    productDoc.set("stock", undefined);
-                    updatesForSummary.stock = undefined;
-                }
+            const incomingVariants = Array.isArray(body.variants)
+                ? body.variants
+                : [body.variants];
+            const existingVariants = (_d = productDoc.variants) !== null && _d !== void 0 ? _d : [];
+            // ✅ Merge incoming variants into existing ones
+            const updatedVariants = existingVariants.map((variant) => {
+                var _a, _b;
+                const match = incomingVariants.find((v) => v._id === String(variant._id) || v.sku === variant.sku);
+                return match
+                    ? Object.assign(Object.assign({}, ((_b = (_a = variant.toObject) === null || _a === void 0 ? void 0 : _a.call(variant)) !== null && _b !== void 0 ? _b : variant)), match) : variant;
+            });
+            // ✅ Add new variants if any don’t exist yet
+            const newOnes = incomingVariants.filter((v) => !existingVariants.some((ex) => String(ex._id) === String(v._id) || ex.sku === v.sku));
+            const mergedVariants = [...updatedVariants, ...newOnes];
+            productDoc.variants = mergedVariants;
+            updatesForSummary.variants = prepareVariantSummary(mergedVariants);
+            // Clear top-level price/stock when using variants
+            if (mergedVariants.length) {
+                productDoc.set("price", undefined);
+                productDoc.set("stock", undefined);
             }
         }
         if (hasOwn(body, "price") && !(variantsForDoc === null || variantsForDoc === void 0 ? void 0 : variantsForDoc.length)) {
@@ -293,9 +321,7 @@ const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             else {
                 const costVal = (0, productNormalization_1.toNumber)(raw, NaN);
                 if (!Number.isFinite(costVal) || costVal < 0) {
-                    res
-                        .status(400)
-                        .json({ error: "cost must be a non-negative number" });
+                    res.status(400).json({ error: "cost must be a non-negative number" });
                     return;
                 }
                 if (productDoc.cost !== costVal) {
@@ -449,7 +475,7 @@ const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             });
             return;
         }
-        const skusToCheck = ((_d = variantsForDoc !== null && variantsForDoc !== void 0 ? variantsForDoc : productDoc.variants) !== null && _d !== void 0 ? _d : []).map((v) => v.sku);
+        const skusToCheck = ((_e = variantsForDoc !== null && variantsForDoc !== void 0 ? variantsForDoc : productDoc.variants) !== null && _e !== void 0 ? _e : []).map((v) => v.sku);
         if (skusToCheck.length) {
             const skuConflict = yield Product_1.default.findOne({
                 _id: { $ne: productDoc._id },
@@ -470,7 +496,7 @@ const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         const updatedProduct = yield productDoc.save();
         const changeSummary = detectChangedFieldsSummary(originalProduct, updatesForSummary);
         yield (0, notification_service_1.publishNotificationEvent)({
-            userId: (_e = req === null || req === void 0 ? void 0 : req.user) === null || _e === void 0 ? void 0 : _e.id,
+            userId: (_f = req === null || req === void 0 ? void 0 : req.user) === null || _f === void 0 ? void 0 : _f.id,
             title: "Edit Product",
             message: `Product ${updatedProduct === null || updatedProduct === void 0 ? void 0 : updatedProduct.name} edited. ${changeSummary}`,
             read: false,

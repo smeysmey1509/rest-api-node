@@ -130,9 +130,36 @@ export const editProduct = async (
   req: AuthenicationRequest,
   res: Response
 ): Promise<void> => {
-  try { 
+  try {
     const { id } = req.params;
     const body = req.body ?? {};
+
+    // 🔹 Parse JSON strings when sent via form-data
+    const parseIfJson = (value: any) => {
+      if (typeof value === "string") {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return value;
+        }
+      }
+      return value;
+    };
+
+    // Parse these fields if they come in as JSON text
+    ["variants", "attributes", "seo", "dimensions", "tag"].forEach((field) => {
+      if (hasOwn(body, field)) {
+        body[field] = parseIfJson(body[field]);
+      }
+    });
+
+    if (!hasOwn(body, "variants")) {
+      if (hasOwn(body, "variant")) {
+        body.variants = body.variant;
+      } else if (hasOwn(body, "varaint")) {
+        body.variants = body.varaint;
+      }
+    }
     const userId = req.user?.id;
     const rawFiles = req.files;
     const files: Express.Multer.File[] = Array.isArray(rawFiles)
@@ -272,25 +299,39 @@ export const editProduct = async (
 
     let variantsForDoc: any[] | undefined;
     if (hasOwn(body, "variants")) {
-      variantsForDoc = normalizeVariants(body.variants);
-      const skus = variantsForDoc.map((v) => v.sku);
-      const skuSet = new Set(skus);
-      if (skuSet.size !== skus.length) {
-        res.status(400).json({ error: "Duplicate SKUs in variants payload" });
-        return;
-      }
-      productDoc.variants = variantsForDoc as any;
-      updatesForSummary.variants = prepareVariantSummary(variantsForDoc);
+      const incomingVariants = Array.isArray(body.variants)
+        ? body.variants
+        : [body.variants];
 
-      if (variantsForDoc.length) {
-        if (productDoc.price !== undefined) {
-          productDoc.set("price", undefined);
-          updatesForSummary.price = undefined;
-        }
-        if (productDoc.stock !== undefined) {
-          productDoc.set("stock", undefined);
-          updatesForSummary.stock = undefined;
-        }
+      const existingVariants = productDoc.variants ?? [];
+
+      // ✅ Merge incoming variants into existing ones
+      const updatedVariants = existingVariants.map((variant: any) => {
+        const match = incomingVariants.find(
+          (v: any) => v._id === String(variant._id) || v.sku === variant.sku
+        );
+        return match
+          ? { ...(variant.toObject?.() ?? variant), ...match }
+          : variant;
+      });
+
+      // ✅ Add new variants if any don’t exist yet
+      const newOnes = incomingVariants.filter(
+        (v: any) =>
+          !existingVariants.some(
+            (ex: any) => String(ex._id) === String(v._id) || ex.sku === v.sku
+          )
+      );
+
+      const mergedVariants = [...updatedVariants, ...newOnes];
+
+      productDoc.variants = mergedVariants as any;
+      updatesForSummary.variants = prepareVariantSummary(mergedVariants);
+
+      // Clear top-level price/stock when using variants
+      if (mergedVariants.length) {
+        productDoc.set("price", undefined);
+        productDoc.set("stock", undefined);
       }
     }
 
@@ -326,9 +367,7 @@ export const editProduct = async (
       } else {
         const costVal = toNumber(raw, NaN);
         if (!Number.isFinite(costVal) || costVal < 0) {
-          res
-            .status(400)
-            .json({ error: "cost must be a non-negative number" });
+          res.status(400).json({ error: "cost must be a non-negative number" });
           return;
         }
         if (productDoc.cost !== costVal) {

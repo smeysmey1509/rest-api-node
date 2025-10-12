@@ -130,7 +130,7 @@ export const editProduct = async (
   req: AuthenicationRequest,
   res: Response
 ): Promise<void> => {
-  try {
+  try { 
     const { id } = req.params;
     const body = req.body ?? {};
     const userId = req.user?.id;

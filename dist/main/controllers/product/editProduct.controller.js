@@ -274,13 +274,23 @@ const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             const updatedVariants = existingVariants.map((variant) => {
                 var _a, _b;
                 const match = incomingVariants.find((v) => v._id === String(variant._id) || v.sku === variant.sku);
-                return match
-                    ? Object.assign(Object.assign({}, ((_b = (_a = variant.toObject) === null || _a === void 0 ? void 0 : _a.call(variant)) !== null && _b !== void 0 ? _b : variant)), match) : variant;
+                if (!match) {
+                    return variant;
+                }
+                const base = (_b = (_a = variant.toObject) === null || _a === void 0 ? void 0 : _a.call(variant)) !== null && _b !== void 0 ? _b : variant;
+                const merged = Object.assign({}, base);
+                Object.entries(match).forEach(([key, value]) => {
+                    if (value !== undefined) {
+                        merged[key] = value;
+                    }
+                });
+                return merged;
             });
             // ✅ Add new variants if any don’t exist yet
             const newOnes = incomingVariants.filter((v) => !existingVariants.some((ex) => String(ex._id) === String(v._id) || ex.sku === v.sku));
             const mergedVariants = [...updatedVariants, ...newOnes];
             productDoc.variants = mergedVariants;
+            variantsForDoc = mergedVariants;
             updatesForSummary.variants = prepareVariantSummary(mergedVariants);
             // Clear top-level price/stock when using variants
             if (mergedVariants.length) {

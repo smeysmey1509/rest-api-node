@@ -310,9 +310,20 @@ export const editProduct = async (
         const match = incomingVariants.find(
           (v: any) => v._id === String(variant._id) || v.sku === variant.sku
         );
-        return match
-          ? { ...(variant.toObject?.() ?? variant), ...match }
-          : variant;
+        if (!match) {
+          return variant;
+        }
+
+        const base = variant.toObject?.() ?? variant;
+        const merged = { ...base } as Record<string, any>;
+
+        Object.entries(match).forEach(([key, value]) => {
+          if (value !== undefined) {
+            merged[key] = value;
+          }
+        });
+
+        return merged;
       });
 
       // ✅ Add new variants if any don’t exist yet
@@ -326,6 +337,7 @@ export const editProduct = async (
       const mergedVariants = [...updatedVariants, ...newOnes];
 
       productDoc.variants = mergedVariants as any;
+      variantsForDoc = mergedVariants;
       updatesForSummary.variants = prepareVariantSummary(mergedVariants);
 
       // Clear top-level price/stock when using variants

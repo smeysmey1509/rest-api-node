@@ -62,7 +62,7 @@ router.get("/product/:id", auth_1.authenticateToken, (0, authorizePermission_1.a
 //POST /api/v1/products - Create new product
 router.post("/product", upload_1.upload.array("images"), auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("create"), createProduct_controller_1.createProduct);
 //PATCH /api/v1/products/id - Edit Product partial by ID
-router.patch("/product/:id", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("update"), editProduct_controller_1.editProduct);
+router.patch("/product/:id", upload_1.upload.array("images"), auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("update"), editProduct_controller_1.editProduct);
 // DELETE /api/v1/products/delete/:id - Delete Product by ID
 router.delete("/product/delete/:id", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("delete"), deleteProductById_controller_1.deleteProductById);
 //Multi Delete /api/v1/products/delete - Multi Delete Product by ID

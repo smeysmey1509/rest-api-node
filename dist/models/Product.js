@@ -124,7 +124,7 @@ const ProductSchema = new mongoose_1.Schema({
         default: "USD",
         uppercase: true,
         minlength: 3,
-        maxlength: 3,
+        maxlength: 6,
     },
     // inventory (legacy top-level)
     stock: {

@@ -65,17 +65,44 @@ const normalizeBoolean = (value) => {
     }
     return undefined;
 };
+const dedupeStringArray = (values) => {
+    const seen = new Set();
+    const result = [];
+    for (const raw of values) {
+        const str = String(raw !== null && raw !== void 0 ? raw : "").trim();
+        if (!str.length || seen.has(str))
+            continue;
+        seen.add(str);
+        result.push(str);
+    }
+    return result;
+};
 const toImageArray = (input) => {
-    if (Array.isArray(input))
-        return input.map((img) => String(img));
-    if (typeof input === "string" && input.trim().length) {
-        const parsed = (0, productNormalization_1.parseJSON)(input, []);
+    if (Array.isArray(input)) {
+        return dedupeStringArray(input.map((img) => String(img)));
+    }
+    if (typeof input === "string") {
+        const trimmed = input.trim();
+        if (!trimmed.length)
+            return [];
+        const parsed = (0, productNormalization_1.parseJSON)(trimmed, []);
         if (Array.isArray(parsed) && parsed.length) {
-            return parsed.map((img) => String(img));
+            return dedupeStringArray(parsed.map((img) => String(img)));
         }
-        return [input];
+        if (trimmed.includes(",") &&
+            !trimmed.includes("://") &&
+            !/^data:/i.test(trimmed)) {
+            const splitted = trimmed.split(",").map((img) => img.trim());
+            return dedupeStringArray(splitted);
+        }
+        return dedupeStringArray([trimmed]);
     }
     return [];
+};
+const areStringArraysEqual = (a, b) => {
+    if (a.length !== b.length)
+        return false;
+    return a.every((value, index) => value === b[index]);
 };
 const prepareVariantSummary = (variants) => variants.map((variant) => {
     var _a;
@@ -90,16 +117,29 @@ const prepareVariantSummary = (variants) => variants.map((variant) => {
     });
 });
 const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e;
     try {
         const { id } = req.params;
         const body = (_a = req.body) !== null && _a !== void 0 ? _a : {};
         const userId = (_b = req.user) === null || _b === void 0 ? void 0 : _b.id;
+        const rawFiles = req.files;
+        const files = Array.isArray(rawFiles)
+            ? rawFiles
+            : rawFiles && typeof rawFiles === "object"
+                ? Object.values(rawFiles).reduce((acc, value) => {
+                    if (Array.isArray(value)) {
+                        acc.push(...value);
+                    }
+                    return acc;
+                }, [])
+                : [];
+        const uploadedImagePaths = files.map((file) => `/uploads/${file.filename}`);
         const productDoc = yield Product_1.default.findById(id);
         if (!productDoc) {
             res.status(404).json({ msg: "Product not found" });
             return;
         }
+        const originalPrimaryImageIndex = (_c = productDoc.primaryImageIndex) !== null && _c !== void 0 ? _c : 0;
         const originalProduct = productDoc.toObject({
             depopulate: true,
             flattenMaps: true,
@@ -317,16 +357,38 @@ const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
                 updatesForSummary.isHazardous = bool;
             }
         }
-        if (hasOwn(body, "images")) {
-            const images = toImageArray(body.images);
-            productDoc.images = images;
-            updatesForSummary.images = images;
+        if (hasOwn(body, "images") || uploadedImagePaths.length) {
+            const existingImages = Array.isArray(productDoc.images)
+                ? productDoc.images.map((img) => String(img))
+                : [];
+            const baseImages = hasOwn(body, "images")
+                ? toImageArray(body.images)
+                : existingImages;
+            const combinedImages = dedupeStringArray([
+                ...baseImages,
+                ...uploadedImagePaths,
+            ]);
+            if (!areStringArraysEqual(combinedImages, existingImages)) {
+                productDoc.images = combinedImages;
+                updatesForSummary.images = combinedImages;
+                const nextPrimaryIndex = combinedImages.length
+                    ? Math.min(originalPrimaryImageIndex, combinedImages.length - 1)
+                    : 0;
+                if (nextPrimaryIndex !== productDoc.primaryImageIndex) {
+                    productDoc.primaryImageIndex = nextPrimaryIndex;
+                    updatesForSummary.primaryImageIndex = nextPrimaryIndex;
+                }
+            }
         }
         if (hasOwn(body, "primaryImageIndex")) {
             const idx = Math.max(0, Math.floor((0, productNormalization_1.toNumber)(body.primaryImageIndex, 0)));
-            if (idx !== productDoc.primaryImageIndex) {
-                productDoc.primaryImageIndex = idx;
-                updatesForSummary.primaryImageIndex = idx;
+            const totalImages = Array.isArray(productDoc.images)
+                ? productDoc.images.length
+                : 0;
+            const safeIdx = totalImages ? Math.min(idx, totalImages - 1) : 0;
+            if (safeIdx !== productDoc.primaryImageIndex) {
+                productDoc.primaryImageIndex = safeIdx;
+                updatesForSummary.primaryImageIndex = safeIdx;
             }
         }
         if (hasOwn(body, "isTrending")) {
@@ -365,7 +427,7 @@ const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             });
             return;
         }
-        const skusToCheck = ((_c = variantsForDoc !== null && variantsForDoc !== void 0 ? variantsForDoc : productDoc.variants) !== null && _c !== void 0 ? _c : []).map((v) => v.sku);
+        const skusToCheck = ((_d = variantsForDoc !== null && variantsForDoc !== void 0 ? variantsForDoc : productDoc.variants) !== null && _d !== void 0 ? _d : []).map((v) => v.sku);
         if (skusToCheck.length) {
             const skuConflict = yield Product_1.default.findOne({
                 _id: { $ne: productDoc._id },
@@ -386,7 +448,7 @@ const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         const updatedProduct = yield productDoc.save();
         const changeSummary = detectChangedFieldsSummary(originalProduct, updatesForSummary);
         yield (0, notification_service_1.publishNotificationEvent)({
-            userId: (_d = req === null || req === void 0 ? void 0 : req.user) === null || _d === void 0 ? void 0 : _d.id,
+            userId: (_e = req === null || req === void 0 ? void 0 : req.user) === null || _e === void 0 ? void 0 : _e.id,
             title: "Edit Product",
             message: `Product ${updatedProduct === null || updatedProduct === void 0 ? void 0 : updatedProduct.name} edited. ${changeSummary}`,
             read: false,

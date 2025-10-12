@@ -79,6 +79,7 @@ router.post(
 //PATCH /api/v1/products/id - Edit Product partial by ID
 router.patch(
   "/product/:id",
+  upload.array("images"),
   authenticateToken,
   authorizePermission("update"),
   editProduct

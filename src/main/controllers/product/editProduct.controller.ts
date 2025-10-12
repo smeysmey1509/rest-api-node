@@ -69,16 +69,50 @@ const normalizeBoolean = (value: unknown): boolean | undefined => {
   return undefined;
 };
 
+const dedupeStringArray = (values: string[]): string[] => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const raw of values) {
+    const str = String(raw ?? "").trim();
+    if (!str.length || seen.has(str)) continue;
+    seen.add(str);
+    result.push(str);
+  }
+
+  return result;
+};
+
 const toImageArray = (input: unknown): string[] => {
-  if (Array.isArray(input)) return input.map((img) => String(img));
-  if (typeof input === "string" && input.trim().length) {
-    const parsed = parseJSON<string[]>(input, []);
+  if (Array.isArray(input)) {
+    return dedupeStringArray(input.map((img) => String(img)));
+  }
+
+  if (typeof input === "string") {
+    const trimmed = input.trim();
+    if (!trimmed.length) return [];
+
+    const parsed = parseJSON<string[]>(trimmed, []);
     if (Array.isArray(parsed) && parsed.length) {
-      return parsed.map((img) => String(img));
+      return dedupeStringArray(parsed.map((img) => String(img)));
     }
-    return [input];
+    if (
+      trimmed.includes(",") &&
+      !trimmed.includes("://") &&
+      !/^data:/i.test(trimmed)
+    ) {
+      const splitted = trimmed.split(",").map((img) => img.trim());
+      return dedupeStringArray(splitted);
+    }
+
+    return dedupeStringArray([trimmed]);
   }
   return [];
+};
+
+const areStringArraysEqual = (a: string[], b: string[]): boolean => {
+  if (a.length !== b.length) return false;
+  return a.every((value, index) => value === b[index]);
 };
 
 const prepareVariantSummary = (variants: any[]) =>
@@ -100,6 +134,18 @@ export const editProduct = async (
     const { id } = req.params;
     const body = req.body ?? {};
     const userId = req.user?.id;
+    const rawFiles = req.files;
+    const files: Express.Multer.File[] = Array.isArray(rawFiles)
+      ? rawFiles
+      : rawFiles && typeof rawFiles === "object"
+      ? Object.values(rawFiles).reduce<Express.Multer.File[]>((acc, value) => {
+          if (Array.isArray(value)) {
+            acc.push(...value);
+          }
+          return acc;
+        }, [])
+      : [];
+    const uploadedImagePaths = files.map((file) => `/uploads/${file.filename}`);
 
     const productDoc = await Product.findById(id);
 
@@ -107,6 +153,8 @@ export const editProduct = async (
       res.status(404).json({ msg: "Product not found" });
       return;
     }
+
+    const originalPrimaryImageIndex = productDoc.primaryImageIndex ?? 0;
 
     const originalProduct = productDoc.toObject({
       depopulate: true,
@@ -347,17 +395,42 @@ export const editProduct = async (
       }
     }
 
-    if (hasOwn(body, "images")) {
-      const images = toImageArray(body.images);
-      productDoc.images = images;
-      updatesForSummary.images = images;
+    if (hasOwn(body, "images") || uploadedImagePaths.length) {
+      const existingImages = Array.isArray(productDoc.images)
+        ? productDoc.images.map((img) => String(img))
+        : [];
+      const baseImages = hasOwn(body, "images")
+        ? toImageArray(body.images)
+        : existingImages;
+      const combinedImages = dedupeStringArray([
+        ...baseImages,
+        ...uploadedImagePaths,
+      ]);
+
+      if (!areStringArraysEqual(combinedImages, existingImages)) {
+        productDoc.images = combinedImages;
+        updatesForSummary.images = combinedImages;
+
+        const nextPrimaryIndex = combinedImages.length
+          ? Math.min(originalPrimaryImageIndex, combinedImages.length - 1)
+          : 0;
+
+        if (nextPrimaryIndex !== productDoc.primaryImageIndex) {
+          productDoc.primaryImageIndex = nextPrimaryIndex;
+          updatesForSummary.primaryImageIndex = nextPrimaryIndex;
+        }
+      }
     }
 
     if (hasOwn(body, "primaryImageIndex")) {
       const idx = Math.max(0, Math.floor(toNumber(body.primaryImageIndex, 0)));
-      if (idx !== productDoc.primaryImageIndex) {
-        productDoc.primaryImageIndex = idx;
-        updatesForSummary.primaryImageIndex = idx;
+      const totalImages = Array.isArray(productDoc.images)
+        ? productDoc.images.length
+        : 0;
+      const safeIdx = totalImages ? Math.min(idx, totalImages - 1) : 0;
+      if (safeIdx !== productDoc.primaryImageIndex) {
+        productDoc.primaryImageIndex = safeIdx;
+        updatesForSummary.primaryImageIndex = safeIdx;
       }
     }
 

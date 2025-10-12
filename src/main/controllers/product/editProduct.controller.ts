@@ -316,6 +316,28 @@ export const editProduct = async (
       }
     }
 
+    if (hasOwn(body, "cost")) {
+      const raw = body.cost;
+      if (raw === null || raw === "") {
+        if (productDoc.cost !== undefined) {
+          productDoc.set("cost", undefined);
+          updatesForSummary.cost = undefined;
+        }
+      } else {
+        const costVal = toNumber(raw, NaN);
+        if (!Number.isFinite(costVal) || costVal < 0) {
+          res
+            .status(400)
+            .json({ error: "cost must be a non-negative number" });
+          return;
+        }
+        if (productDoc.cost !== costVal) {
+          productDoc.cost = costVal;
+          updatesForSummary.cost = costVal;
+        }
+      }
+    }
+
     if (hasOwn(body, "stock") && !variantsForDoc?.length) {
       const raw = body.stock;
       if (raw === null || raw === "") {

@@ -153,6 +153,7 @@ export const createProduct = async (
       actualPrice,
       dealerPrice,
       finalPrice,
+      cost,
       attributes,
       variants,
       dimensions,
@@ -286,6 +287,16 @@ export const createProduct = async (
     }
     // ---------- END DUP CHECKS ----------
 
+    let normalizedCost: number | undefined;
+    if (cost !== undefined && cost !== null && cost !== "") {
+      const parsedCost = Number(cost);
+      if (!Number.isFinite(parsedCost) || parsedCost < 0) {
+        res.status(400).json({ error: "cost must be a non-negative number" });
+        return;
+      }
+      normalizedCost = parsedCost;
+    }
+
     const productDoc = await Product.create({
       name: String(name).trim(),
       slug: canonicalSlug,
@@ -331,6 +342,7 @@ export const createProduct = async (
       actualPrice,
       dealerPrice,
       finalPrice,
+      ...(normalizedCost !== undefined ? { cost: normalizedCost } : {}),
 
       stock: totalStock,
     });

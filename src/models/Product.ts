@@ -80,7 +80,7 @@ export interface IProduct extends Document {
   // derived (stored for fast list/filter)
   priceMin?: number;
   priceMax?: number;
-  defaultPrice?: number; // usually == priceMin when variants exist
+  cost?: number;
 
   // virtuals (not stored)
   primaryImage?: string | null;
@@ -291,7 +291,7 @@ const ProductSchema = new Schema<IProduct>(
     // ======= NEW: stored summary prices for fast listing/filtering =======
     priceMin: { type: Number, min: 0, index: true },
     priceMax: { type: Number, min: 0, index: true },
-    defaultPrice: { type: Number, min: 0, index: true },
+    cost: { type: Number, min: 0, index: true },
 
     productType: { type: String, default: "" },
 
@@ -330,17 +330,17 @@ function recomputePriceSummaries(doc: any) {
     const max = Math.max(...prices);
     doc.priceMin = min;
     doc.priceMax = max;
-    doc.defaultPrice = min; // business rule: default is the entry price
+    doc.cost = min;
   } else {
     // no variants → mirror legacy top-level price if available, else unset
     if (typeof doc.price === "number") {
       doc.priceMin = doc.price;
       doc.priceMax = doc.price;
-      doc.defaultPrice = doc.price;
+      doc.cost = doc.price;
     } else {
       doc.priceMin = undefined;
       doc.priceMax = undefined;
-      doc.defaultPrice = undefined;
+      doc.cost = undefined;
     }
   }
 }

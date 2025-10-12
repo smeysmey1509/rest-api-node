@@ -126,6 +126,102 @@ const prepareVariantSummary = (variants: any[]) =>
     isActive: variant.isActive,
   }));
 
+const coerceIdentifier = (value: unknown): string | undefined => {
+  if (value === undefined || value === null) return undefined;
+  const str = String(value).trim();
+  return str.length ? str : undefined;
+};
+
+const variantIndexKeys = [
+  "variantIndex",
+  "index",
+  "position",
+  "order",
+  "idx",
+  "variantPosition",
+];
+
+const parseVariantIndexHint = (
+  variant: Record<string, any>
+): number | undefined => {
+  for (const key of variantIndexKeys) {
+    if (variant[key] === undefined || variant[key] === null) continue;
+    const parsed = Number(variant[key]);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return undefined;
+};
+
+const toAttributesMap = (value: unknown): Map<string, string> | undefined => {
+  if (value === undefined) return undefined;
+  if (value === null) return new Map();
+  if (value instanceof Map) {
+    return new Map(
+      Array.from(value.entries()).map(([key, val]) => [
+        String(key),
+        String(val ?? ""),
+      ])
+    );
+  }
+
+  if (Array.isArray(value)) {
+    const obj: Record<string, unknown> = {};
+    for (const entry of value) {
+      if (!entry) continue;
+      if (Array.isArray(entry) && entry.length >= 2) {
+        const [key, val] = entry;
+        if (key !== undefined) obj[String(key)] = val;
+        continue;
+      }
+      if (typeof entry === "object") {
+        const key =
+          (entry as any).key ??
+          (entry as any).name ??
+          (entry as any).label ??
+          (entry as any).attribute ??
+          (entry as any).attributeName;
+        if (key !== undefined) {
+          const val =
+            (entry as any).value ??
+            (entry as any).val ??
+            (entry as any).option ??
+            (entry as any).attributeValue;
+          obj[String(key)] = val;
+        }
+      }
+    }
+    const normalized = normalizeAttributes(obj);
+    return new Map(
+      Object.entries(normalized).map(([key, val]) => [key, String(val ?? "")])
+    );
+  }
+
+  const normalized = normalizeAttributes(value);
+  return new Map(
+    Object.entries(normalized).map(([key, val]) => [key, String(val ?? "")])
+  );
+};
+
+const buildAttributesKey = (value: unknown): string | undefined => {
+  const map = toAttributesMap(value);
+  if (!map) return undefined;
+  const entries = Array.from(map.entries());
+  if (!entries.length) return undefined;
+  entries.sort(([a], [b]) => a.localeCompare(b));
+  return entries.map(([key, val]) => `${key}:${val}`).join("|");
+};
+
+type IncomingVariantEntry = {
+  raw: Record<string, any>;
+  index: number;
+  id?: string;
+  sku?: string;
+  indexHint?: number;
+  attrKey?: string;
+};
+
 export const editProduct = async (
   req: AuthenicationRequest,
   res: Response
@@ -299,42 +395,205 @@ export const editProduct = async (
 
     let variantsForDoc: any[] | undefined;
     if (hasOwn(body, "variants")) {
-      const incomingVariants = Array.isArray(body.variants)
+      const rawIncoming = Array.isArray(body.variants)
         ? body.variants
         : [body.variants];
 
+      const incomingEntries: IncomingVariantEntry[] = rawIncoming
+        .map(
+          (variant: any, index: number): IncomingVariantEntry | undefined => {
+            if (!variant || typeof variant !== "object") return undefined;
+            const record = variant as Record<string, any>;
+            const id = coerceIdentifier(
+              record._id ?? record.id ?? record.variantId ?? record.variant_id
+            );
+            const sku = coerceIdentifier(
+              record.sku ??
+                record.SKU ??
+                record.variantSku ??
+                record.variantSKU ??
+                record.variant_sku
+            );
+            const indexHint = parseVariantIndexHint(record);
+            const attrKey = buildAttributesKey(
+              record.attributes ??
+                record.attrs ??
+                record.attributeValues ??
+                record.variantAttributes
+            );
+
+            return {
+              raw: { ...record },
+              index,
+              id,
+              sku,
+              indexHint,
+              attrKey,
+            };
+          }
+        )
+        .filter(
+          (
+            entry: IncomingVariantEntry | undefined
+          ): entry is IncomingVariantEntry => Boolean(entry)
+        );
+
       const existingVariants = productDoc.variants ?? [];
+      const consumed = new Set<number>();
 
       // ✅ Merge incoming variants into existing ones
-      const updatedVariants = existingVariants.map((variant: any) => {
-        const match = incomingVariants.find(
-          (v: any) => v._id === String(variant._id) || v.sku === variant.sku
+      const takeMatch = (
+        predicate: (entry: IncomingVariantEntry) => boolean
+      ): IncomingVariantEntry | undefined => {
+        const match = incomingEntries.find(
+          (entry) => !consumed.has(entry.index) && predicate(entry)
         );
-        if (!match) {
-          return variant;
+
+        if (match) {
+          consumed.add(match.index);
         }
+        return match;
+      };
 
-        const base = variant.toObject?.() ?? variant;
-        const merged = { ...base } as Record<string, any>;
+      const updatedVariants = existingVariants.map(
+        (variant: any, variantIndex: number) => {
+          const variantId = coerceIdentifier(variant?._id);
+          const variantSku = coerceIdentifier(variant?.sku);
+          const variantAttrKey = buildAttributesKey(variant?.attributes);
 
-        Object.entries(match).forEach(([key, value]) => {
-          if (value !== undefined) {
-            merged[key] = value;
+          let matchEntry =
+            takeMatch(
+              (entry) => !!entry.id && !!variantId && entry.id === variantId
+            ) ||
+            takeMatch(
+              (entry) => !!entry.sku && !!variantSku && entry.sku === variantSku
+            );
+
+          if (!matchEntry) {
+            matchEntry = takeMatch(
+              (entry) =>
+                entry.indexHint !== undefined &&
+                entry.indexHint === variantIndex
+            );
           }
-        });
+          if (!matchEntry && variantAttrKey) {
+            matchEntry = takeMatch(
+              (entry) => !!entry.attrKey && entry.attrKey === variantAttrKey
+            );
+          }
+          if (
+            !matchEntry &&
+            incomingEntries.length === existingVariants.length
+          ) {
+            matchEntry = takeMatch((entry) => entry.index === variantIndex);
+          }
+          if (
+            !matchEntry &&
+            existingVariants.length === 1 &&
+            incomingEntries.length === 1
+          ) {
+            matchEntry = takeMatch(() => true);
+          }
 
-        return merged;
-      });
+          if (!matchEntry) {
+            return variant;
+          }
 
-      // ✅ Add new variants if any don’t exist yet
-      const newOnes = incomingVariants.filter(
-        (v: any) =>
-          !existingVariants.some(
-            (ex: any) => String(ex._id) === String(v._id) || ex.sku === v.sku
-          )
+          const incoming = matchEntry.raw;
+          const base = variant.toObject?.() ?? variant;
+          const merged = { ...base } as Record<string, any>;
+
+          if (incoming.sku !== undefined) {
+            const newSku = coerceIdentifier(incoming.sku);
+            if (newSku !== undefined) {
+              merged.sku = newSku;
+            }
+          }
+
+          if (incoming.price !== undefined) {
+            const priceVal = toNumber(incoming.price, NaN);
+            if (Number.isFinite(priceVal) && priceVal >= 0) {
+              merged.price = priceVal;
+            }
+          }
+
+          if (incoming.stock !== undefined) {
+            if (incoming.stock === null) {
+              merged.stock = undefined;
+            } else {
+              const stockVal = toNumber(incoming.stock, NaN);
+              if (Number.isFinite(stockVal) && stockVal >= 0) {
+                merged.stock = stockVal;
+              }
+            }
+          }
+
+          // ✅ Add new variants if any don’t exist yet
+
+          if (incoming.inventory !== undefined) {
+            if (incoming.inventory === null) {
+              merged.inventory = undefined;
+            } else if (typeof incoming.inventory === "object") {
+              const currentInventory = base.inventory ?? {};
+              const nextInventory = { ...currentInventory } as Record<
+                string,
+                any
+              >;
+              const inv = incoming.inventory as Record<string, any>;
+              if (Object.prototype.hasOwnProperty.call(inv, "onHand")) {
+                nextInventory.onHand = toNumber(
+                  inv.onHand,
+                  toNumber(currentInventory?.onHand, 0)
+                );
+              }
+              if (Object.prototype.hasOwnProperty.call(inv, "reserved")) {
+                nextInventory.reserved = toNumber(
+                  inv.reserved,
+                  toNumber(currentInventory?.reserved, 0)
+                );
+              }
+              if (Object.prototype.hasOwnProperty.call(inv, "safetyStock")) {
+                nextInventory.safetyStock = toNumber(
+                  inv.safetyStock,
+                  toNumber(currentInventory?.safetyStock, 0)
+                );
+              }
+              merged.inventory = nextInventory;
+            }
+          }
+
+          if (incoming.attributes !== undefined) {
+            const attrsMap = toAttributesMap(incoming.attributes);
+            merged.attributes = attrsMap ?? new Map();
+          }
+
+          if (incoming.images !== undefined) {
+            if (incoming.images === null) {
+              merged.images = [];
+            } else {
+              merged.images = toImageArray(incoming.images);
+            }
+          }
+
+          if (incoming.isActive !== undefined) {
+            const boolVal = normalizeBoolean(incoming.isActive);
+            if (boolVal !== undefined) {
+              merged.isActive = boolVal;
+            }
+          }
+
+          return merged;
+        }
       );
 
-      const mergedVariants = [...updatedVariants, ...newOnes];
+      const newVariantEntries = incomingEntries.filter(
+        (entry) => !consumed.has(entry.index)
+      );
+      const newVariants = normalizeVariants(
+        newVariantEntries.map((entry) => entry.raw)
+      );
+
+      const mergedVariants = [...updatedVariants, ...newVariants];
 
       productDoc.variants = mergedVariants as any;
       variantsForDoc = mergedVariants;
@@ -553,9 +812,9 @@ export const editProduct = async (
       return;
     }
 
-    const skusToCheck = (variantsForDoc ?? productDoc.variants ?? []).map(
-      (v: any) => v.sku
-    );
+    const skusToCheck = (variantsForDoc ?? productDoc.variants ?? [])
+      .map((v: any) => coerceIdentifier(v.sku))
+      .filter((sku): sku is string => Boolean(sku));
     if (skusToCheck.length) {
       const skuConflict = await Product.findOne({
         _id: { $ne: productDoc._id },

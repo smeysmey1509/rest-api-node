@@ -116,6 +116,78 @@ const prepareVariantSummary = (variants) => variants.map((variant) => {
         isActive: variant.isActive,
     });
 });
+const coerceIdentifier = (value) => {
+    if (value === undefined || value === null)
+        return undefined;
+    const str = String(value).trim();
+    return str.length ? str : undefined;
+};
+const variantIndexKeys = [
+    "variantIndex",
+    "index",
+    "position",
+    "order",
+    "idx",
+    "variantPosition",
+];
+const parseVariantIndexHint = (variant) => {
+    for (const key of variantIndexKeys) {
+        if (variant[key] === undefined || variant[key] === null)
+            continue;
+        const parsed = Number(variant[key]);
+        if (Number.isFinite(parsed)) {
+            return parsed;
+        }
+    }
+    return undefined;
+};
+const toAttributesMap = (value) => {
+    var _a, _b, _c, _d, _e, _f, _g;
+    if (value === undefined)
+        return undefined;
+    if (value === null)
+        return new Map();
+    if (value instanceof Map) {
+        return new Map(Array.from(value.entries()).map(([key, val]) => [
+            String(key),
+            String(val !== null && val !== void 0 ? val : ""),
+        ]));
+    }
+    if (Array.isArray(value)) {
+        const obj = {};
+        for (const entry of value) {
+            if (!entry)
+                continue;
+            if (Array.isArray(entry) && entry.length >= 2) {
+                const [key, val] = entry;
+                if (key !== undefined)
+                    obj[String(key)] = val;
+                continue;
+            }
+            if (typeof entry === "object") {
+                const key = (_d = (_c = (_b = (_a = entry.key) !== null && _a !== void 0 ? _a : entry.name) !== null && _b !== void 0 ? _b : entry.label) !== null && _c !== void 0 ? _c : entry.attribute) !== null && _d !== void 0 ? _d : entry.attributeName;
+                if (key !== undefined) {
+                    const val = (_g = (_f = (_e = entry.value) !== null && _e !== void 0 ? _e : entry.val) !== null && _f !== void 0 ? _f : entry.option) !== null && _g !== void 0 ? _g : entry.attributeValue;
+                    obj[String(key)] = val;
+                }
+            }
+        }
+        const normalized = (0, productNormalization_1.normalizeAttributes)(obj);
+        return new Map(Object.entries(normalized).map(([key, val]) => [key, String(val !== null && val !== void 0 ? val : "")]));
+    }
+    const normalized = (0, productNormalization_1.normalizeAttributes)(value);
+    return new Map(Object.entries(normalized).map(([key, val]) => [key, String(val !== null && val !== void 0 ? val : "")]));
+};
+const buildAttributesKey = (value) => {
+    const map = toAttributesMap(value);
+    if (!map)
+        return undefined;
+    const entries = Array.from(map.entries());
+    if (!entries.length)
+        return undefined;
+    entries.sort(([a], [b]) => a.localeCompare(b));
+    return entries.map(([key, val]) => `${key}:${val}`).join("|");
+};
 const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c, _d, _e, _f;
     try {
@@ -266,29 +338,135 @@ const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         }
         let variantsForDoc;
         if (hasOwn(body, "variants")) {
-            const incomingVariants = Array.isArray(body.variants)
+            const rawIncoming = Array.isArray(body.variants)
                 ? body.variants
                 : [body.variants];
+            const incomingEntries = rawIncoming
+                .map((variant, index) => {
+                var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+                if (!variant || typeof variant !== "object")
+                    return undefined;
+                const record = variant;
+                const id = coerceIdentifier((_c = (_b = (_a = record._id) !== null && _a !== void 0 ? _a : record.id) !== null && _b !== void 0 ? _b : record.variantId) !== null && _c !== void 0 ? _c : record.variant_id);
+                const sku = coerceIdentifier((_g = (_f = (_e = (_d = record.sku) !== null && _d !== void 0 ? _d : record.SKU) !== null && _e !== void 0 ? _e : record.variantSku) !== null && _f !== void 0 ? _f : record.variantSKU) !== null && _g !== void 0 ? _g : record.variant_sku);
+                const indexHint = parseVariantIndexHint(record);
+                const attrKey = buildAttributesKey((_k = (_j = (_h = record.attributes) !== null && _h !== void 0 ? _h : record.attrs) !== null && _j !== void 0 ? _j : record.attributeValues) !== null && _k !== void 0 ? _k : record.variantAttributes);
+                return {
+                    raw: Object.assign({}, record),
+                    index,
+                    id,
+                    sku,
+                    indexHint,
+                    attrKey,
+                };
+            })
+                .filter((entry) => Boolean(entry));
             const existingVariants = (_d = productDoc.variants) !== null && _d !== void 0 ? _d : [];
+            const consumed = new Set();
             // ✅ Merge incoming variants into existing ones
-            const updatedVariants = existingVariants.map((variant) => {
-                var _a, _b;
-                const match = incomingVariants.find((v) => v._id === String(variant._id) || v.sku === variant.sku);
-                if (!match) {
+            const takeMatch = (predicate) => {
+                const match = incomingEntries.find((entry) => !consumed.has(entry.index) && predicate(entry));
+                if (match) {
+                    consumed.add(match.index);
+                }
+                return match;
+            };
+            const updatedVariants = existingVariants.map((variant, variantIndex) => {
+                var _a, _b, _c;
+                const variantId = coerceIdentifier(variant === null || variant === void 0 ? void 0 : variant._id);
+                const variantSku = coerceIdentifier(variant === null || variant === void 0 ? void 0 : variant.sku);
+                const variantAttrKey = buildAttributesKey(variant === null || variant === void 0 ? void 0 : variant.attributes);
+                let matchEntry = takeMatch((entry) => !!entry.id && !!variantId && entry.id === variantId) ||
+                    takeMatch((entry) => !!entry.sku && !!variantSku && entry.sku === variantSku);
+                if (!matchEntry) {
+                    matchEntry = takeMatch((entry) => entry.indexHint !== undefined &&
+                        entry.indexHint === variantIndex);
+                }
+                if (!matchEntry && variantAttrKey) {
+                    matchEntry = takeMatch((entry) => !!entry.attrKey && entry.attrKey === variantAttrKey);
+                }
+                if (!matchEntry &&
+                    incomingEntries.length === existingVariants.length) {
+                    matchEntry = takeMatch((entry) => entry.index === variantIndex);
+                }
+                if (!matchEntry &&
+                    existingVariants.length === 1 &&
+                    incomingEntries.length === 1) {
+                    matchEntry = takeMatch(() => true);
+                }
+                if (!matchEntry) {
                     return variant;
                 }
+                const incoming = matchEntry.raw;
                 const base = (_b = (_a = variant.toObject) === null || _a === void 0 ? void 0 : _a.call(variant)) !== null && _b !== void 0 ? _b : variant;
                 const merged = Object.assign({}, base);
-                Object.entries(match).forEach(([key, value]) => {
-                    if (value !== undefined) {
-                        merged[key] = value;
+                if (incoming.sku !== undefined) {
+                    const newSku = coerceIdentifier(incoming.sku);
+                    if (newSku !== undefined) {
+                        merged.sku = newSku;
                     }
-                });
+                }
+                if (incoming.price !== undefined) {
+                    const priceVal = (0, productNormalization_1.toNumber)(incoming.price, NaN);
+                    if (Number.isFinite(priceVal) && priceVal >= 0) {
+                        merged.price = priceVal;
+                    }
+                }
+                if (incoming.stock !== undefined) {
+                    if (incoming.stock === null) {
+                        merged.stock = undefined;
+                    }
+                    else {
+                        const stockVal = (0, productNormalization_1.toNumber)(incoming.stock, NaN);
+                        if (Number.isFinite(stockVal) && stockVal >= 0) {
+                            merged.stock = stockVal;
+                        }
+                    }
+                }
+                // ✅ Add new variants if any don’t exist yet
+                if (incoming.inventory !== undefined) {
+                    if (incoming.inventory === null) {
+                        merged.inventory = undefined;
+                    }
+                    else if (typeof incoming.inventory === "object") {
+                        const currentInventory = (_c = base.inventory) !== null && _c !== void 0 ? _c : {};
+                        const nextInventory = Object.assign({}, currentInventory);
+                        const inv = incoming.inventory;
+                        if (Object.prototype.hasOwnProperty.call(inv, "onHand")) {
+                            nextInventory.onHand = (0, productNormalization_1.toNumber)(inv.onHand, (0, productNormalization_1.toNumber)(currentInventory === null || currentInventory === void 0 ? void 0 : currentInventory.onHand, 0));
+                        }
+                        if (Object.prototype.hasOwnProperty.call(inv, "reserved")) {
+                            nextInventory.reserved = (0, productNormalization_1.toNumber)(inv.reserved, (0, productNormalization_1.toNumber)(currentInventory === null || currentInventory === void 0 ? void 0 : currentInventory.reserved, 0));
+                        }
+                        if (Object.prototype.hasOwnProperty.call(inv, "safetyStock")) {
+                            nextInventory.safetyStock = (0, productNormalization_1.toNumber)(inv.safetyStock, (0, productNormalization_1.toNumber)(currentInventory === null || currentInventory === void 0 ? void 0 : currentInventory.safetyStock, 0));
+                        }
+                        merged.inventory = nextInventory;
+                    }
+                }
+                if (incoming.attributes !== undefined) {
+                    const attrsMap = toAttributesMap(incoming.attributes);
+                    merged.attributes = attrsMap !== null && attrsMap !== void 0 ? attrsMap : new Map();
+                }
+                if (incoming.images !== undefined) {
+                    if (incoming.images === null) {
+                        merged.images = [];
+                    }
+                    else {
+                        merged.images = toImageArray(incoming.images);
+                    }
+                }
+                if (incoming.isActive !== undefined) {
+                    const boolVal = normalizeBoolean(incoming.isActive);
+                    if (boolVal !== undefined) {
+                        merged.isActive = boolVal;
+                    }
+                }
                 return merged;
             });
-            // ✅ Add new variants if any don’t exist yet
-            const newOnes = incomingVariants.filter((v) => !existingVariants.some((ex) => String(ex._id) === String(v._id) || ex.sku === v.sku));
-            const mergedVariants = [...updatedVariants, ...newOnes];
+            const newVariantEntries = incomingEntries.filter((entry) => !consumed.has(entry.index));
+            const newVariants = (0, productNormalization_1.normalizeVariants)(newVariantEntries.map((entry) => entry.raw));
+            const mergedVariants = [...updatedVariants, ...newVariants];
             productDoc.variants = mergedVariants;
             variantsForDoc = mergedVariants;
             updatesForSummary.variants = prepareVariantSummary(mergedVariants);
@@ -485,7 +663,9 @@ const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             });
             return;
         }
-        const skusToCheck = ((_e = variantsForDoc !== null && variantsForDoc !== void 0 ? variantsForDoc : productDoc.variants) !== null && _e !== void 0 ? _e : []).map((v) => v.sku);
+        const skusToCheck = ((_e = variantsForDoc !== null && variantsForDoc !== void 0 ? variantsForDoc : productDoc.variants) !== null && _e !== void 0 ? _e : [])
+            .map((v) => coerceIdentifier(v.sku))
+            .filter((sku) => Boolean(sku));
         if (skusToCheck.length) {
             const skuConflict = yield Product_1.default.findOne({
                 _id: { $ne: productDoc._id },

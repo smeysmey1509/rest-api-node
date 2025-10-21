@@ -104,6 +104,31 @@ const areStringArraysEqual = (a, b) => {
         return false;
     return a.every((value, index) => value === b[index]);
 };
+const computeVariantAvailableStock = (variants) => {
+    if (!Array.isArray(variants) || variants.length === 0)
+        return 0;
+    return variants.reduce((acc, variant) => {
+        if (!variant)
+            return acc;
+        if (variant === null || variant === void 0 ? void 0 : variant.inventory) {
+            const onHand = (0, productNormalization_1.toNumber)(variant.inventory.onHand, 0);
+            const reserved = (0, productNormalization_1.toNumber)(variant.inventory.reserved, 0);
+            const safetyStock = (0, productNormalization_1.toNumber)(variant.inventory.safetyStock, 0);
+            return acc + Math.max(0, onHand - reserved - safetyStock);
+        }
+        const legacyStock = (0, productNormalization_1.toNumber)(variant === null || variant === void 0 ? void 0 : variant.stock, 0);
+        return acc + Math.max(0, legacyStock);
+    }, 0);
+};
+const syncProductStockWithVariants = (productDoc, updates) => {
+    if (!Array.isArray(productDoc.variants) || !productDoc.variants.length)
+        return;
+    const aggregated = computeVariantAvailableStock(productDoc.variants);
+    if (productDoc.stock !== aggregated) {
+        productDoc.stock = aggregated;
+        updates.stock = aggregated;
+    }
+};
 const prepareVariantSummary = (variants) => variants.map((variant) => {
     var _a;
     return ({
@@ -534,6 +559,7 @@ const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
                 }
             }
         }
+        syncProductStockWithVariants(productDoc, updatesForSummary);
         if (hasOwn(body, "compareAtPrice")) {
             const raw = body.compareAtPrice;
             if (raw === null || raw === "") {

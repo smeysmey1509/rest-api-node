@@ -129,6 +129,21 @@ function normalizeSeo(
   };
 }
 
+function calculateVariantAvailableStock(variants: any[]): number {
+  if (!Array.isArray(variants) || variants.length === 0) return 0;
+
+  return variants.reduce((acc, v) => {
+    if (!v) return acc;
+    if (v?.inventory) {
+      const { onHand = 0, reserved = 0, safetyStock = 0 } = v.inventory;
+      return acc + Math.max(0, onHand - reserved - safetyStock);
+    }
+
+    const legacyStock = toNumber(v?.stock, 0);
+    return acc + Math.max(0, legacyStock);
+  }, 0);
+}
+
 /** ---------------- controller ---------------- */
 export const createProduct = async (
   req: AuthenicationRequest,
@@ -204,17 +219,16 @@ export const createProduct = async (
     const normAttrs = normalizeAttributes(attributes);
     const normSeo = normalizeSeo(seo);
 
-    let totalStock = 0;
-    if (Array.isArray(normVariants) && normVariants.length > 0) {
-      totalStock = normVariants.reduce((acc, v) => {
-        if (v?.inventory) {
-          const { onHand = 0, reserved = 0, safetyStock = 0 } = v.inventory;
-          // count only available (onHand - reserved - safetyStock)
-          return acc + Math.max(0, onHand - reserved - safetyStock);
-        }
-        return acc + Math.max(0, v.stock ?? 0);
-      }, 0);
-    }
+    const hasVariants = Array.isArray(normVariants) && normVariants.length > 0;
+
+    const topLevelPrice = hasVariants ? undefined : toNumber(price, 0);
+    const topLevelStock = hasVariants
+      ? undefined
+      : Math.max(0, toNumber(stock, 0));
+
+    const totalStock = hasVariants
+      ? calculateVariantAvailableStock(normVariants)
+      : topLevelStock ?? 0;
 
     const dimsObj = parseJSON<{ length?: any; width?: any; height?: any }>(
       dimensions,
@@ -228,16 +242,6 @@ export const createProduct = async (
             height: toNumber(dimsObj.height, 0),
           }
         : undefined;
-
-    // If variants exist, don't accept top-level price/stock (avoid redundancy drift)
-    const topLevelPrice =
-      Array.isArray(normVariants) && normVariants.length
-        ? undefined
-        : toNumber(price, 0);
-    const topLevelStock =
-      Array.isArray(normVariants) && normVariants.length
-        ? undefined
-        : toNumber(stock, 0);
 
     // normalize optional compare-at price
     const rawCompare =
@@ -309,7 +313,6 @@ export const createProduct = async (
           : "USD",
 
       ...(topLevelPrice !== undefined ? { price: topLevelPrice } : {}),
-      ...(topLevelStock !== undefined ? { stock: topLevelStock } : {}),
       ...(normCompareAtPrice !== undefined
         ? { compareAtPrice: normCompareAtPrice }
         : {}),

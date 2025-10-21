@@ -93,7 +93,7 @@ const ProductSchema = new mongoose_1.Schema({
     },
     slug: { type: String, required: false, index: true },
     description: { type: String, default: "", maxlength: 256 },
-    feature: { type: String, default: "", maxlength: 1024 },
+    feature: { type: String, default: "", maxlength: 10000 },
     // merchandising (legacy top-level)
     brand: { type: mongoose_1.Schema.Types.ObjectId, ref: "Brand", index: true },
     price: {

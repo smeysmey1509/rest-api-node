@@ -147,6 +147,20 @@ function normalizeSeo(raw) {
         keywords,
     };
 }
+function calculateVariantAvailableStock(variants) {
+    if (!Array.isArray(variants) || variants.length === 0)
+        return 0;
+    return variants.reduce((acc, v) => {
+        if (!v)
+            return acc;
+        if (v === null || v === void 0 ? void 0 : v.inventory) {
+            const { onHand = 0, reserved = 0, safetyStock = 0 } = v.inventory;
+            return acc + Math.max(0, onHand - reserved - safetyStock);
+        }
+        const legacyStock = toNumber(v === null || v === void 0 ? void 0 : v.stock, 0);
+        return acc + Math.max(0, legacyStock);
+    }, 0);
+}
 /** ---------------- controller ---------------- */
 const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
@@ -188,18 +202,14 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         const normVariants = normalizeVariants(variants);
         const normAttrs = normalizeAttributes(attributes);
         const normSeo = normalizeSeo(seo);
-        let totalStock = 0;
-        if (Array.isArray(normVariants) && normVariants.length > 0) {
-            totalStock = normVariants.reduce((acc, v) => {
-                var _a;
-                if (v === null || v === void 0 ? void 0 : v.inventory) {
-                    const { onHand = 0, reserved = 0, safetyStock = 0 } = v.inventory;
-                    // count only available (onHand - reserved - safetyStock)
-                    return acc + Math.max(0, onHand - reserved - safetyStock);
-                }
-                return acc + Math.max(0, (_a = v.stock) !== null && _a !== void 0 ? _a : 0);
-            }, 0);
-        }
+        const hasVariants = Array.isArray(normVariants) && normVariants.length > 0;
+        const topLevelPrice = hasVariants ? undefined : toNumber(price, 0);
+        const topLevelStock = hasVariants
+            ? undefined
+            : Math.max(0, toNumber(stock, 0));
+        const totalStock = hasVariants
+            ? calculateVariantAvailableStock(normVariants)
+            : topLevelStock !== null && topLevelStock !== void 0 ? topLevelStock : 0;
         const dimsObj = parseJSON(dimensions, undefined);
         const dims = dimsObj && (dimsObj.length || dimsObj.width || dimsObj.height)
             ? {
@@ -208,13 +218,6 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 height: toNumber(dimsObj.height, 0),
             }
             : undefined;
-        // If variants exist, don't accept top-level price/stock (avoid redundancy drift)
-        const topLevelPrice = Array.isArray(normVariants) && normVariants.length
-            ? undefined
-            : toNumber(price, 0);
-        const topLevelStock = Array.isArray(normVariants) && normVariants.length
-            ? undefined
-            : toNumber(stock, 0);
         // normalize optional compare-at price
         const rawCompare = compareAtPrice != null ? toNumber(compareAtPrice, NaN) : NaN;
         const normCompareAtPrice = Number.isFinite(rawCompare) && rawCompare > 0 ? rawCompare : undefined;
@@ -265,9 +268,9 @@ const createProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             }
             normalizedCost = parsedCost;
         }
-        const productDoc = yield Product_1.default.create(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({ name: String(name).trim(), slug: canonicalSlug, description: typeof description === "string" ? description : "", feature: typeof feature === "string" ? feature : "", productType: typeof productType === "string" ? productType : "", currency: typeof currency === "string" && currency.length
+        const productDoc = yield Product_1.default.create(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({ name: String(name).trim(), slug: canonicalSlug, description: typeof description === "string" ? description : "", feature: typeof feature === "string" ? feature : "", productType: typeof productType === "string" ? productType : "", currency: typeof currency === "string" && currency.length
                 ? currency.toUpperCase()
-                : "USD" }, (topLevelPrice !== undefined ? { price: topLevelPrice } : {})), (topLevelStock !== undefined ? { stock: topLevelStock } : {})), (normCompareAtPrice !== undefined
+                : "USD" }, (topLevelPrice !== undefined ? { price: topLevelPrice } : {})), (normCompareAtPrice !== undefined
             ? { compareAtPrice: normCompareAtPrice }
             : {})), { category: categoryId, seller: sellerId, brand: brandId, status: status === "Unpublished" ? "Unpublished" : "Published", tag: normTags, images: imageUrls, primaryImageIndex: 0, ratingAvg: 0, ratingCount: 0, salesCount: 0, isTrending: false, attributes: normAttrs, variants: normVariants, dimensions: dims, weight: weight != null ? toNumber(weight, 0) : 0, seo: normSeo, isAdult: isAdult === true || isAdult === "true", isHazardous: isHazardous === true || isHazardous === "true", dedupeKey,
             actualPrice,

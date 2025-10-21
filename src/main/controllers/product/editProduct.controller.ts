@@ -115,6 +115,38 @@ const areStringArraysEqual = (a: string[], b: string[]): boolean => {
   return a.every((value, index) => value === b[index]);
 };
 
+const computeVariantAvailableStock = (variants: any[]): number => {
+  if (!Array.isArray(variants) || variants.length === 0) return 0;
+
+  return variants.reduce((acc, variant) => {
+    if (!variant) return acc;
+
+    if (variant?.inventory) {
+      const onHand = toNumber(variant.inventory.onHand, 0);
+      const reserved = toNumber(variant.inventory.reserved, 0);
+      const safetyStock = toNumber(variant.inventory.safetyStock, 0);
+      return acc + Math.max(0, onHand - reserved - safetyStock);
+    }
+
+    const legacyStock = toNumber(variant?.stock, 0);
+    return acc + Math.max(0, legacyStock);
+  }, 0);
+};
+
+const syncProductStockWithVariants = (
+  productDoc: HydratedDocument<IProduct>,
+  updates: Record<string, any>
+) => {
+  if (!Array.isArray(productDoc.variants) || !productDoc.variants.length)
+    return;
+
+  const aggregated = computeVariantAvailableStock(productDoc.variants as any[]);
+  if (productDoc.stock !== aggregated) {
+    productDoc.stock = aggregated;
+    updates.stock = aggregated;
+  }
+};
+
 const prepareVariantSummary = (variants: any[]) =>
   variants.map((variant) => ({
     sku: variant.sku,
@@ -663,6 +695,8 @@ export const editProduct = async (
         }
       }
     }
+
+    syncProductStockWithVariants(productDoc, updatesForSummary);
 
     if (hasOwn(body, "compareAtPrice")) {
       const raw = body.compareAtPrice;

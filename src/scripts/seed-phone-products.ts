@@ -2,6 +2,7 @@ import "dotenv/config";
 import mongoose from "mongoose";
 import Product from "../models/Product";
 import Category from "../models/Category";
+import Brand from "../models/Brand";
 import User from "../models/User";
 
 type CliOptions = {
@@ -45,6 +46,10 @@ function slugify(s: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+function escapeRegExp(input: string): string {
+  return input.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+}
+
 function buildOptions(): CliOptions {
   const parsed = parseArgs();
 
@@ -76,8 +81,37 @@ async function ensureCategory(categoryId: string, categoryName: string) {
   });
 }
 
+async function ensureBrand(brandName: string, slug: string) {
+  const escapedName = escapeRegExp(brandName);
+  const existingByName = await Brand.findOne({
+    name: { $regex: new RegExp(`^${escapedName}$`, "i") },
+  }).select("_id");
+  if (existingByName) return existingByName;
+
+  const escapedSlug = escapeRegExp(slug);
+  const existingBySlug = await Brand.findOne({
+    slug: { $regex: new RegExp(`^${escapedSlug}$`, "i") },
+  }).select("_id");
+  if (existingBySlug) return existingBySlug;
+
+  console.log(`Creating brand ${brandName} (${slug})`);
+  return Brand.create({ name: brandName, slug, isActive: true });
+}
+
+type CategoryDescriptor = {
+  id: string;
+  name: string;
+};
+
+type CategoryRule = {
+  match: RegExp;
+  category: CategoryDescriptor;
+};
+
 type BrandProfile = {
   brand: string;
+  brandRecordName: string;
+  brandSlug: string;
   slugSegment: string;
   series: string[];
   colors: string[];
@@ -92,6 +126,8 @@ type BrandProfile = {
   priceVariance: number;
   baseStock: number;
   productType: string;
+  defaultCategory?: CategoryDescriptor;
+  categoryRules?: CategoryRule[];
 };
 
 type BrandAllocation = {
@@ -108,6 +144,8 @@ function generateProductId(brand: string, index: number): string {
 
 const APPLE_PROFILE: BrandProfile = {
   brand: "Apple",
+  brandRecordName: "Apple",
+  brandSlug: "apple",
   slugSegment: "apple",
   series: ["iPhone 15", "iPhone 15 Plus", "iPhone 15 Pro", "iPhone 15 Pro Max", "iPhone SE"],
   colors: [
@@ -129,10 +167,20 @@ const APPLE_PROFILE: BrandProfile = {
   priceVariance: 90,
   baseStock: 35,
   productType: "Phone",
+  defaultCategory: { id: "phones", name: "Smartphones" },
+  categoryRules: [
+    { match: /^iPhone 13/i, category: { id: "IPH-13", name: "iPhone 13 Series" } },
+    { match: /^iPhone 14/i, category: { id: "IPH-14", name: "iPhone 14 Series" } },
+    { match: /^iPhone 15/i, category: { id: "IPH-15", name: "iPhone 15 Series" } },
+    { match: /^iPhone 16/i, category: { id: "IPH-16", name: "iPhone 16 Series" } },
+    { match: /^iPhone 17/i, category: { id: "IPH-17", name: "iPhone 17 Series" } },
+  ],
 };
 
 const SAMSUNG_PROFILE: BrandProfile = {
   brand: "Samsung",
+  brandRecordName: "Samsung",
+  brandSlug: "samsung",
   slugSegment: "samsung",
   series: [
     "Galaxy S24",
@@ -159,10 +207,13 @@ const SAMSUNG_PROFILE: BrandProfile = {
   priceVariance: 110,
   baseStock: 28,
   productType: "Phone",
+  defaultCategory: { id: "SAMSUNG", name: "SAMSUNG" },
 };
 
 const OPPO_PROFILE: BrandProfile = {
   brand: "Oppo",
+  brandRecordName: "OPPO",
+  brandSlug: "oppo",
   slugSegment: "oppo",
   series: ["Find X7", "Reno11", "Reno11 Pro", "F25", "A79"],
   colors: [
@@ -183,10 +234,13 @@ const OPPO_PROFILE: BrandProfile = {
   priceVariance: 80,
   baseStock: 32,
   productType: "Phone",
+  defaultCategory: { id: "OPPO", name: "OPPO" },
 };
 
 const ROG_PROFILE: BrandProfile = {
   brand: "ROG",
+  brandRecordName: "ROG",
+  brandSlug: "rog",
   slugSegment: "rog",
   series: ["Phone 7", "Phone 7 Ultimate", "Phone 8", "Phone 8 Pro"],
   colors: ["Phantom Black", "Storm White", "Rebel Grey"],
@@ -201,6 +255,7 @@ const ROG_PROFILE: BrandProfile = {
   priceVariance: 120,
   baseStock: 24,
   productType: "Gaming Phone",
+  defaultCategory: { id: "ROG", name: "ROG" },
 };
 
 const BRAND_ALLOCATIONS: BrandAllocation[] = [
@@ -210,20 +265,55 @@ const BRAND_ALLOCATIONS: BrandAllocation[] = [
   { profile: ROG_PROFILE, quantity: 10 },
 ];
 
+type CategoryCache = Map<string, mongoose.Types.ObjectId>;
+
 type BuildContext = {
   sellerId: mongoose.Types.ObjectId;
-  categoryId: mongoose.Types.ObjectId;
+  brandId: mongoose.Types.ObjectId;
   profile: BrandProfile;
   globalIndex: number;
   localIndex: number;
+  categoryCache: CategoryCache;
+  fallbackCategoryId: string;
 };
+
+function resolveCategoryId(
+  profile: BrandProfile,
+  series: string,
+  modelVariant: string,
+  categoryCache: CategoryCache,
+  fallbackCategoryId: string
+): mongoose.Types.ObjectId {
+  if (profile.categoryRules) {
+    for (const rule of profile.categoryRules) {
+      if (rule.match.test(series) || rule.match.test(modelVariant)) {
+        const cached = categoryCache.get(rule.category.id);
+        if (cached) return cached;
+      }
+    }
+  }
+
+  if (profile.defaultCategory) {
+    const cached = categoryCache.get(profile.defaultCategory.id);
+    if (cached) return cached;
+  }
+
+  const fallback = categoryCache.get(fallbackCategoryId);
+  if (fallback) return fallback;
+
+  throw new Error(
+    `Unable to resolve category for ${profile.brand} ${modelVariant}. Ensure the category exists.`
+  );
+}
 
 function buildProductPayload({
   sellerId,
-  categoryId,
+  brandId,
   profile,
   globalIndex,
   localIndex,
+  categoryCache,
+  fallbackCategoryId,
 }: BuildContext): Record<string, unknown> {
   const seriesIndex = localIndex % profile.series.length;
   const generation = Math.floor(localIndex / profile.series.length);
@@ -238,6 +328,14 @@ function buildProductPayload({
     profile.brand === "Apple" ? modelVariant : `${profile.brand} ${modelVariant}`;
   const slugBase = `${modelName} ${storage}GB ${color}`;
   const slug = slugify(`${slugBase} ${globalIndex + 1}`);
+
+  const categoryId = resolveCategoryId(
+    profile,
+    series,
+    modelVariant,
+    categoryCache,
+    fallbackCategoryId
+  );
 
   const price = Math.round(
     profile.basePrice +
@@ -289,6 +387,7 @@ function buildProductPayload({
     currency: "USD",
     stock,
     category: categoryId,
+    brand: brandId,
     seller: sellerId,
     status: "Published",
     tag: [
@@ -336,22 +435,28 @@ function buildProductPayload({
   };
 }
 
+type AllocationRuntime = BrandAllocation & { brandId: mongoose.Types.ObjectId };
+
 function buildAllProducts(
   sellerId: mongoose.Types.ObjectId,
-  categoryId: mongoose.Types.ObjectId
+  allocations: AllocationRuntime[],
+  categoryCache: CategoryCache,
+  fallbackCategoryId: string
 ): Record<string, unknown>[] {
   const products: Record<string, unknown>[] = [];
   let globalIndex = 0;
 
-  for (const allocation of BRAND_ALLOCATIONS) {
+  for (const allocation of allocations) {
     for (let localIndex = 0; localIndex < allocation.quantity; localIndex += 1) {
       products.push(
         buildProductPayload({
           sellerId,
-          categoryId,
           profile: allocation.profile,
+          brandId: allocation.brandId,
           globalIndex,
           localIndex,
+          categoryCache,
+          fallbackCategoryId,
         })
       );
       globalIndex += 1;
@@ -359,6 +464,47 @@ function buildAllProducts(
   }
 
   return products;
+}
+
+async function prepareCategoryCache(
+  profiles: BrandProfile[],
+  fallbackCategory: CategoryDescriptor
+): Promise<CategoryCache> {
+  const descriptors = new Map<string, CategoryDescriptor>();
+  descriptors.set(fallbackCategory.id, fallbackCategory);
+
+  for (const profile of profiles) {
+    if (profile.defaultCategory) {
+      descriptors.set(profile.defaultCategory.id, profile.defaultCategory);
+    }
+    if (profile.categoryRules) {
+      for (const rule of profile.categoryRules) {
+        descriptors.set(rule.category.id, rule.category);
+      }
+    }
+  }
+
+  const cache: CategoryCache = new Map();
+  for (const descriptor of descriptors.values()) {
+    const category = await ensureCategory(descriptor.id, descriptor.name);
+    cache.set(descriptor.id, category._id as mongoose.Types.ObjectId);
+  }
+
+  return cache;
+}
+
+async function prepareAllocations(): Promise<AllocationRuntime[]> {
+  const allocations: AllocationRuntime[] = [];
+
+  for (const allocation of BRAND_ALLOCATIONS) {
+    const brand = await ensureBrand(allocation.profile.brandRecordName, allocation.profile.brandSlug);
+    allocations.push({
+      ...allocation,
+      brandId: brand._id as mongoose.Types.ObjectId,
+    });
+  }
+
+  return allocations;
 }
 
 async function run() {
@@ -376,12 +522,18 @@ async function run() {
       `Seller with id ${options.sellerId} was not found. Please create it before seeding.`
     );
   }
-  const category = await ensureCategory(options.categoryId, options.categoryName);
-
   const sellerId = seller._id as mongoose.Types.ObjectId;
-  const categoryId = category._id as mongoose.Types.ObjectId;
+  const fallbackCategory: CategoryDescriptor = {
+    id: options.categoryId,
+    name: options.categoryName,
+  };
+  const categoryCache = await prepareCategoryCache(
+    BRAND_ALLOCATIONS.map((allocation) => allocation.profile),
+    fallbackCategory
+  );
+  const allocations = await prepareAllocations();
 
-  const products = buildAllProducts(sellerId, categoryId);
+  const products = buildAllProducts(sellerId, allocations, categoryCache, fallbackCategory.id);
 
   const total = products.length;
   console.log("Prepared product distribution:");

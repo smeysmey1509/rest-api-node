@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "prestart": "npm run build"
+    "prestart": "npm run build",
+    "seed:phones": "ts-node src/scripts/seed-phone-products.ts"
   },
   "keywords": [],
   "author": "",

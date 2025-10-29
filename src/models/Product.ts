@@ -45,10 +45,13 @@ export interface IProduct extends Document {
   // relations
   category: Types.ObjectId;
   seller: Types.ObjectId;
+  productCollectionId?: Types.ObjectId;
+  groupId?: string;
 
   // status & tags
   status: PublishStatus;
   tag: string[];
+  isFeatured?: boolean;
 
   // media
   images: string[];
@@ -225,6 +228,13 @@ const ProductSchema = new Schema<IProduct>(
       required: true,
       index: true,
     },
+    productCollectionId: {
+      type: Schema.Types.ObjectId,
+      ref: "ProductCollection",
+      required: false,
+      index: true,
+    },
+    groupId: { type: String, trim: true, index: true },
 
     // status & tags
     status: {
@@ -242,6 +252,7 @@ const ProductSchema = new Schema<IProduct>(
         ),
       index: true,
     },
+    isFeatured: { type: Boolean, default: false, index: true },
 
     // media
     images: { type: [String], default: [] },

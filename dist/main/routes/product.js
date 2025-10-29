@@ -23,6 +23,7 @@ const multiDeleteProduct_controller_1 = require("../controllers/product/multiDel
 const editProduct_controller_1 = require("../controllers/product/editProduct.controller");
 const upload_1 = require("../../middleware/upload");
 const listProducts_controller_1 = require("../controllers/product/listProducts.controller");
+const recommendations_controller_1 = require("../controllers/product/recommendations.controller");
 const router = (0, express_1.Router)();
 //Get /api/v1/products - Get All Product
 router.get("/product", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("read"), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -68,4 +69,5 @@ router.delete("/product/delete/:id", auth_1.authenticateToken, (0, authorizePerm
 //Multi Delete /api/v1/products/delete - Multi Delete Product by ID
 router.post("/product/delete", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("delete"), multiDeleteProduct_controller_1.multiDeleteProductController);
 router.get("/products/search", auth_1.authenticateToken, searchProduct_controller_1.searchProducts);
+router.get("/product/:id/recommendations", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("read"), recommendations_controller_1.getProductRecommendations);
 exports.default = router;

@@ -10,6 +10,7 @@ import { multiDeleteProductController } from "../controllers/product/multiDelete
 import { editProduct } from "../controllers/product/editProduct.controller";
 import { upload } from "../../middleware/upload";
 import { listProducts } from "../controllers/product/listProducts.controller";
+import { getProductRecommendations } from "../controllers/product/recommendations.controller";
 
 const router = Router();
 
@@ -102,5 +103,12 @@ router.post(
 );
 
 router.get("/products/search", authenticateToken, searchProducts);
+
+router.get(
+  "/product/:id/recommendations",
+  authenticateToken,
+  authorizePermission("read"),
+  getProductRecommendations
+);
 
 export default router;

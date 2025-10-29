@@ -149,6 +149,13 @@ const ProductSchema = new mongoose_1.Schema({
         required: true,
         index: true,
     },
+    productCollectionId: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: "ProductCollection",
+        required: false,
+        index: true,
+    },
+    groupId: { type: String, trim: true, index: true },
     // status & tags
     status: {
         type: String,
@@ -162,6 +169,7 @@ const ProductSchema = new mongoose_1.Schema({
         set: (arr) => Array.from(new Set((arr || []).map((t) => String(t).trim()).filter(Boolean))),
         index: true,
     },
+    isFeatured: { type: Boolean, default: false, index: true },
     // media
     images: { type: [String], default: [] },
     primaryImageIndex: { type: Number, default: 0, min: 0 },

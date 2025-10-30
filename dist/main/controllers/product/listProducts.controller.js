@@ -112,7 +112,7 @@ const toArrayParam = (v) => v == null
         .map((s) => s.trim())
         .filter(Boolean);
 const listProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u;
     try {
         const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         const user = userId ? yield User_1.default.findById(userId).lean() : null;
@@ -120,9 +120,26 @@ const listProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         const limit = Math.max(parseInt(String((_c = req.query.limit) !== null && _c !== void 0 ? _c : "")) || defaultLimit, 1);
         const page = Math.max(parseInt(String((_d = req.query.page) !== null && _d !== void 0 ? _d : "")) || 1, 1);
         const skip = (page - 1) * limit;
-        const rawSearch = ((_h = ((_g = (_f = (_e = req.query.search) !== null && _e !== void 0 ? _e : req.query.q) !== null && _f !== void 0 ? _f : req.query.query) !== null && _g !== void 0 ? _g : "")) === null || _h === void 0 ? void 0 : _h.toString()) || "";
+        const rawSearch = ((_h = ((_g = (_f = (_e = req.query.search) !== null && _e !== void 0 ? _e : req.query.q) !== null && _f !== void 0 ? _f : req.query.query) !== null && _g !== void 0 ? _g : "")) === null || _h === void 0 ? void 0 : _h.toString()) ||
+            "";
         const search = rawSearch.trim();
         const sort = buildSort(String((_j = req.query.sort) !== null && _j !== void 0 ? _j : ""));
+        const toNumber = (value) => {
+            if (Array.isArray(value))
+                value = value[0];
+            if (value === null || value === undefined)
+                return undefined;
+            const num = Number(String(value));
+            return Number.isFinite(num) ? num : undefined;
+        };
+        const rawPriceParam = req.query.price;
+        const priceObject = rawPriceParam &&
+            !Array.isArray(rawPriceParam) &&
+            typeof rawPriceParam === "object"
+            ? rawPriceParam
+            : {};
+        const minPrice = (_p = (_o = (_m = (_l = (_k = toNumber(priceObject.gte)) !== null && _k !== void 0 ? _k : toNumber(priceObject.min)) !== null && _l !== void 0 ? _l : toNumber(priceObject.from)) !== null && _m !== void 0 ? _m : toNumber(req.query.priceMin)) !== null && _o !== void 0 ? _o : toNumber(req.query.minPrice)) !== null && _p !== void 0 ? _p : toNumber(req.query["min_price"]);
+        const maxPrice = (_u = (_t = (_s = (_r = (_q = toNumber(priceObject.lte)) !== null && _q !== void 0 ? _q : toNumber(priceObject.max)) !== null && _r !== void 0 ? _r : toNumber(priceObject.to)) !== null && _s !== void 0 ? _s : toNumber(req.query.priceMax)) !== null && _t !== void 0 ? _t : toNumber(req.query.maxPrice)) !== null && _u !== void 0 ? _u : toNumber(req.query["max_price"]);
         // Date published filter
         const hasPublishedAt = !!Product_1.default.schema.path("publishedAt");
         const dateField = hasPublishedAt
@@ -157,6 +174,14 @@ const listProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         const query = { isDeleted: { $ne: true } };
         if (range.$gte || range.$lte)
             query[dateField] = range;
+        if (minPrice !== undefined || maxPrice !== undefined) {
+            const priceRange = {};
+            if (minPrice !== undefined)
+                priceRange.$gte = minPrice;
+            if (maxPrice !== undefined)
+                priceRange.$lte = maxPrice;
+            query.priceMin = priceRange;
+        }
         if (search) {
             query.$text = { $search: search };
         }

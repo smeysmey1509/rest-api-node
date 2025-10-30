@@ -125,10 +125,46 @@ export const listProducts = async (
     const skip = (page - 1) * limit;
 
     const rawSearch =
-      (req.query.search ?? req.query.q ?? req.query.query ?? "")?.toString() || "";
+      (req.query.search ?? req.query.q ?? req.query.query ?? "")?.toString() ||
+      "";
     const search = rawSearch.trim();
 
     const sort = buildSort(String(req.query.sort ?? ""));
+
+    const toNumber = (value: unknown): number | undefined => {
+      if (Array.isArray(value)) value = value[0];
+      if (value === null || value === undefined) return undefined;
+      const num = Number(String(value));
+      return Number.isFinite(num) ? num : undefined;
+    };
+
+    const rawPriceParam = req.query.price as
+      | Record<string, unknown>
+      | string
+      | string[]
+      | undefined;
+    const priceObject =
+      rawPriceParam &&
+      !Array.isArray(rawPriceParam) &&
+      typeof rawPriceParam === "object"
+        ? (rawPriceParam as Record<string, unknown>)
+        : {};
+
+    const minPrice =
+      toNumber(priceObject.gte) ??
+      toNumber(priceObject.min) ??
+      toNumber(priceObject.from) ??
+      toNumber(req.query.priceMin) ??
+      toNumber(req.query.minPrice) ??
+      toNumber((req.query as any)["min_price"]);
+
+    const maxPrice =
+      toNumber(priceObject.lte) ??
+      toNumber(priceObject.max) ??
+      toNumber(priceObject.to) ??
+      toNumber(req.query.priceMax) ??
+      toNumber(req.query.maxPrice) ??
+      toNumber((req.query as any)["max_price"]);
 
     // Date published filter
     const hasPublishedAt = !!Product.schema.path("publishedAt");
@@ -163,7 +199,14 @@ export const listProducts = async (
     const query: any = { isDeleted: { $ne: true } };
     if (range.$gte || range.$lte) query[dateField] = range;
 
-        if (search) {
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      const priceRange: { $gte?: number; $lte?: number } = {};
+      if (minPrice !== undefined) priceRange.$gte = minPrice;
+      if (maxPrice !== undefined) priceRange.$lte = maxPrice;
+      query.priceMin = priceRange;
+    }
+
+    if (search) {
       query.$text = { $search: search };
     }
 

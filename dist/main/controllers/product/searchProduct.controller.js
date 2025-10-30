@@ -16,9 +16,12 @@ exports.searchProducts = void 0;
 const Product_1 = __importDefault(require("../../../models/Product"));
 const redisClient_1 = __importDefault(require("../../utils/redisClient"));
 const searchProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+    var _a, _b, _c;
     const query = ((_a = req.query.query) === null || _a === void 0 ? void 0 : _a.toString().trim()) || "";
-    const cacheKey = `products:search:${query}`;
+    const limit = Math.max(parseInt(String((_b = req.query.limit) !== null && _b !== void 0 ? _b : ""), 10) || 10, 1);
+    const page = Math.max(parseInt(String((_c = req.query.page) !== null && _c !== void 0 ? _c : ""), 10) || 1, 1);
+    const skip = (page - 1) * limit;
+    const cacheKey = `products:search:${query}:page=${page}:limit=${limit}`;
     try {
         // 1. Check Redis cache
         const cached = yield redisClient_1.default.get(cacheKey);
@@ -26,10 +29,46 @@ const searchProducts = (req, res) => __awaiter(void 0, void 0, void 0, function*
             res.status(200).json(JSON.parse(cached));
             return;
         }
-        const results = yield Product_1.default.find({ $text: { $search: query } }, { score: { $meta: "textScore" } }).populate("category", "name").populate("seller", "name email");
-        const response = { total: results.length, results };
+        if (!query) {
+            const emptyResponse = {
+                pagination: {
+                    total: 0,
+                    page,
+                    perPage: limit,
+                    totalPages: 0,
+                    hasNextPage: false,
+                    hasPrevPage: page > 1,
+                },
+                products: [],
+            };
+            yield redisClient_1.default.setEx(cacheKey, 600, JSON.stringify(emptyResponse));
+            res.status(200).json(emptyResponse);
+            return;
+        }
+        const filter = { $text: { $search: query } };
+        const [results, total] = yield Promise.all([
+            Product_1.default.find(filter, { score: { $meta: "textScore" } })
+                .populate("category")
+                .populate("seller")
+                .sort({ score: { $meta: "textScore" } })
+                .skip(skip)
+                .limit(limit),
+            Product_1.default.countDocuments(filter),
+        ]);
+        const totalPages = Math.ceil(total / limit);
+        const response = {
+            pagination: {
+                total,
+                page,
+                perPage: limit,
+                totalPages,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1,
+            },
+            products: results,
+        };
         yield redisClient_1.default.setEx(cacheKey, 600, JSON.stringify(response));
-        res.status(200).json({ products: results, total: results.length });
+        res.status(200).json(response);
     }
     catch (err) {
         console.error("Search error:", err);

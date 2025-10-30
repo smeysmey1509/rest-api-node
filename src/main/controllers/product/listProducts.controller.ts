@@ -6,14 +6,42 @@ import { Types } from "mongoose";
 import { AuthenicationRequest } from "../../../middleware/auth";
 
 function buildSort(sortParam?: string): Record<string, 1 | -1> {
-  switch ((sortParam || "").toLowerCase()) {
+  const normalized = (sortParam || "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/-+/g, "_");
+
+  switch (normalized) {
     case "price_asc":
+    case "price_low_to_high":
+    case "price_low_high":
+    case "low_to_high":
       return { priceMin: 1, createdAt: -1, _id: -1 };
     case "price_desc":
+    case "price_high_to_low":
+    case "price_high_low":
+    case "high_to_low":
       return { priceMin: -1, createdAt: -1, _id: -1 };
     case "date_asc":
+    case "created_at_asc":
+    case "oldest":
       return { createdAt: 1, _id: 1 };
     case "date_desc":
+    case "created_at_desc":
+    case "newest":
+      return { createdAt: -1, _id: -1 };
+    case "most_relate":
+    case "most_releate":
+    case "most_related":
+    case "relevance":
+    case "relevant":
+    case "recommended":
+    case "popular":
+      return { ratingAvg: -1, salesCount: -1, createdAt: -1, _id: -1 };
+    case "sort_by":
+    case "default":
+    case "":
       return { createdAt: -1, _id: -1 };
     default:
       return { createdAt: -1, _id: -1 };
@@ -96,6 +124,10 @@ export const listProducts = async (
     const page = Math.max(parseInt(String(req.query.page ?? "")) || 1, 1);
     const skip = (page - 1) * limit;
 
+    const rawSearch =
+      (req.query.search ?? req.query.q ?? req.query.query ?? "")?.toString() || "";
+    const search = rawSearch.trim();
+
     const sort = buildSort(String(req.query.sort ?? ""));
 
     // Date published filter
@@ -130,6 +162,10 @@ export const listProducts = async (
 
     const query: any = { isDeleted: { $ne: true } };
     if (range.$gte || range.$lte) query[dateField] = range;
+
+        if (search) {
+      query.$text = { $search: search };
+    }
 
     const categoryParams = [
       ...toArrayParam(req.query.category),
@@ -166,13 +202,23 @@ export const listProducts = async (
       };
     }
 
+    const shouldSortByTextScore = search && !req.query.sort;
+
+    const projection = shouldSortByTextScore
+      ? { dedupeKey: 0, score: { $meta: "textScore" } }
+      : { dedupeKey: 0 };
+
+    const sortWithTextScore = shouldSortByTextScore
+      ? { score: { $meta: "textScore" }, ...sort }
+      : sort;
+
     const [products, total] = await Promise.all([
       Product.find(query)
-        .select("-dedupeKey")
+        .select(projection as any)
         .populate("category")
         .populate("seller")
         .populate("brand")
-        .sort(sort)
+        .sort(sortWithTextScore as any)
         .skip(skip)
         .limit(limit)
         .lean({ virtuals: true }),

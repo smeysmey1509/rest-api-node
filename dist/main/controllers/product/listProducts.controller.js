@@ -18,14 +18,41 @@ const Category_1 = __importDefault(require("../../../models/Category"));
 const User_1 = __importDefault(require("../../../models/User"));
 const mongoose_1 = require("mongoose");
 function buildSort(sortParam) {
-    switch ((sortParam || "").toLowerCase()) {
+    const normalized = (sortParam || "")
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, "_")
+        .replace(/-+/g, "_");
+    switch (normalized) {
         case "price_asc":
+        case "price_low_to_high":
+        case "price_low_high":
+        case "low_to_high":
             return { priceMin: 1, createdAt: -1, _id: -1 };
         case "price_desc":
+        case "price_high_to_low":
+        case "price_high_low":
+        case "high_to_low":
             return { priceMin: -1, createdAt: -1, _id: -1 };
         case "date_asc":
+        case "created_at_asc":
+        case "oldest":
             return { createdAt: 1, _id: 1 };
         case "date_desc":
+        case "created_at_desc":
+        case "newest":
+            return { createdAt: -1, _id: -1 };
+        case "most_relate":
+        case "most_releate":
+        case "most_related":
+        case "relevance":
+        case "relevant":
+        case "recommended":
+        case "popular":
+            return { ratingAvg: -1, salesCount: -1, createdAt: -1, _id: -1 };
+        case "sort_by":
+        case "default":
+        case "":
             return { createdAt: -1, _id: -1 };
         default:
             return { createdAt: -1, _id: -1 };
@@ -85,7 +112,7 @@ const toArrayParam = (v) => v == null
         .map((s) => s.trim())
         .filter(Boolean);
 const listProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
     try {
         const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
         const user = userId ? yield User_1.default.findById(userId).lean() : null;
@@ -93,7 +120,9 @@ const listProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         const limit = Math.max(parseInt(String((_c = req.query.limit) !== null && _c !== void 0 ? _c : "")) || defaultLimit, 1);
         const page = Math.max(parseInt(String((_d = req.query.page) !== null && _d !== void 0 ? _d : "")) || 1, 1);
         const skip = (page - 1) * limit;
-        const sort = buildSort(String((_e = req.query.sort) !== null && _e !== void 0 ? _e : ""));
+        const rawSearch = ((_h = ((_g = (_f = (_e = req.query.search) !== null && _e !== void 0 ? _e : req.query.q) !== null && _f !== void 0 ? _f : req.query.query) !== null && _g !== void 0 ? _g : "")) === null || _h === void 0 ? void 0 : _h.toString()) || "";
+        const search = rawSearch.trim();
+        const sort = buildSort(String((_j = req.query.sort) !== null && _j !== void 0 ? _j : ""));
         // Date published filter
         const hasPublishedAt = !!Product_1.default.schema.path("publishedAt");
         const dateField = hasPublishedAt
@@ -128,6 +157,9 @@ const listProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         const query = { isDeleted: { $ne: true } };
         if (range.$gte || range.$lte)
             query[dateField] = range;
+        if (search) {
+            query.$text = { $search: search };
+        }
         const categoryParams = [
             ...toArrayParam(req.query.category),
             ...toArrayParam(req.query.categories),
@@ -156,13 +188,19 @@ const listProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* (
                     : [new mongoose_1.Types.ObjectId("000000000000000000000000")],
             };
         }
+        const shouldSortByTextScore = search && !req.query.sort;
+        const projection = shouldSortByTextScore
+            ? { dedupeKey: 0, score: { $meta: "textScore" } }
+            : { dedupeKey: 0 };
+        const sortWithTextScore = shouldSortByTextScore
+            ? Object.assign({ score: { $meta: "textScore" } }, sort) : sort;
         const [products, total] = yield Promise.all([
             Product_1.default.find(query)
-                .select("-dedupeKey")
+                .select(projection)
                 .populate("category")
                 .populate("seller")
                 .populate("brand")
-                .sort(sort)
+                .sort(sortWithTextScore)
                 .skip(skip)
                 .limit(limit)
                 .lean({ virtuals: true }),

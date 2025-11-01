@@ -44,10 +44,38 @@ function resolveDeliveryMethod(cart) {
         return String((active === null || active === void 0 ? void 0 : active.method) || "standard").toLowerCase();
     });
 }
+const buildPromoSummary = (promo, discountAmount) => {
+    var _a, _b;
+    if (!promo)
+        return null;
+    const promoDoc = typeof (promo === null || promo === void 0 ? void 0 : promo.toObject) === "function" ? promo.toObject() : promo;
+    const code = typeof promoDoc === "string"
+        ? promoDoc
+        : (_b = (_a = promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.code) !== null && _a !== void 0 ? _a : promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.Code) !== null && _b !== void 0 ? _b : null;
+    if (!code)
+        return null;
+    const summary = { code };
+    if (promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.discountType)
+        summary.type = promoDoc.discountType;
+    if (typeof (promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.discountValue) === "number") {
+        summary.value = promoDoc.discountValue;
+    }
+    if (typeof (promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.maxUsesPerUser) === "number") {
+        summary.maxUsesPerUser = promoDoc.maxUsesPerUser;
+    }
+    if (promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.expiresAt)
+        summary.expiresAt = promoDoc.expiresAt;
+    const amount = Number(discountAmount || 0);
+    if (!Number.isNaN(amount))
+        summary.amount = amount;
+    return summary;
+};
 // builds the same shape returned by GET /cart
 function buildCartResponse(cartDoc) {
     return __awaiter(this, void 0, void 0, function* () {
+        var _a;
         yield cartDoc.populate("items.product");
+        yield cartDoc.populate("promoCode");
         // prefer the cart’s delivery; else a safe default
         let deliveryDoc = cartDoc.delivery ||
             (yield DeliverySetting_1.default.findOne({ isActive: true }).lean()) ||
@@ -59,6 +87,7 @@ function buildCartResponse(cartDoc) {
         }, 0);
         const method = String(deliveryDoc.method || "standard").toLowerCase();
         const { serviceTax, deliveryFee, total } = yield (0, cartTotals_1.calculateCartTotals)(subTotal, cartDoc.discount || 0, method);
+        const promoSummary = buildPromoSummary(cartDoc.promoCode, cartDoc.discount || 0);
         const response = {
             _id: cartDoc._id,
             user: cartDoc.user,
@@ -71,6 +100,8 @@ function buildCartResponse(cartDoc) {
                 deliveryFee,
                 serviceTax,
                 total,
+                promoCode: (_a = promoSummary === null || promoSummary === void 0 ? void 0 : promoSummary.code) !== null && _a !== void 0 ? _a : null,
+                promo: promoSummary,
             },
             createdAt: cartDoc.createdAt,
             updatedAt: cartDoc.updatedAt,
@@ -87,6 +118,7 @@ function buildCartResponse(cartDoc) {
 }
 // GET /api/v1/cart - Get user's cart (now includes delivery + correct totals)
 router.get("/cart", auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
         // A) Cache fast-path
         const cached = yield (0, cache_1.getCachedCart)(req.user.id);
@@ -115,6 +147,8 @@ router.get("/cart", auth_1.authenticateToken, (req, res) => __awaiter(void 0, vo
                     deliveryFee: 0,
                     serviceTax: 0,
                     total: 0,
+                    promoCode: null,
+                    promo: null,
                 },
             };
             yield (0, cache_1.setCachedCart)(req.user.id, empty);
@@ -139,6 +173,7 @@ router.get("/cart", auth_1.authenticateToken, (req, res) => __awaiter(void 0, vo
             deliveryFee,
             total,
         });
+        const promoSummary = buildPromoSummary(cart.promoCode, cart.discount || 0);
         const response = {
             _id: cart._id,
             user: cart.user,
@@ -151,6 +186,8 @@ router.get("/cart", auth_1.authenticateToken, (req, res) => __awaiter(void 0, vo
                 deliveryFee,
                 serviceTax,
                 total,
+                promoCode: (_a = promoSummary === null || promoSummary === void 0 ? void 0 : promoSummary.code) !== null && _a !== void 0 ? _a : null,
+                promo: promoSummary,
             },
             createdAt: cart.createdAt,
             updatedAt: cart.updatedAt,
@@ -408,6 +445,8 @@ router.post("/cart/remove-promocode", auth_1.authenticateToken, (req, res) => __
                 deliveryFee,
                 serviceTax,
                 total,
+                promoCode: null,
+                promo: null,
             },
             createdAt: cart.createdAt,
             updatedAt: cart.updatedAt,

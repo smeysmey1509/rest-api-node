@@ -31,9 +31,40 @@ async function resolveDeliveryMethod(cart: any): Promise<string> {
   return String(active?.method || "standard").toLowerCase();
 }
 
+const buildPromoSummary = (promo: any, discountAmount: number) => {
+  if (!promo) return null;
+
+  const promoDoc =
+    typeof promo?.toObject === "function" ? promo.toObject() : promo;
+
+  const code =
+    typeof promoDoc === "string"
+      ? promoDoc
+      : promoDoc?.code ?? promoDoc?.Code ?? null;
+
+  if (!code) return null;
+
+  const summary: Record<string, any> = { code };
+
+  if (promoDoc?.discountType) summary.type = promoDoc.discountType;
+  if (typeof promoDoc?.discountValue === "number") {
+    summary.value = promoDoc.discountValue;
+  }
+  if (typeof promoDoc?.maxUsesPerUser === "number") {
+    summary.maxUsesPerUser = promoDoc.maxUsesPerUser;
+  }
+  if (promoDoc?.expiresAt) summary.expiresAt = promoDoc.expiresAt;
+
+  const amount = Number(discountAmount || 0);
+  if (!Number.isNaN(amount)) summary.amount = amount;
+
+  return summary;
+};
+
 // builds the same shape returned by GET /cart
 async function buildCartResponse(cartDoc: any) {
   await cartDoc.populate("items.product");
+  await cartDoc.populate("promoCode");
   // prefer the cart’s delivery; else a safe default
   let deliveryDoc: any = cartDoc.delivery ||
     (await DeliverySetting.findOne({ isActive: true }).lean()) ||
@@ -51,6 +82,11 @@ async function buildCartResponse(cartDoc: any) {
     method
   );
 
+  const promoSummary = buildPromoSummary(
+    cartDoc.promoCode,
+    cartDoc.discount || 0
+  );
+
   const response = {
     _id: cartDoc._id,
     user: cartDoc.user,
@@ -63,6 +99,8 @@ async function buildCartResponse(cartDoc: any) {
       deliveryFee,
       serviceTax,
       total,
+      promoCode: promoSummary?.code ?? null,
+      promo: promoSummary,
     },
     createdAt: cartDoc.createdAt,
     updatedAt: cartDoc.updatedAt,
@@ -114,6 +152,8 @@ router.get(
             deliveryFee: 0,
             serviceTax: 0,
             total: 0,
+            promoCode: null,
+            promo: null,
           },
         };
         await setCachedCart(req.user.id, empty);
@@ -148,6 +188,11 @@ router.get(
         total,
       });
 
+      const promoSummary = buildPromoSummary(
+        cart.promoCode,
+        cart.discount || 0
+      );
+
       const response = {
         _id: cart._id,
         user: cart.user,
@@ -160,6 +205,8 @@ router.get(
           deliveryFee,
           serviceTax,
           total,
+          promoCode: promoSummary?.code ?? null,
+          promo: promoSummary,
         },
         createdAt: cart.createdAt,
         updatedAt: cart.updatedAt,
@@ -502,6 +549,8 @@ router.post(
           deliveryFee,
           serviceTax,
           total,
+          promoCode: null,
+          promo: null,
         },
         createdAt: cart.createdAt,
         updatedAt: cart.updatedAt,

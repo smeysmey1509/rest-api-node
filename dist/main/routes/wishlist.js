@@ -21,11 +21,43 @@ const DeliverySetting_1 = __importDefault(require("../../models/DeliverySetting"
 const cartTotals_1 = require("../utils/cartTotals");
 const cache_1 = require("../utils/cache");
 const router = (0, express_1.Router)();
+const buildPromoSummary = (promo, discountAmount) => {
+    var _a, _b;
+    if (!promo)
+        return null;
+    const promoDoc = typeof (promo === null || promo === void 0 ? void 0 : promo.toObject) === "function" ? promo.toObject() : promo;
+    const code = typeof promoDoc === "string"
+        ? promoDoc
+        : (_b = (_a = promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.code) !== null && _a !== void 0 ? _a : promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.Code) !== null && _b !== void 0 ? _b : null;
+    if (!code)
+        return null;
+    const summary = { code };
+    if (promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.discountType)
+        summary.type = promoDoc.discountType;
+    if (typeof (promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.discountValue) === "number") {
+        summary.value = promoDoc.discountValue;
+    }
+    if (typeof (promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.maxUsesPerUser) === "number") {
+        summary.maxUsesPerUser = promoDoc.maxUsesPerUser;
+    }
+    if (promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.expiresAt)
+        summary.expiresAt = promoDoc.expiresAt;
+    const amount = Number(discountAmount || 0);
+    if (!Number.isNaN(amount))
+        summary.amount = amount;
+    return summary;
+};
 const buildCartSnapshot = (cartDoc) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     yield cartDoc.populate("items.product");
+    yield cartDoc.populate("promoCode");
     const deliveryDoc = cartDoc.delivery ||
-        (yield DeliverySetting_1.default.findOne({ isActive: true }).lean()) ||
-        { _id: null, method: "standard", fee: 0, taxRate: 0 };
+        (yield DeliverySetting_1.default.findOne({ isActive: true }).lean()) || {
+        _id: null,
+        method: "standard",
+        fee: 0,
+        taxRate: 0,
+    };
     const subTotal = cartDoc.items.reduce((acc, item) => {
         var _a;
         const price = ((_a = item.product) === null || _a === void 0 ? void 0 : _a.price) || 0;
@@ -38,6 +70,7 @@ const buildCartSnapshot = (cartDoc) => __awaiter(void 0, void 0, void 0, functio
     cartDoc.deliveryFee = deliveryFee;
     cartDoc.total = total;
     yield cartDoc.save();
+    const promoSummary = buildPromoSummary(cartDoc.promoCode, cartDoc.discount || 0);
     const snapshot = {
         _id: cartDoc._id,
         user: cartDoc.user,
@@ -52,6 +85,8 @@ const buildCartSnapshot = (cartDoc) => __awaiter(void 0, void 0, void 0, functio
             deliveryFee,
             serviceTax,
             total,
+            promoCode: (_a = promoSummary === null || promoSummary === void 0 ? void 0 : promoSummary.code) !== null && _a !== void 0 ? _a : null,
+            promo: promoSummary,
         },
         createdAt: cartDoc.createdAt,
         updatedAt: cartDoc.updatedAt,

@@ -14,10 +14,19 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.calculateCartTotals = calculateCartTotals;
 const DeliverySetting_1 = __importDefault(require("../../models/DeliverySetting"));
+function escapeRegex(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 function calculateCartTotals(subtotal, discount, method) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a, _b;
-        const delivery = yield DeliverySetting_1.default.findOne({ method, isActive: true });
+        const normalizedMethod = (method || "").trim();
+        const methodQuery = normalizedMethod.length > 0
+            ? {
+                $regex: new RegExp(`^${escapeRegex(normalizedMethod)}$`, "i"),
+            }
+            : undefined;
+        const delivery = yield DeliverySetting_1.default.findOne(Object.assign(Object.assign({}, (methodQuery ? { method: methodQuery } : {})), { isActive: true }));
         const discountedSubtotal = Math.max(0, subtotal - (discount || 0));
         let deliveryFee = 0;
         if (delivery) {

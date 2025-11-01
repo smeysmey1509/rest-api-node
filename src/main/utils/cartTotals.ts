@@ -1,11 +1,26 @@
 import DeliverySetting from "../../models/DeliverySetting";
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export async function calculateCartTotals(
   subtotal: number,
   discount: number,
   method: string
 ) {
-  const delivery = await DeliverySetting.findOne({ method, isActive: true });
+  const normalizedMethod = (method || "").trim();
+  const methodQuery =
+    normalizedMethod.length > 0
+      ? {
+          $regex: new RegExp(`^${escapeRegex(normalizedMethod)}$`, "i"),
+        }
+      : undefined;
+
+  const delivery = await DeliverySetting.findOne({
+    ...(methodQuery ? { method: methodQuery } : {}),
+    isActive: true,
+  });
 
   const discountedSubtotal = Math.max(0, subtotal - (discount || 0));
 

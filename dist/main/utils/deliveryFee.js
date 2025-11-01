@@ -16,12 +16,13 @@ exports.calculateDeliveryFee = calculateDeliveryFee;
 const DeliverySetting_1 = __importDefault(require("../../models/DeliverySetting"));
 function calculateDeliveryFee(subtotal_1) {
     return __awaiter(this, arguments, void 0, function* (subtotal, method = "standard") {
+        var _a, _b;
         const setting = yield DeliverySetting_1.default.findOne({ method, isActive: true });
         if (!setting)
             return 0;
-        if (setting.freeThreshold && subtotal >= setting.freeThreshold) {
-            return 0;
-        }
-        return setting.baseFee;
+        const baseFee = (_a = setting.baseFee) !== null && _a !== void 0 ? _a : 0;
+        const threshold = (_b = setting.freeThreshold) !== null && _b !== void 0 ? _b : null;
+        const qualifiesForFree = threshold !== null && baseFee <= 0 && subtotal >= threshold;
+        return qualifiesForFree ? 0 : baseFee;
     });
 }

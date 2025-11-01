@@ -10,7 +10,10 @@ export function calcTotalsSync(opts: {
   const freeThreshold = opts.freeThreshold ?? null;
 
   const discounted = Math.max(0, opts.subTotal - (opts.discount || 0));
-  const deliveryFee = freeThreshold != null && discounted >= freeThreshold ? 0 : (opts.baseFee || 0);
+  const baseFee = opts.baseFee || 0;
+  const qualifiesForFree =
+    freeThreshold != null && baseFee <= 0 && discounted >= freeThreshold;
+  const deliveryFee = qualifiesForFree ? 0 : baseFee;
   const serviceTax = Math.round(discounted * taxRate);
   const total = discounted + deliveryFee + serviceTax;
 

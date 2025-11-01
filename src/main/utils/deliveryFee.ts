@@ -8,9 +8,10 @@ export async function calculateDeliveryFee(
 
   if (!setting) return 0;
 
-  if (setting.freeThreshold && subtotal >= setting.freeThreshold) {
-    return 0;
-  }
+  const baseFee = setting.baseFee ?? 0;
+  const threshold = setting.freeThreshold ?? null;
+  const qualifiesForFree =
+    threshold !== null && baseFee <= 0 && subtotal >= threshold;
 
-  return setting.baseFee;
+   return qualifiesForFree ? 0 : baseFee;
 }

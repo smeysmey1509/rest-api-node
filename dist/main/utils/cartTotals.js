@@ -16,18 +16,18 @@ exports.calculateCartTotals = calculateCartTotals;
 const DeliverySetting_1 = __importDefault(require("../../models/DeliverySetting"));
 function calculateCartTotals(subtotal, discount, method) {
     return __awaiter(this, void 0, void 0, function* () {
+        var _a, _b;
         const delivery = yield DeliverySetting_1.default.findOne({ method, isActive: true });
+        const discountedSubtotal = Math.max(0, subtotal - (discount || 0));
         let deliveryFee = 0;
         if (delivery) {
-            if (delivery.freeThreshold && subtotal >= delivery.freeThreshold) {
-                deliveryFee = 0;
-            }
-            else {
-                deliveryFee = delivery.baseFee;
-            }
+            const threshold = (_a = delivery.freeThreshold) !== null && _a !== void 0 ? _a : null;
+            const baseFee = (_b = delivery.baseFee) !== null && _b !== void 0 ? _b : 0;
+            const qualifiesForFree = threshold !== null && baseFee <= 0 && discountedSubtotal >= threshold;
+            deliveryFee = qualifiesForFree ? 0 : baseFee;
         }
-        const serviceTax = subtotal * 0.1;
-        const total = subtotal - discount + deliveryFee + serviceTax;
+        const serviceTax = Number((discountedSubtotal * 0.1).toFixed(2));
+        const total = Number((discountedSubtotal + deliveryFee + serviceTax).toFixed(2));
         return { serviceTax, deliveryFee, total };
     });
 }

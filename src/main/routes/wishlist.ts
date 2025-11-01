@@ -9,39 +9,8 @@ import { setCachedCart } from "../utils/cache";
 
 const router = Router();
 
-const buildPromoSummary = (promo: any, discountAmount: number) => {
-  if (!promo) return null;
-
-  const promoDoc =
-    typeof promo?.toObject === "function" ? promo.toObject() : promo;
-
-  const code =
-    typeof promoDoc === "string"
-      ? promoDoc
-      : promoDoc?.code ?? promoDoc?.Code ?? null;
-
-  if (!code) return null;
-
-  const summary: Record<string, any> = { code };
-
-  if (promoDoc?.discountType) summary.type = promoDoc.discountType;
-  if (typeof promoDoc?.discountValue === "number") {
-    summary.value = promoDoc.discountValue;
-  }
-  if (typeof promoDoc?.maxUsesPerUser === "number") {
-    summary.maxUsesPerUser = promoDoc.maxUsesPerUser;
-  }
-  if (promoDoc?.expiresAt) summary.expiresAt = promoDoc.expiresAt;
-
-  const amount = Number(discountAmount || 0);
-  if (!Number.isNaN(amount)) summary.amount = amount;
-
-  return summary;
-};
-
 const buildCartSnapshot = async (cartDoc: any) => {
   await cartDoc.populate("items.product");
-  await cartDoc.populate("promoCode");
   const deliveryDoc = cartDoc.delivery ||
     (await DeliverySetting.findOne({ isActive: true }).lean()) || {
       _id: null,
@@ -69,11 +38,6 @@ const buildCartSnapshot = async (cartDoc: any) => {
 
   await cartDoc.save();
 
-  const promoSummary = buildPromoSummary(
-    cartDoc.promoCode,
-    cartDoc.discount || 0
-  );
-
   const snapshot = {
     _id: cartDoc._id,
     user: cartDoc.user,
@@ -89,8 +53,6 @@ const buildCartSnapshot = async (cartDoc: any) => {
       deliveryFee,
       serviceTax,
       total,
-      promoCode: promoSummary?.code ?? null,
-      promo: promoSummary,
     },
     createdAt: cartDoc.createdAt,
     updatedAt: cartDoc.updatedAt,
@@ -101,77 +63,124 @@ const buildCartSnapshot = async (cartDoc: any) => {
   return snapshot;
 };
 
-router.get("/wishlist", authenticateToken, async (req: any, res: Response) => {
-  try {
-    const wishlist = await Wishlist.findOne({ user: req.user.id })
-      .populate({
-        path: "items.product",
-        select: "name price images thumbnail slug discount",
-      })
-      .lean();
+router.get(
+  "/wishlist",
+  authenticateToken,
+  async (req: any, res: Response): Promise<void> => {
+    try {
+      // 1️⃣ Get pagination query params
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const skip = (page - 1) * limit;
 
-    if (!wishlist) {
-      res.status(200).json({ items: [] });
-      return;
+      // 2️⃣ Find wishlist of the logged-in user
+      const wishlist = await Wishlist.findOne({ user: req.user.id })
+        .populate({
+          path: "items.product",
+          populate: [
+            { path: "brand" },
+            { path: "category" },
+            { path: "seller" },
+          ],
+        })
+        .lean();
+
+      // 3️⃣ Handle no wishlist
+      if (!wishlist) {
+        res.status(200).json({
+          items: [],
+          totalItems: 0,
+          totalPages: 0,
+          currentPage: page,
+        });
+        return;
+      }
+
+      // 4️⃣ Filter out deleted/unavailable products
+      const validItems = wishlist.items.filter(
+        (item: any) => item.product !== null
+      );
+
+      // 5️⃣ Apply pagination
+      const paginatedItems = validItems.slice(skip, skip + limit);
+
+      // 6️⃣ Response
+      res.status(200).json({
+        items: paginatedItems,
+        totalItems: validItems.length,
+        totalPages: Math.ceil(validItems.length / limit),
+        currentPage: page,
+        hasNextPage: skip + limit < validItems.length,
+        hasPrevPage: page > 1,
+      });
+    } catch (error) {
+      console.error("Error fetching wishlist:", error);
+      res.status(500).json({ error: "Failed to fetch wishlist." });
     }
-
-    res.status(200).json(wishlist);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to fetch wishlist." });
   }
-});
+);
 
 router.post(
-  "/wishlist/add",
+  "/wishlist/:productId",
   authenticateToken,
-  async (req: any, res: Response) => {
+  async (req: any, res: Response): Promise<void> => {
     try {
-      const { productId, note } = req.body;
+      const { productId } = req.params;
+
+      // 1️⃣ Validate productId
       if (!productId) {
         res.status(400).json({ error: "Product ID is required." });
         return;
       }
 
+      // 2️⃣ Check if product exists
       const product = await Product.findById(productId);
       if (!product) {
         res.status(404).json({ error: "Product not found." });
         return;
       }
 
+      // 3️⃣ Find or create wishlist
       let wishlist = await Wishlist.findOne({ user: req.user.id });
       if (!wishlist) {
         wishlist = new Wishlist({ user: req.user.id, items: [] });
       }
 
-      const alreadySaved = wishlist.items.some(
-        (item) => String(item.product) === String(productId)
-      );
+      // 4️⃣ Check duplicate product
+      const alreadySaved = wishlist.items.some((item) => {
+        if (!item.product) return false;
+        return item.product.toString() === productId.toString();
+      });
+
       if (alreadySaved) {
-        await wishlist.populate({
-          path: "items.product",
-          select: "name price images thumbnail slug discount",
-        });
-        res.status(200).json({
-          message: "Product already in wishlist.",
-          wishlist: wishlist.toObject(),
+        res.status(409).json({
+          error: "Product already exists in wishlist.",
+          code: "DUPLICATE_WISHLIST_ITEM",
         });
         return;
       }
 
-      wishlist.items.push({ product: productId, note });
+      // 5️⃣ Add product
+      wishlist.items.push({ product: productId });
       await wishlist.save();
+
+      // 6️⃣ Populate product details
       await wishlist.populate({
         path: "items.product",
-        select: "name price images thumbnail slug discount",
+        populate: [
+          { path: "brand" },
+          { path: "category" },
+          { path: "seller" },
+        ],
       });
 
+      // 7️⃣ Respond success
       res.status(201).json({
-        message: "Product saved for later.",
+        message: "Product added to wishlist successfully.",
         wishlist: wishlist.toObject(),
       });
     } catch (error) {
-      console.error(error);
+      console.error("Error adding to wishlist:", error);
       res.status(500).json({ error: "Failed to add to wishlist." });
     }
   }
@@ -203,9 +212,13 @@ router.delete(
 
       await wishlist.save();
       await wishlist.populate({
-        path: "items.product",
-        select: "name price images thumbnail slug discount",
-      });
+          path: "items.product",
+          populate: [
+            { path: "brand" },
+            { path: "category" },
+            { path: "seller" },
+          ],
+        })
 
       res.status(200).json({
         message: "Product removed from wishlist.",

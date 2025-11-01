@@ -21,36 +21,8 @@ const DeliverySetting_1 = __importDefault(require("../../models/DeliverySetting"
 const cartTotals_1 = require("../utils/cartTotals");
 const cache_1 = require("../utils/cache");
 const router = (0, express_1.Router)();
-const buildPromoSummary = (promo, discountAmount) => {
-    var _a, _b;
-    if (!promo)
-        return null;
-    const promoDoc = typeof (promo === null || promo === void 0 ? void 0 : promo.toObject) === "function" ? promo.toObject() : promo;
-    const code = typeof promoDoc === "string"
-        ? promoDoc
-        : (_b = (_a = promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.code) !== null && _a !== void 0 ? _a : promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.Code) !== null && _b !== void 0 ? _b : null;
-    if (!code)
-        return null;
-    const summary = { code };
-    if (promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.discountType)
-        summary.type = promoDoc.discountType;
-    if (typeof (promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.discountValue) === "number") {
-        summary.value = promoDoc.discountValue;
-    }
-    if (typeof (promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.maxUsesPerUser) === "number") {
-        summary.maxUsesPerUser = promoDoc.maxUsesPerUser;
-    }
-    if (promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.expiresAt)
-        summary.expiresAt = promoDoc.expiresAt;
-    const amount = Number(discountAmount || 0);
-    if (!Number.isNaN(amount))
-        summary.amount = amount;
-    return summary;
-};
 const buildCartSnapshot = (cartDoc) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
     yield cartDoc.populate("items.product");
-    yield cartDoc.populate("promoCode");
     const deliveryDoc = cartDoc.delivery ||
         (yield DeliverySetting_1.default.findOne({ isActive: true }).lean()) || {
         _id: null,
@@ -70,7 +42,6 @@ const buildCartSnapshot = (cartDoc) => __awaiter(void 0, void 0, void 0, functio
     cartDoc.deliveryFee = deliveryFee;
     cartDoc.total = total;
     yield cartDoc.save();
-    const promoSummary = buildPromoSummary(cartDoc.promoCode, cartDoc.discount || 0);
     const snapshot = {
         _id: cartDoc._id,
         user: cartDoc.user,
@@ -85,8 +56,6 @@ const buildCartSnapshot = (cartDoc) => __awaiter(void 0, void 0, void 0, functio
             deliveryFee,
             serviceTax,
             total,
-            promoCode: (_a = promoSummary === null || promoSummary === void 0 ? void 0 : promoSummary.code) !== null && _a !== void 0 ? _a : null,
-            promo: promoSummary,
         },
         createdAt: cartDoc.createdAt,
         updatedAt: cartDoc.updatedAt,
@@ -96,64 +65,102 @@ const buildCartSnapshot = (cartDoc) => __awaiter(void 0, void 0, void 0, functio
 });
 router.get("/wishlist", auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        // 1️⃣ Get pagination query params
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+        // 2️⃣ Find wishlist of the logged-in user
         const wishlist = yield Wishlist_1.default.findOne({ user: req.user.id })
             .populate({
             path: "items.product",
-            select: "name price images thumbnail slug discount",
+            populate: [
+                { path: "brand" },
+                { path: "category" },
+                { path: "seller" },
+            ],
         })
             .lean();
+        // 3️⃣ Handle no wishlist
         if (!wishlist) {
-            res.status(200).json({ items: [] });
+            res.status(200).json({
+                items: [],
+                totalItems: 0,
+                totalPages: 0,
+                currentPage: page,
+            });
             return;
         }
-        res.status(200).json(wishlist);
+        // 4️⃣ Filter out deleted/unavailable products
+        const validItems = wishlist.items.filter((item) => item.product !== null);
+        // 5️⃣ Apply pagination
+        const paginatedItems = validItems.slice(skip, skip + limit);
+        // 6️⃣ Response
+        res.status(200).json({
+            items: paginatedItems,
+            totalItems: validItems.length,
+            totalPages: Math.ceil(validItems.length / limit),
+            currentPage: page,
+            hasNextPage: skip + limit < validItems.length,
+            hasPrevPage: page > 1,
+        });
     }
     catch (error) {
-        console.error(error);
+        console.error("Error fetching wishlist:", error);
         res.status(500).json({ error: "Failed to fetch wishlist." });
     }
 }));
-router.post("/wishlist/add", auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.post("/wishlist/:productId", auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { productId, note } = req.body;
+        const { productId } = req.params;
+        // 1️⃣ Validate productId
         if (!productId) {
             res.status(400).json({ error: "Product ID is required." });
             return;
         }
+        // 2️⃣ Check if product exists
         const product = yield Product_1.default.findById(productId);
         if (!product) {
             res.status(404).json({ error: "Product not found." });
             return;
         }
+        // 3️⃣ Find or create wishlist
         let wishlist = yield Wishlist_1.default.findOne({ user: req.user.id });
         if (!wishlist) {
             wishlist = new Wishlist_1.default({ user: req.user.id, items: [] });
         }
-        const alreadySaved = wishlist.items.some((item) => String(item.product) === String(productId));
+        // 4️⃣ Check duplicate product
+        const alreadySaved = wishlist.items.some((item) => {
+            if (!item.product)
+                return false;
+            return item.product.toString() === productId.toString();
+        });
         if (alreadySaved) {
-            yield wishlist.populate({
-                path: "items.product",
-                select: "name price images thumbnail slug discount",
-            });
-            res.status(200).json({
-                message: "Product already in wishlist.",
-                wishlist: wishlist.toObject(),
+            res.status(409).json({
+                error: "Product already exists in wishlist.",
+                code: "DUPLICATE_WISHLIST_ITEM",
             });
             return;
         }
-        wishlist.items.push({ product: productId, note });
+        // 5️⃣ Add product
+        wishlist.items.push({ product: productId });
         yield wishlist.save();
+        // 6️⃣ Populate product details
         yield wishlist.populate({
             path: "items.product",
-            select: "name price images thumbnail slug discount",
+            populate: [
+                { path: "brand" },
+                { path: "category" },
+                { path: "seller" },
+            ],
         });
+        // 7️⃣ Respond success
         res.status(201).json({
-            message: "Product saved for later.",
+            message: "Product added to wishlist successfully.",
             wishlist: wishlist.toObject(),
         });
     }
     catch (error) {
-        console.error(error);
+        console.error("Error adding to wishlist:", error);
         res.status(500).json({ error: "Failed to add to wishlist." });
     }
 }));
@@ -174,7 +181,11 @@ router.delete("/wishlist/:productId", auth_1.authenticateToken, (req, res) => __
         yield wishlist.save();
         yield wishlist.populate({
             path: "items.product",
-            select: "name price images thumbnail slug discount",
+            populate: [
+                { path: "brand" },
+                { path: "category" },
+                { path: "seller" },
+            ],
         });
         res.status(200).json({
             message: "Product removed from wishlist.",

@@ -22,7 +22,9 @@ export async function calculateCartTotals(
     isActive: true,
   });
 
-  const discountedSubtotal = Math.max(0, subtotal - (discount || 0));
+  const sanitizedSubtotal = Math.max(0, subtotal);
+  const discountAmount = Math.max(0, discount || 0);
+  const discountedSubtotal = Math.max(0, sanitizedSubtotal - discountAmount);
 
   let deliveryFee = 0;
   if (delivery) {
@@ -34,7 +36,7 @@ export async function calculateCartTotals(
     deliveryFee = qualifiesForFree ? 0 : baseFee;
   }
 
-  const serviceTax = Number((discountedSubtotal * 0.1).toFixed(2));
+  const serviceTax = Number((sanitizedSubtotal * 0.1).toFixed(2));
 
   const total = Number(
     (discountedSubtotal + deliveryFee + serviceTax).toFixed(2)

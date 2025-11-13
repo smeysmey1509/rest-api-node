@@ -55,6 +55,25 @@ export interface IContactDetails {
   phone?: string;
 }
 
+export interface IPromoSummary {
+  code: string;
+  type?: string;
+  value?: number;
+  amount?: number;
+  maxUsesPerUser?: number;
+  expiresAt?: Date;
+}
+
+export interface IOrderSummary {
+  subTotal: number;
+  discount: number;
+  deliveryFee: number;
+  serviceTax: number;
+  total: number;
+  promoCode?: string | null;
+  promo?: IPromoSummary | null;
+}
+
 export interface IOrder extends Document {
   user: Types.ObjectId;
   items: IOrderItem[];
@@ -69,6 +88,8 @@ export interface IOrder extends Document {
   delivery?: IDeliverySummary;
   promoCode?: Types.ObjectId | null;
   notes?: string;
+  contact?: IContactDetails;
+  summary: IOrderSummary;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -114,11 +135,49 @@ const PaymentSchema = new Schema<IPaymentSummary>(
 
 const DeliverySummarySchema = new Schema<IDeliverySummary>(
   {
-    setting: { type: Schema.Types.ObjectId, ref: "DeliverySetting", default: null },
+    setting: {
+      type: Schema.Types.ObjectId,
+      ref: "DeliverySetting",
+      default: null,
+    },
     method: { type: String, required: true },
     baseFee: { type: Number },
     estimatedDays: { type: Number },
     code: { type: String },
+  },
+  { _id: false }
+);
+
+const ContactSchema = new Schema<IContactDetails>(
+  {
+    fullName: { type: String },
+    email: { type: String },
+    phone: { type: String },
+  },
+  { _id: false }
+);
+
+const PromoSummarySchema = new Schema<IPromoSummary>(
+  {
+    code: { type: String, required: true },
+    type: { type: String },
+    value: { type: Number },
+    amount: { type: Number },
+    maxUsesPerUser: { type: Number },
+    expiresAt: { type: Date },
+  },
+  { _id: false }
+);
+
+const OrderSummarySchema = new Schema<IOrderSummary>(
+  {
+    subTotal: { type: Number, required: true, min: 0 },
+    discount: { type: Number, required: true, min: 0 },
+    deliveryFee: { type: Number, required: true, min: 0 },
+    serviceTax: { type: Number, required: true, min: 0 },
+    total: { type: Number, required: true, min: 0 },
+    promoCode: { type: String, default: null },
+    promo: { type: PromoSummarySchema, default: null },
   },
   { _id: false }
 );
@@ -134,7 +193,14 @@ const OrderSchema = new Schema<IOrder>(
     total: { type: Number, required: true, min: 0 },
     status: {
       type: String,
-      enum: ["pending", "processing", "paid", "shipped", "delivered", "cancelled"],
+      enum: [
+        "pending",
+        "processing",
+        "paid",
+        "shipped",
+        "delivered",
+        "cancelled",
+      ],
       default: "pending",
     },
     payment: { type: PaymentSchema, default: () => ({ status: "pending" }) },
@@ -142,6 +208,8 @@ const OrderSchema = new Schema<IOrder>(
     delivery: { type: DeliverySummarySchema, required: false },
     promoCode: { type: Schema.Types.ObjectId, ref: "PromoCode", default: null },
     notes: { type: String },
+    contact: { type: ContactSchema, required: false },
+    summary: { type: OrderSummarySchema, required: true },
   },
   { timestamps: true }
 );

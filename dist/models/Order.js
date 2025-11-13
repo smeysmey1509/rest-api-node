@@ -62,11 +62,37 @@ const PaymentSchema = new mongoose_1.Schema({
     transactionId: { type: String },
 }, { _id: false });
 const DeliverySummarySchema = new mongoose_1.Schema({
-    setting: { type: mongoose_1.Schema.Types.ObjectId, ref: "DeliverySetting", default: null },
+    setting: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: "DeliverySetting",
+        default: null,
+    },
     method: { type: String, required: true },
     baseFee: { type: Number },
     estimatedDays: { type: Number },
     code: { type: String },
+}, { _id: false });
+const ContactSchema = new mongoose_1.Schema({
+    fullName: { type: String },
+    email: { type: String },
+    phone: { type: String },
+}, { _id: false });
+const PromoSummarySchema = new mongoose_1.Schema({
+    code: { type: String, required: true },
+    type: { type: String },
+    value: { type: Number },
+    amount: { type: Number },
+    maxUsesPerUser: { type: Number },
+    expiresAt: { type: Date },
+}, { _id: false });
+const OrderSummarySchema = new mongoose_1.Schema({
+    subTotal: { type: Number, required: true, min: 0 },
+    discount: { type: Number, required: true, min: 0 },
+    deliveryFee: { type: Number, required: true, min: 0 },
+    serviceTax: { type: Number, required: true, min: 0 },
+    total: { type: Number, required: true, min: 0 },
+    promoCode: { type: String, default: null },
+    promo: { type: PromoSummarySchema, default: null },
 }, { _id: false });
 const OrderSchema = new mongoose_1.Schema({
     user: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true },
@@ -78,7 +104,14 @@ const OrderSchema = new mongoose_1.Schema({
     total: { type: Number, required: true, min: 0 },
     status: {
         type: String,
-        enum: ["pending", "processing", "paid", "shipped", "delivered", "cancelled"],
+        enum: [
+            "pending",
+            "processing",
+            "paid",
+            "shipped",
+            "delivered",
+            "cancelled",
+        ],
         default: "pending",
     },
     payment: { type: PaymentSchema, default: () => ({ status: "pending" }) },
@@ -86,5 +119,7 @@ const OrderSchema = new mongoose_1.Schema({
     delivery: { type: DeliverySummarySchema, required: false },
     promoCode: { type: mongoose_1.Schema.Types.ObjectId, ref: "PromoCode", default: null },
     notes: { type: String },
+    contact: { type: ContactSchema, required: false },
+    summary: { type: OrderSummarySchema, required: true },
 }, { timestamps: true });
 exports.default = mongoose_1.default.model("Order", OrderSchema);

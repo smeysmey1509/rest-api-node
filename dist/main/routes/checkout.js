@@ -169,6 +169,33 @@ function normalizePayment(body) {
         payment.transactionId = transactionId;
     return payment;
 }
+function buildPromoSummary(promo, discountAmount) {
+    var _a, _b;
+    if (!promo)
+        return null;
+    const promoDoc = typeof (promo === null || promo === void 0 ? void 0 : promo.toObject) === "function" ? promo.toObject() : promo;
+    const codeCandidate = typeof promoDoc === "string"
+        ? promoDoc
+        : (_b = (_a = promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.code) !== null && _a !== void 0 ? _a : promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.Code) !== null && _b !== void 0 ? _b : null;
+    const code = toTrimmedString(codeCandidate);
+    if (!code)
+        return null;
+    const summary = { code };
+    if (promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.discountType)
+        summary.type = promoDoc.discountType;
+    if (typeof (promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.discountValue) === "number") {
+        summary.value = promoDoc.discountValue;
+    }
+    if (typeof (promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.maxUsesPerUser) === "number") {
+        summary.maxUsesPerUser = promoDoc.maxUsesPerUser;
+    }
+    if (promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.expiresAt)
+        summary.expiresAt = promoDoc.expiresAt;
+    const normalizedAmount = Number(discountAmount || (promoDoc === null || promoDoc === void 0 ? void 0 : promoDoc.discountAmount));
+    if (!Number.isNaN(normalizedAmount))
+        summary.amount = normalizedAmount;
+    return summary;
+}
 function resolveDelivery(cart, options) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a, _b;
@@ -239,7 +266,7 @@ function resolveDelivery(cart, options) {
     });
 }
 router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b;
+    var _a, _b, _c;
     const body = req.body;
     try {
         const cart = yield Cart_1.default.findOne({ user: req.user.id })
@@ -254,11 +281,7 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
         const deliveryOptionRecord = deliveryOption || null;
         const delivery = yield resolveDelivery(cart, {
             methodId: toTrimmedString(body.deliveryMethodId) ||
-                coalesceString(deliveryOptionRecord, [
-                    "id",
-                    "_id",
-                    "setting",
-                ]),
+                coalesceString(deliveryOptionRecord, ["id", "_id", "setting"]),
             method: toTrimmedString(body.deliveryMethod) ||
                 coalesceString(deliveryOptionRecord, ["method"]),
         });
@@ -295,6 +318,16 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
         const discount = cart.discount || 0;
         const deliveryMethod = delivery.method || "standard";
         const { serviceTax, deliveryFee, total } = yield (0, cartTotals_1.calculateCartTotals)(subTotal, discount, deliveryMethod);
+        const promoSummary = buildPromoSummary(cart.promoCode, discount);
+        const orderSummary = {
+            subTotal,
+            discount,
+            deliveryFee,
+            serviceTax,
+            total,
+            promoCode: (_a = promoSummary === null || promoSummary === void 0 ? void 0 : promoSummary.code) !== null && _a !== void 0 ? _a : null,
+            promo: promoSummary,
+        };
         const contactDetails = normalizeContact(body.contact) ||
             normalizeContact(body.personalDetails) ||
             normalizeContact(body.customer) ||
@@ -303,7 +336,7 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
         const shippingAddress = normalizeAddress(body.shippingAddress ||
             body.address, contactDetails);
         const payment = normalizePayment(body);
-        const order = new Order_1.default({
+        const orderPayload = {
             user: req.user.id,
             items: cart.items.map((item) => {
                 const productDoc = item.product;
@@ -324,16 +357,21 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
             serviceTax,
             total,
             status: "pending",
-            summary: {},
+            summary: orderSummary,
             payment,
             shippingAddress,
             delivery,
             promoCode: cart.promoCode && typeof cart.promoCode._id !== "undefined"
                 ? cart.promoCode._id
                 : cart.promoCode || null,
-            notes: ((_a = body.notes) === null || _a === void 0 ? void 0 : _a.toString().trim()) || undefined,
+            notes: ((_b = body.notes) === null || _b === void 0 ? void 0 : _b.toString().trim()) || undefined,
             contact: contactDetails,
-        });
+        };
+        if (shippingAddress)
+            orderPayload.shippingAddress = shippingAddress;
+        if (contactDetails)
+            orderPayload.contact = contactDetails;
+        const order = new Order_1.default(orderPayload);
         yield order.save();
         for (const { rawProduct, quantity } of items) {
             if (typeof rawProduct.stock === "number") {
@@ -354,7 +392,7 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
         cart.deliveryFee = 0;
         cart.total = 0;
         cart.promoCode = null;
-        cart.delivery = ((_b = delivery.setting) !== null && _b !== void 0 ? _b : null);
+        cart.delivery = ((_c = delivery.setting) !== null && _c !== void 0 ? _c : null);
         yield cart.save();
         const emptyCartPayload = {
             items: [],

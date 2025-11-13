@@ -239,6 +239,37 @@ function normalizePayment(body: CheckoutRequestBody): IPaymentSummary {
   return payment;
 }
 
+function buildPromoSummary(promo: any, discountAmount: number) {
+  if (!promo) return null;
+
+  const promoDoc =
+    typeof promo?.toObject === "function" ? promo.toObject() : promo;
+
+  const codeCandidate =
+    typeof promoDoc === "string"
+      ? promoDoc
+      : promoDoc?.code ?? promoDoc?.Code ?? null;
+
+  const code = toTrimmedString(codeCandidate);
+  if (!code) return null;
+
+  const summary: Record<string, any> = { code };
+
+  if (promoDoc?.discountType) summary.type = promoDoc.discountType;
+  if (typeof promoDoc?.discountValue === "number") {
+    summary.value = promoDoc.discountValue;
+  }
+  if (typeof promoDoc?.maxUsesPerUser === "number") {
+    summary.maxUsesPerUser = promoDoc.maxUsesPerUser;
+  }
+  if (promoDoc?.expiresAt) summary.expiresAt = promoDoc.expiresAt;
+
+  const normalizedAmount = Number(discountAmount || promoDoc?.discountAmount);
+  if (!Number.isNaN(normalizedAmount)) summary.amount = normalizedAmount;
+
+  return summary;
+}
+
 async function resolveDelivery(
   cart: any,
   options: { methodId?: string; method?: string }
@@ -336,11 +367,7 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
     const delivery = await resolveDelivery(cart, {
       methodId:
         toTrimmedString(body.deliveryMethodId) ||
-        coalesceString(deliveryOptionRecord, [
-          "id",
-          "_id",
-          "setting",
-        ]),
+        coalesceString(deliveryOptionRecord, ["id", "_id", "setting"]),
       method:
         toTrimmedString(body.deliveryMethod) ||
         coalesceString(deliveryOptionRecord, ["method"]),
@@ -388,6 +415,18 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
       deliveryMethod
     );
 
+    const promoSummary = buildPromoSummary(cart.promoCode, discount);
+
+    const orderSummary = {
+      subTotal,
+      discount,
+      deliveryFee,
+      serviceTax,
+      total,
+      promoCode: promoSummary?.code ?? null,
+      promo: promoSummary,
+    };
+
     const contactDetails =
       normalizeContact(body.contact) ||
       normalizeContact(body.personalDetails) ||
@@ -403,7 +442,7 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
 
     const payment = normalizePayment(body);
 
-    const order = new Order({
+    const orderPayload: Record<string, any> = {
       user: req.user.id,
       items: cart.items.map((item: any) => {
         const productDoc = item.product as any;
@@ -424,7 +463,7 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
       serviceTax,
       total,
       status: "pending",
-      summary: {},
+      summary: orderSummary,
       payment,
       shippingAddress,
       delivery,
@@ -434,7 +473,12 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
           : cart.promoCode || null,
       notes: body.notes?.toString().trim() || undefined,
       contact: contactDetails,
-    });
+    };
+
+    if (shippingAddress) orderPayload.shippingAddress = shippingAddress;
+    if (contactDetails) orderPayload.contact = contactDetails;
+
+    const order = new Order(orderPayload);
 
     await order.save();
 

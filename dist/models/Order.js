@@ -45,12 +45,15 @@ const OrderItemSchema = new mongoose_1.Schema({
 const ShippingAddressSchema = new mongoose_1.Schema({
     fullName: { type: String },
     phone: { type: String },
+    email: { type: String },
     line1: { type: String, required: true },
     line2: { type: String },
     city: { type: String },
     state: { type: String },
     postalCode: { type: String },
     country: { type: String, required: true },
+    type: { type: String },
+    isDefault: { type: Boolean, default: false },
 }, { _id: false });
 const PaymentSchema = new mongoose_1.Schema({
     method: { type: String },
@@ -60,6 +63,8 @@ const PaymentSchema = new mongoose_1.Schema({
         default: "pending",
     },
     transactionId: { type: String },
+    currency: { type: String },
+    paidAt: { type: Date, default: null },
 }, { _id: false });
 const DeliverySummarySchema = new mongoose_1.Schema({
     setting: {
@@ -71,6 +76,10 @@ const DeliverySummarySchema = new mongoose_1.Schema({
     baseFee: { type: Number },
     estimatedDays: { type: Number },
     code: { type: String },
+    carrier: { type: String },
+    trackingNumber: { type: String },
+    trackingUrl: { type: String },
+    estimatedDeliveryDate: { type: Date, default: null },
 }, { _id: false });
 const ContactSchema = new mongoose_1.Schema({
     fullName: { type: String },
@@ -91,8 +100,24 @@ const OrderSummarySchema = new mongoose_1.Schema({
     deliveryFee: { type: Number, required: true, min: 0 },
     serviceTax: { type: Number, required: true, min: 0 },
     total: { type: Number, required: true, min: 0 },
+    taxRate: { type: Number, required: true, min: 0 },
     promoCode: { type: String, default: null },
     promo: { type: PromoSummarySchema, default: null },
+}, { _id: false });
+const StatusHistorySchema = new mongoose_1.Schema({
+    status: {
+        type: String,
+        enum: ["pending", "processing", "paid", "shipped", "delivered", "cancelled"],
+        required: true,
+    },
+    message: { type: String },
+    updatedAt: { type: Date, required: true },
+}, { _id: false });
+const OrderMetaSchema = new mongoose_1.Schema({
+    ip: { type: String, default: null },
+    device: { type: String, default: null },
+    userAgent: { type: String, default: null },
+    location: { type: String, default: null },
 }, { _id: false });
 const OrderSchema = new mongoose_1.Schema({
     user: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true },
@@ -114,6 +139,8 @@ const OrderSchema = new mongoose_1.Schema({
         ],
         default: "pending",
     },
+    statusHistory: { type: [StatusHistorySchema], default: [] },
+    meta: { type: OrderMetaSchema, default: false },
     payment: { type: PaymentSchema, default: () => ({ status: "pending" }) },
     shippingAddress: { type: ShippingAddressSchema, required: false },
     delivery: { type: DeliverySummarySchema, required: false },

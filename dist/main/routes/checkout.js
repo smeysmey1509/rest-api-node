@@ -8,6 +8,17 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __rest = (this && this.__rest) || function (s, e) {
+    var t = {};
+    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+        t[p] = s[p];
+    if (s != null && typeof Object.getOwnPropertySymbols === "function")
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                t[p[i]] = s[p[i]];
+        }
+    return t;
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -21,6 +32,24 @@ const auth_1 = require("../../middleware/auth");
 const cartTotals_1 = require("../utils/cartTotals");
 const cache_1 = require("../utils/cache");
 const router = (0, express_1.Router)();
+const ORDER_STATUS_FLOW = [
+    {
+        status: "pending",
+        message: "Order created, awaiting payment.",
+    },
+    {
+        status: "processing",
+        message: "Payment received, preparing for shipment.",
+    },
+    {
+        status: "shipped",
+        message: "Order shipped to carrier.",
+    },
+    {
+        status: "delivered",
+        message: "Order delivered to customer.",
+    },
+];
 const PAYMENT_STATUSES = [
     "pending",
     "authorized",
@@ -33,6 +62,12 @@ function toTrimmedString(value) {
         return undefined;
     const str = String(value).trim();
     return str.length > 0 ? str : undefined;
+}
+function headerToString(value) {
+    if (Array.isArray(value)) {
+        return value[0];
+    }
+    return value === null || value === void 0 ? void 0 : value.toString();
 }
 function coalesceString(source, keys) {
     if (!source)
@@ -133,10 +168,21 @@ function normalizeAddress(payload, fallbackContact) {
     ]);
     if (postalCode)
         normalized.postalCode = postalCode;
+    const type = coalesceString(record, ["type", "addressType"]);
+    if (type)
+        normalized.type = type;
+    if (record.isDefault !== undefined) {
+        if (typeof record.isDefault === "string") {
+            normalized.isDefault = record.isDefault.toLowerCase() === "true";
+        }
+        else {
+            normalized.isDefault = Boolean(record.isDefault);
+        }
+    }
     return normalized;
 }
 function normalizePayment(body) {
-    var _a;
+    var _a, _b;
     const nested = body.payment || undefined;
     const method = toTrimmedString(body.paymentMethod) ||
         (nested &&
@@ -162,11 +208,23 @@ function normalizePayment(body) {
             status = normalized.toLowerCase();
         }
     }
+    const currency = toTrimmedString(nested === null || nested === void 0 ? void 0 : nested.currency) ||
+        toTrimmedString(body.currency);
+    const paidAtRaw = (_b = nested === null || nested === void 0 ? void 0 : nested.paidAt) !== null && _b !== void 0 ? _b : body === null || body === void 0 ? void 0 : body.paidAt;
+    const paidAtDate = paidAtRaw ? new Date(paidAtRaw) : null;
     const payment = { status };
     if (method)
         payment.method = method;
     if (transactionId)
         payment.transactionId = transactionId;
+    if (currency)
+        payment.currency = currency;
+    if (paidAtDate && !Number.isNaN(paidAtDate.getTime())) {
+        payment.paidAt = paidAtDate;
+    }
+    if (!payment.currency) {
+        payment.currency = "USD";
+    }
     return payment;
 }
 function buildPromoSummary(promo, discountAmount) {
@@ -210,6 +268,10 @@ function resolveDelivery(cart, options) {
                 baseFee: byId.baseFee,
                 estimatedDays: byId.estimatedDays,
                 code: byId.code,
+                carrier: undefined,
+                trackingNumber: undefined,
+                trackingUrl: undefined,
+                estimatedDeliveryDate: null,
             };
         }
         const byMethod = method
@@ -222,6 +284,10 @@ function resolveDelivery(cart, options) {
                 baseFee: byMethod.baseFee,
                 estimatedDays: byMethod.estimatedDays,
                 code: byMethod.code,
+                carrier: undefined,
+                trackingNumber: undefined,
+                trackingUrl: undefined,
+                estimatedDeliveryDate: null,
             };
         }
         const populated = cart === null || cart === void 0 ? void 0 : cart.delivery;
@@ -238,6 +304,10 @@ function resolveDelivery(cart, options) {
                 baseFee: populated.baseFee,
                 estimatedDays: populated.estimatedDays,
                 code: populated.code,
+                carrier: populated.carrier,
+                trackingNumber: populated.trackingNumber,
+                trackingUrl: populated.trackingUrl,
+                estimatedDeliveryDate: populated.estimatedDeliveryDate,
             };
         }
         const existingId = cart === null || cart === void 0 ? void 0 : cart.delivery;
@@ -250,6 +320,10 @@ function resolveDelivery(cart, options) {
                     baseFee: doc.baseFee,
                     estimatedDays: doc.estimatedDays,
                     code: doc.code,
+                    carrier: undefined,
+                    trackingNumber: undefined,
+                    trackingUrl: undefined,
+                    estimatedDeliveryDate: null,
                 };
             }
         }
@@ -262,11 +336,15 @@ function resolveDelivery(cart, options) {
             baseFee: fallback.baseFee,
             estimatedDays: fallback.estimatedDays,
             code: fallback.code,
+            carrier: undefined,
+            trackingNumber: undefined,
+            trackingUrl: undefined,
+            estimatedDeliveryDate: null,
         };
     });
 }
 router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
     const body = req.body;
     try {
         const cart = yield Cart_1.default.findOne({ user: req.user.id })
@@ -319,12 +397,15 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
         const deliveryMethod = delivery.method || "standard";
         const { serviceTax, deliveryFee, total } = yield (0, cartTotals_1.calculateCartTotals)(subTotal, discount, deliveryMethod);
         const promoSummary = buildPromoSummary(cart.promoCode, discount);
+        const taxableBase = Math.max(subTotal - discount, 0);
+        const taxRate = taxableBase > 0 ? Number((serviceTax / taxableBase).toFixed(4)) : 0;
         const orderSummary = {
             subTotal,
             discount,
             deliveryFee,
             serviceTax,
             total,
+            taxRate,
             promoCode: (_a = promoSummary === null || promoSummary === void 0 ? void 0 : promoSummary.code) !== null && _a !== void 0 ? _a : null,
             promo: promoSummary,
         };
@@ -336,6 +417,18 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
         const shippingAddress = normalizeAddress(body.shippingAddress ||
             body.address, contactDetails);
         const payment = normalizePayment(body);
+        const now = new Date();
+        const statusHistory = ORDER_STATUS_FLOW.map(({ status, message }, index) => ({
+            status,
+            message,
+            updatedAt: index === 0 ? now : undefined,
+        }));
+        const forwardedFor = headerToString(req.headers["x-forwarded-for"]);
+        const secChUa = headerToString(req.headers["sec-ch-ua"]);
+        const secChUaPlatform = headerToString(req.headers["sec-ch-ua-platform"]);
+        const userAgentHeader = (typeof req.get === "function" && req.get("user-agent")) ||
+            headerToString(req.headers["user-agent"]);
+        const locationHeader = headerToString(req.headers["x-app-location"]);
         const orderPayload = {
             user: req.user.id,
             items: cart.items.map((item) => {
@@ -356,7 +449,8 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
             deliveryFee,
             serviceTax,
             total,
-            status: "pending",
+            status: (_c = (_b = statusHistory[0]) === null || _b === void 0 ? void 0 : _b.status) !== null && _c !== void 0 ? _c : "pending",
+            statusHistory,
             summary: orderSummary,
             payment,
             shippingAddress,
@@ -364,8 +458,19 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
             promoCode: cart.promoCode && typeof cart.promoCode._id !== "undefined"
                 ? cart.promoCode._id
                 : cart.promoCode || null,
-            notes: ((_b = body.notes) === null || _b === void 0 ? void 0 : _b.toString().trim()) || undefined,
+            notes: ((_d = body.notes) === null || _d === void 0 ? void 0 : _d.toString().trim()) || undefined,
             contact: contactDetails,
+            meta: {
+                ip: (forwardedFor === null || forwardedFor === void 0 ? void 0 : forwardedFor.split(",")[0].trim()) ||
+                    req.ip ||
+                    ((_e = req.socket) === null || _e === void 0 ? void 0 : _e.remoteAddress) ||
+                    null,
+                device: secChUa && secChUaPlatform
+                    ? `${secChUa} on ${secChUaPlatform}`
+                    : null,
+                userAgent: userAgentHeader || null,
+                location: locationHeader || null,
+            },
         };
         if (shippingAddress)
             orderPayload.shippingAddress = shippingAddress;
@@ -392,7 +497,7 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
         cart.deliveryFee = 0;
         cart.total = 0;
         cart.promoCode = null;
-        cart.delivery = ((_c = delivery.setting) !== null && _c !== void 0 ? _c : null);
+        cart.delivery = ((_f = delivery.setting) !== null && _f !== void 0 ? _f : null);
         yield cart.save();
         const emptyCartPayload = {
             items: [],
@@ -404,6 +509,7 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
                 deliveryFee: 0,
                 serviceTax: 0,
                 total: 0,
+                taxRate: 0,
                 promoCode: null,
                 promo: null,
             },
@@ -412,9 +518,15 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
         yield (0, cache_1.invalidateCart)(req.user.id);
         const plainOrder = order.toObject({ virtuals: false });
         delete plainOrder.__v;
+        const _m = plainOrder, { statusHistory: storedStatusHistory, payment: orderPayment, delivery: orderDelivery, summary: orderSummaryDoc } = _m, orderRest = __rest(_m, ["statusHistory", "payment", "delivery", "summary"]);
+        const responseOrder = Object.assign(Object.assign({}, orderRest), { payment: Object.assign(Object.assign({}, (orderPayment || {})), { method: (_g = orderPayment === null || orderPayment === void 0 ? void 0 : orderPayment.method) !== null && _g !== void 0 ? _g : null, status: (orderPayment === null || orderPayment === void 0 ? void 0 : orderPayment.status) || "pending", transactionId: (_h = orderPayment === null || orderPayment === void 0 ? void 0 : orderPayment.transactionId) !== null && _h !== void 0 ? _h : null, currency: (orderPayment === null || orderPayment === void 0 ? void 0 : orderPayment.currency) || "USD", paidAt: (orderPayment === null || orderPayment === void 0 ? void 0 : orderPayment.paidAt) || null }), delivery: orderDelivery
+                ? Object.assign(Object.assign({}, orderDelivery), { carrier: (_j = orderDelivery === null || orderDelivery === void 0 ? void 0 : orderDelivery.carrier) !== null && _j !== void 0 ? _j : null, trackingNumber: (_k = orderDelivery === null || orderDelivery === void 0 ? void 0 : orderDelivery.trackingNumber) !== null && _k !== void 0 ? _k : null, trackingUrl: (_l = orderDelivery === null || orderDelivery === void 0 ? void 0 : orderDelivery.trackingUrl) !== null && _l !== void 0 ? _l : null, estimatedDeliveryDate: (orderDelivery === null || orderDelivery === void 0 ? void 0 : orderDelivery.estimatedDeliveryDate) || null }) : undefined, status: {
+                current: plainOrder.status,
+                history: storedStatusHistory || [],
+            }, summary: Object.assign(Object.assign({}, (orderSummaryDoc || {})), { promo: (orderSummaryDoc === null || orderSummaryDoc === void 0 ? void 0 : orderSummaryDoc.promo) || null }), meta: plainOrder.meta || null });
         res.status(201).json({
             message: "Order placed successfully.",
-            order: plainOrder,
+            order: responseOrder,
         });
     }
     catch (err) {

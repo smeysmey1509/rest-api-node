@@ -32,6 +32,12 @@ const subtotalFromCart = (cart) => {
         return acc + price * item.quantity;
     }, 0);
 };
+const computeTaxRate = (subTotal, discount, serviceTax) => {
+    const taxableBase = Math.max(subTotal - discount, 0);
+    if (taxableBase <= 0)
+        return 0;
+    return Number((serviceTax / taxableBase).toFixed(4));
+};
 // helper: chosen delivery method (lowercase), defaulting to active isActive=true or "standard"
 function resolveDeliveryMethod(cart) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -87,7 +93,9 @@ function buildCartResponse(cartDoc) {
         }, 0);
         const method = String(deliveryDoc.method || "standard").toLowerCase();
         const { serviceTax, deliveryFee, total } = yield (0, cartTotals_1.calculateCartTotals)(subTotal, cartDoc.discount || 0, method);
-        const promoSummary = buildPromoSummary(cartDoc.promoCode, cartDoc.discount || 0);
+        const discount = cartDoc.discount || 0;
+        const promoSummary = buildPromoSummary(cartDoc.promoCode, discount);
+        const taxRate = computeTaxRate(subTotal, discount, serviceTax);
         const response = {
             _id: cartDoc._id,
             user: cartDoc.user,
@@ -96,10 +104,11 @@ function buildCartResponse(cartDoc) {
             delivery: deliveryDoc,
             summary: {
                 subTotal,
-                discount: cartDoc.discount || 0,
+                discount,
                 deliveryFee,
                 serviceTax,
                 total,
+                taxRate,
                 promoCode: (_a = promoSummary === null || promoSummary === void 0 ? void 0 : promoSummary.code) !== null && _a !== void 0 ? _a : null,
                 promo: promoSummary,
             },
@@ -147,6 +156,7 @@ router.get("/cart", auth_1.authenticateToken, (req, res) => __awaiter(void 0, vo
                     deliveryFee: 0,
                     serviceTax: 0,
                     total: 0,
+                    taxRate: 0,
                     promoCode: null,
                     promo: null,
                 },
@@ -173,7 +183,9 @@ router.get("/cart", auth_1.authenticateToken, (req, res) => __awaiter(void 0, vo
             deliveryFee,
             total,
         });
-        const promoSummary = buildPromoSummary(cart.promoCode, cart.discount || 0);
+        const discount = cart.discount || 0;
+        const promoSummary = buildPromoSummary(cart.promoCode, discount);
+        const taxRate = computeTaxRate(subTotal, discount, serviceTax);
         const response = {
             _id: cart._id,
             user: cart.user,
@@ -182,10 +194,11 @@ router.get("/cart", auth_1.authenticateToken, (req, res) => __awaiter(void 0, vo
             delivery: deliveryDoc,
             summary: {
                 subTotal,
-                discount: cart.discount || 0,
+                discount,
                 deliveryFee,
                 serviceTax,
                 total,
+                taxRate,
                 promoCode: (_a = promoSummary === null || promoSummary === void 0 ? void 0 : promoSummary.code) !== null && _a !== void 0 ? _a : null,
                 promo: promoSummary,
             },
@@ -232,7 +245,25 @@ router.post("/cart/add", auth_1.authenticateToken, (req, res) => __awaiter(void 
         yield cart.save();
         const response = yield buildCartResponse(cart);
         yield (0, cache_1.setCachedCart)(req.user.id, response);
-        res.status(200).json(response);
+        const taxRate = computeTaxRate(subtotal, 0, serviceTax);
+        res.status(200).json({
+            _id: cart._id,
+            user: cart.user,
+            items: cart.items,
+            promoCode: null,
+            summary: {
+                subTotal: subtotal,
+                discount: 0,
+                deliveryFee,
+                serviceTax,
+                total,
+                taxRate,
+                promoCode: null,
+                promo: null,
+            },
+            createdAt: cart.createdAt,
+            updatedAt: cart.updatedAt,
+        });
     }
     catch (err) {
         console.error(err);

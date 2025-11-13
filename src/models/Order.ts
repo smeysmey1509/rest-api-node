@@ -267,7 +267,7 @@ const OrderSchema = new Schema<IOrder>(
       default: "pending",
     },
     statusHistory: { type: [StatusHistorySchema], default: [] },
-    meta: { type: OrderMetaSchema, default: () => ({}) },
+    meta: { type: OrderMetaSchema, default: false },
     payment: { type: PaymentSchema, default: () => ({ status: "pending" }) },
     shippingAddress: { type: ShippingAddressSchema, required: false },
     delivery: { type: DeliverySummarySchema, required: false },

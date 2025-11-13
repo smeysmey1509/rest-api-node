@@ -7,13 +7,37 @@ import Order, {
   IPaymentSummary,
   IDeliverySummary,
   IShippingAddress,
+  IStatusHistoryEntry,
   PaymentStatus,
+  OrderStatus
 } from "../../models/Order";
 import { authenticateToken } from "../../middleware/auth";
 import { calculateCartTotals } from "../utils/cartTotals";
 import { invalidateCart, setCachedCart } from "../utils/cache";
 
 const router = Router();
+
+const ORDER_STATUS_FLOW: ReadonlyArray<{
+  status: OrderStatus;
+  message: string;
+}> = [
+  {
+    status: "pending",
+    message: "Order created, awaiting payment.",
+  },
+  {
+    status: "processing",
+    message: "Payment received, preparing for shipment.",
+  },
+  {
+    status: "shipped",
+    message: "Order shipped to carrier.",
+  },
+  {
+    status: "delivered",
+    message: "Order delivered to customer.",
+  },
+];
 
 type ContactPayload = Partial<IContactDetails> & {
   firstName?: string;
@@ -201,6 +225,17 @@ function normalizeAddress(
   ]);
   if (postalCode) normalized.postalCode = postalCode;
 
+  const type = coalesceString(record, ["type", "addressType"]);
+  if (type) normalized.type = type;
+
+  if (record.isDefault !== undefined) {
+    if (typeof record.isDefault === "string") {
+      normalized.isDefault = record.isDefault.toLowerCase() === "true";
+    } else {
+      normalized.isDefault = Boolean(record.isDefault);
+    }
+  }
+
   return normalized;
 }
 
@@ -241,9 +276,26 @@ function normalizePayment(body: CheckoutRequestBody): IPaymentSummary {
     }
   }
 
+  const currency =
+    toTrimmedString((nested as Record<string, unknown>)?.currency) ||
+    toTrimmedString((body as Record<string, unknown>).currency);
+
+  const paidAtRaw =
+    (nested as Record<string, unknown>)?.paidAt ??
+    (body as Record<string, unknown>)?.paidAt;
+  const paidAtDate = paidAtRaw ? new Date(paidAtRaw as any) : null;
+
   const payment: IPaymentSummary = { status };
   if (method) payment.method = method;
   if (transactionId) payment.transactionId = transactionId;
+  if (currency) payment.currency = currency;
+  if (paidAtDate && !Number.isNaN(paidAtDate.getTime())) {
+    payment.paidAt = paidAtDate;
+  }
+
+  if (!payment.currency) {
+    payment.currency = "USD";
+  }
 
   return payment;
 }
@@ -295,6 +347,10 @@ async function resolveDelivery(
       baseFee: byId.baseFee,
       estimatedDays: byId.estimatedDays,
       code: byId.code,
+      carrier: undefined,
+      trackingNumber: undefined,
+      trackingUrl: undefined,
+      estimatedDeliveryDate: null,
     };
   }
 
@@ -308,6 +364,10 @@ async function resolveDelivery(
       baseFee: byMethod.baseFee,
       estimatedDays: byMethod.estimatedDays,
       code: byMethod.code,
+      carrier: undefined,
+      trackingNumber: undefined,
+      trackingUrl: undefined,
+      estimatedDeliveryDate: null,
     };
   }
 
@@ -326,6 +386,10 @@ async function resolveDelivery(
       baseFee: populated.baseFee,
       estimatedDays: populated.estimatedDays,
       code: populated.code,
+      carrier: populated.carrier,
+      trackingNumber: populated.trackingNumber,
+      trackingUrl: populated.trackingUrl,
+      estimatedDeliveryDate: populated.estimatedDeliveryDate,
     };
   }
 
@@ -339,6 +403,10 @@ async function resolveDelivery(
         baseFee: doc.baseFee,
         estimatedDays: doc.estimatedDays,
         code: doc.code,
+        carrier: undefined,
+        trackingNumber: undefined,
+        trackingUrl: undefined,
+        estimatedDeliveryDate: null,
       };
     }
   }
@@ -352,6 +420,10 @@ async function resolveDelivery(
     baseFee: fallback.baseFee,
     estimatedDays: fallback.estimatedDays,
     code: fallback.code,
+    carrier: undefined,
+    trackingNumber: undefined,
+    trackingUrl: undefined,
+    estimatedDeliveryDate: null,
   };
 }
 
@@ -426,12 +498,19 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
 
     const promoSummary = buildPromoSummary(cart.promoCode, discount);
 
+    const taxableBase = Math.max(subTotal - discount, 0);
+    const taxRate =
+      taxableBase > 0
+        ? Number((serviceTax / taxableBase).toFixed(4))
+        : 0;
+
     const orderSummary = {
       subTotal,
       discount,
       deliveryFee,
       serviceTax,
       total,
+      taxRate,
       promoCode: promoSummary?.code ?? null,
       promo: promoSummary,
     };
@@ -450,6 +529,22 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
     );
 
     const payment = normalizePayment(body);
+
+    const now = new Date();
+    const statusHistory: IStatusHistoryEntry[] = ORDER_STATUS_FLOW.map(
+      ({ status, message }, index) => ({
+        status,
+        message,
+        updatedAt: index === 0 ? now : null,
+      })
+    );
+    const forwardedFor = headerToString(req.headers["x-forwarded-for"]);
+    const secChUa = headerToString(req.headers["sec-ch-ua"]);
+    const secChUaPlatform = headerToString(req.headers["sec-ch-ua-platform"]);
+    const userAgentHeader =
+      (typeof req.get === "function" && req.get("user-agent")) ||
+      headerToString(req.headers["user-agent"]);
+    const locationHeader = headerToString(req.headers["x-app-location"]);
 
     const orderPayload: Record<string, any> = {
       user: req.user.id,
@@ -471,7 +566,8 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
       deliveryFee,
       serviceTax,
       total,
-      status: "pending",
+      status: statusHistory[0]?.status ?? "pending",
+      statusHistory,
       summary: orderSummary,
       payment,
       shippingAddress,
@@ -482,6 +578,19 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
           : cart.promoCode || null,
       notes: body.notes?.toString().trim() || undefined,
       contact: contactDetails,
+      meta: {
+        ip:
+          forwardedFor?.split(",")[0].trim() ||
+          req.ip ||
+          req.socket?.remoteAddress ||
+          null,
+        device:
+          secChUa && secChUaPlatform
+            ? `${secChUa} on ${secChUaPlatform}`
+            : null,
+        userAgent: userAgentHeader || null,
+        location: locationHeader || null,
+      },
     };
 
     if (shippingAddress) orderPayload.shippingAddress = shippingAddress;
@@ -523,6 +632,7 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
         deliveryFee: 0,
         serviceTax: 0,
         total: 0,
+        taxRate: 0,
         promoCode: null,
         promo: null,
       },
@@ -534,9 +644,48 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
     const plainOrder = order.toObject({ virtuals: false });
     delete (plainOrder as any).__v;
 
+    const {
+      statusHistory: storedStatusHistory,
+      payment: orderPayment,
+      delivery: orderDelivery,
+      summary: orderSummaryDoc,
+      ...orderRest
+    } = plainOrder as any;
+
+    const responseOrder = {
+      ...orderRest,
+      payment: {
+        ...(orderPayment || {}),
+        method: orderPayment?.method ?? null,
+        status: orderPayment?.status || "pending",
+        transactionId: orderPayment?.transactionId ?? null,
+        currency: orderPayment?.currency || "USD",
+        paidAt: orderPayment?.paidAt || null,
+      },
+      delivery: orderDelivery
+        ? {
+            ...orderDelivery,
+            carrier: orderDelivery?.carrier ?? null,
+            trackingNumber: orderDelivery?.trackingNumber ?? null,
+            trackingUrl: orderDelivery?.trackingUrl ?? null,
+            estimatedDeliveryDate:
+              orderDelivery?.estimatedDeliveryDate || null,
+          }
+        : undefined,
+      status: {
+        current: plainOrder.status,
+        history: storedStatusHistory || [],
+      },
+      summary: {
+        ...(orderSummaryDoc || {}),
+        promo: orderSummaryDoc?.promo || null,
+      },
+      meta: plainOrder.meta || null,
+    };
+
     res.status(201).json({
       message: "Order placed successfully.",
-      order: plainOrder,
+      order: responseOrder,
     });
   } catch (err: any) {
     console.error(err);

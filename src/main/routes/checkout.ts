@@ -31,6 +31,8 @@ type PaymentPayload = Partial<IPaymentSummary> & {
   name?: string;
   reference?: string;
   id?: string;
+  currency?: string;
+  paidAt?: string | Date | null;
 };
 
 type DeliverySelectionPayload = {
@@ -69,6 +71,13 @@ function toTrimmedString(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined;
   const str = String(value).trim();
   return str.length > 0 ? str : undefined;
+}
+
+function headerToString(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return value?.toString();
 }
 
 function coalesceString(

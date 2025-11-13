@@ -27,18 +27,23 @@ export interface IOrderItem {
 export interface IShippingAddress {
   fullName?: string;
   phone?: string;
+  email?: string;
   line1: string;
   line2?: string;
   city?: string;
   state?: string;
   postalCode?: string;
   country: string;
+  type?: string;
+  isDefault?: boolean;
 }
 
 export interface IPaymentSummary {
   method?: string;
   status: PaymentStatus;
   transactionId?: string;
+  currency?: string;
+  paidAt?: Date | null;
 }
 
 export interface IDeliverySummary {
@@ -47,6 +52,10 @@ export interface IDeliverySummary {
   baseFee?: number;
   estimatedDays?: number;
   code?: string;
+  carrier?: string;
+  trackingNumber?: string;
+  trackingUrl?: string;
+  estimatedDeliveryDate?: Date | null;
 }
 
 export interface IContactDetails {
@@ -70,8 +79,27 @@ export interface IOrderSummary {
   deliveryFee: number;
   serviceTax: number;
   total: number;
+  taxRate: number;
   promoCode?: string | null;
   promo?: IPromoSummary | null;
+}
+
+export interface IStatusHistoryEntry {
+  status: OrderStatus;
+  message?: string;
+  updatedAt: Date;
+}
+
+export interface IOrderStatus {
+  current: OrderStatus;
+  history: IStatusHistoryEntry[];
+}
+
+export interface IOrderMeta {
+  ip?: string | null;
+  device?: string | null;
+  userAgent?: string | null;
+  location?: string | null;
 }
 
 export interface IOrder extends Document {
@@ -83,6 +111,7 @@ export interface IOrder extends Document {
   serviceTax: number;
   total: number;
   status: OrderStatus;
+  statusHistory?: IStatusHistoryEntry[];
   payment: IPaymentSummary;
   shippingAddress?: IShippingAddress;
   delivery?: IDeliverySummary;
@@ -90,6 +119,7 @@ export interface IOrder extends Document {
   notes?: string;
   contact?: IContactDetails;
   summary: IOrderSummary;
+  meta?: IOrderMeta;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -110,12 +140,15 @@ const ShippingAddressSchema = new Schema<IShippingAddress>(
   {
     fullName: { type: String },
     phone: { type: String },
+    email: { type: String },
     line1: { type: String, required: true },
     line2: { type: String },
     city: { type: String },
     state: { type: String },
     postalCode: { type: String },
     country: { type: String, required: true },
+    type: { type: String },
+    isDefault: { type: Boolean, default: false },
   },
   { _id: false }
 );
@@ -129,6 +162,8 @@ const PaymentSchema = new Schema<IPaymentSummary>(
       default: "pending",
     },
     transactionId: { type: String },
+    currency: { type: String },
+    paidAt: { type: Date, default: null },
   },
   { _id: false }
 );
@@ -144,6 +179,10 @@ const DeliverySummarySchema = new Schema<IDeliverySummary>(
     baseFee: { type: Number },
     estimatedDays: { type: Number },
     code: { type: String },
+    carrier: { type: String },
+    trackingNumber: { type: String },
+    trackingUrl: { type: String },
+    estimatedDeliveryDate: { type: Date, default: null },
   },
   { _id: false }
 );
@@ -176,8 +215,32 @@ const OrderSummarySchema = new Schema<IOrderSummary>(
     deliveryFee: { type: Number, required: true, min: 0 },
     serviceTax: { type: Number, required: true, min: 0 },
     total: { type: Number, required: true, min: 0 },
+    taxRate: { type: Number, required: true, min: 0 },
     promoCode: { type: String, default: null },
     promo: { type: PromoSummarySchema, default: null },
+  },
+  { _id: false }
+);
+
+const StatusHistorySchema = new Schema<IStatusHistoryEntry>(
+  {
+    status: {
+      type: String,
+      enum: ["pending", "processing", "paid", "shipped", "delivered", "cancelled"],
+      required: true,
+    },
+    message: { type: String },
+    updatedAt: { type: Date, required: true },
+  },
+  { _id: false }
+);
+
+const OrderMetaSchema = new Schema<IOrderMeta>(
+  {
+    ip: { type: String, default: null },
+    device: { type: String, default: null },
+    userAgent: { type: String, default: null },
+    location: { type: String, default: null },
   },
   { _id: false }
 );
@@ -203,6 +266,8 @@ const OrderSchema = new Schema<IOrder>(
       ],
       default: "pending",
     },
+    statusHistory: { type: [StatusHistorySchema], default: [] },
+    meta: { type: OrderMetaSchema, default: () => ({}) },
     payment: { type: PaymentSchema, default: () => ({ status: "pending" }) },
     shippingAddress: { type: ShippingAddressSchema, required: false },
     delivery: { type: DeliverySummarySchema, required: false },

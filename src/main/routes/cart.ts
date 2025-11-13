@@ -20,6 +20,16 @@ const subtotalFromCart = (cart: Pick<ICart, "items">): number => {
   }, 0);
 };
 
+const computeTaxRate = (
+  subTotal: number,
+  discount: number,
+  serviceTax: number
+): number => {
+  const taxableBase = Math.max(subTotal - discount, 0);
+  if (taxableBase <= 0) return 0;
+  return Number((serviceTax / taxableBase).toFixed(4));
+};
+
 // helper: chosen delivery method (lowercase), defaulting to active isActive=true or "standard"
 async function resolveDeliveryMethod(cart: any): Promise<string> {
   // if cart has populated delivery with a method, prefer that
@@ -82,10 +92,9 @@ async function buildCartResponse(cartDoc: any) {
     method
   );
 
-  const promoSummary = buildPromoSummary(
-    cartDoc.promoCode,
-    cartDoc.discount || 0
-  );
+  const discount = cartDoc.discount || 0;
+  const promoSummary = buildPromoSummary(cartDoc.promoCode, discount);
+  const taxRate = computeTaxRate(subTotal, discount, serviceTax);
 
   const response = {
     _id: cartDoc._id,
@@ -95,10 +104,11 @@ async function buildCartResponse(cartDoc: any) {
     delivery: deliveryDoc,
     summary: {
       subTotal,
-      discount: cartDoc.discount || 0,
+      discount,
       deliveryFee,
       serviceTax,
       total,
+      taxRate,
       promoCode: promoSummary?.code ?? null,
       promo: promoSummary,
     },
@@ -152,6 +162,7 @@ router.get(
             deliveryFee: 0,
             serviceTax: 0,
             total: 0,
+            taxRate: 0,
             promoCode: null,
             promo: null,
           },
@@ -188,10 +199,9 @@ router.get(
         total,
       });
 
-      const promoSummary = buildPromoSummary(
-        cart.promoCode,
-        cart.discount || 0
-      );
+      const discount = cart.discount || 0;
+      const promoSummary = buildPromoSummary(cart.promoCode, discount);
+      const taxRate = computeTaxRate(subTotal, discount, serviceTax);
 
       const response = {
         _id: cart._id,
@@ -201,10 +211,11 @@ router.get(
         delivery: deliveryDoc,
         summary: {
           subTotal,
-          discount: cart.discount || 0,
+          discount,
           deliveryFee,
           serviceTax,
           total,
+          taxRate,
           promoCode: promoSummary?.code ?? null,
           promo: promoSummary,
         },
@@ -262,7 +273,25 @@ router.post("/cart/add", authenticateToken, async (req: any, res: Response) => {
     await cart.save();
     const response = await buildCartResponse(cart);
     await setCachedCart(req.user.id, response);
-    res.status(200).json(response);
+    const taxRate = computeTaxRate(subtotal, 0, serviceTax);
+    res.status(200).json({
+        _id: cart._id,
+        user: cart.user,
+        items: cart.items,
+        promoCode: null,
+        summary: {
+          subTotal: subtotal,
+          discount: 0,
+          deliveryFee,
+          serviceTax,
+          total,
+          taxRate,
+          promoCode: null,
+          promo: null,
+        },
+        createdAt: cart.createdAt,
+        updatedAt: cart.updatedAt,
+      });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to add to cart." });
@@ -346,6 +375,7 @@ router.post(
 
       await cart.save();
       await invalidateCart(req.user.id);
+      
       res.status(200).json({ msg: "Cart cleared." });
     } catch (err) {
       console.error(err);

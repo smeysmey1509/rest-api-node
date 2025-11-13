@@ -111,7 +111,7 @@ const StatusHistorySchema = new mongoose_1.Schema({
         required: true,
     },
     message: { type: String },
-    updatedAt: { type: Date, required: true },
+    updatedAt: { type: Date, required: false },
 }, { _id: false });
 const OrderMetaSchema = new mongoose_1.Schema({
     ip: { type: String, default: null },

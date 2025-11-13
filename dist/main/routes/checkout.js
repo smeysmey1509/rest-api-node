@@ -398,7 +398,9 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
         const { serviceTax, deliveryFee, total } = yield (0, cartTotals_1.calculateCartTotals)(subTotal, discount, deliveryMethod);
         const promoSummary = buildPromoSummary(cart.promoCode, discount);
         const taxableBase = Math.max(subTotal - discount, 0);
-        const taxRate = taxableBase > 0 ? Number((serviceTax / taxableBase).toFixed(4)) : 0;
+        const taxRate = taxableBase > 0
+            ? Number((serviceTax / taxableBase).toFixed(4))
+            : 0;
         const orderSummary = {
             subTotal,
             discount,
@@ -421,7 +423,7 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
         const statusHistory = ORDER_STATUS_FLOW.map(({ status, message }, index) => ({
             status,
             message,
-            updatedAt: index === 0 ? now : undefined,
+            updatedAt: index === 0 ? now : null,
         }));
         const forwardedFor = headerToString(req.headers["x-forwarded-for"]);
         const secChUa = headerToString(req.headers["sec-ch-ua"]);

@@ -87,7 +87,7 @@ export interface IOrderSummary {
 export interface IStatusHistoryEntry {
   status: OrderStatus;
   message?: string;
-  updatedAt: Date;
+  updatedAt: Date | null;
 }
 
 export interface IOrderStatus {
@@ -230,7 +230,7 @@ const StatusHistorySchema = new Schema<IStatusHistoryEntry>(
       required: true,
     },
     message: { type: String },
-    updatedAt: { type: Date, required: true },
+    updatedAt: { type: Date, required: false },
   },
   { _id: false }
 );

@@ -49,6 +49,12 @@ export interface IDeliverySummary {
   code?: string;
 }
 
+export interface IContactDetails {
+  fullName?: string;
+  email?: string;
+  phone?: string;
+}
+
 export interface IOrder extends Document {
   user: Types.ObjectId;
   items: IOrderItem[];

@@ -21,12 +21,75 @@ const auth_1 = require("../../middleware/auth");
 const cartTotals_1 = require("../utils/cartTotals");
 const cache_1 = require("../utils/cache");
 const router = (0, express_1.Router)();
-function normalizeAddress(payload) {
-    var _a, _b;
+const PAYMENT_STATUSES = [
+    "pending",
+    "authorized",
+    "paid",
+    "failed",
+    "refunded",
+];
+function toTrimmedString(value) {
+    if (value === undefined || value === null)
+        return undefined;
+    const str = String(value).trim();
+    return str.length > 0 ? str : undefined;
+}
+function coalesceString(source, keys) {
+    if (!source)
+        return undefined;
+    for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(source, key)) {
+            const value = toTrimmedString(source[key]);
+            if (value)
+                return value;
+        }
+    }
+    return undefined;
+}
+function normalizeContact(payload) {
     if (!payload)
         return undefined;
-    const line1 = (_a = payload.line1) === null || _a === void 0 ? void 0 : _a.toString().trim();
-    const country = (_b = payload.country) === null || _b === void 0 ? void 0 : _b.toString().trim();
+    const firstName = toTrimmedString(payload.firstName);
+    const lastName = toTrimmedString(payload.lastName);
+    let fullName = toTrimmedString(payload.fullName) || toTrimmedString(payload.name);
+    if (!fullName && (firstName || lastName)) {
+        fullName = [firstName, lastName].filter(Boolean).join(" ");
+    }
+    const email = toTrimmedString(payload.email) || toTrimmedString(payload.contactEmail);
+    const phone = toTrimmedString(payload.phone) ||
+        toTrimmedString(payload.contactPhone) ||
+        toTrimmedString(payload.contactNumber) ||
+        toTrimmedString(payload.mobile);
+    if (!fullName && !email && !phone) {
+        return undefined;
+    }
+    const contact = {};
+    if (fullName)
+        contact.fullName = fullName;
+    if (email)
+        contact.email = email;
+    if (phone)
+        contact.phone = phone;
+    return contact;
+}
+function normalizeAddress(payload, fallbackContact) {
+    if (!payload)
+        return undefined;
+    const record = payload;
+    const line1 = coalesceString(record, [
+        "line1",
+        "address1",
+        "addressLine1",
+        "street",
+        "street1",
+        "streetAddress",
+        "address",
+    ]);
+    const country = coalesceString(record, [
+        "country",
+        "countryCode",
+        "countryName",
+    ]);
     if (!line1 || !country) {
         throw new Error("Shipping address requires line1 and country.");
     }
@@ -34,19 +97,77 @@ function normalizeAddress(payload) {
         line1,
         country,
     };
-    if (payload.fullName)
-        normalized.fullName = payload.fullName.toString().trim();
-    if (payload.phone)
-        normalized.phone = payload.phone.toString().trim();
-    if (payload.line2)
-        normalized.line2 = payload.line2.toString().trim();
-    if (payload.city)
-        normalized.city = payload.city.toString().trim();
-    if (payload.state)
-        normalized.state = payload.state.toString().trim();
-    if (payload.postalCode)
-        normalized.postalCode = payload.postalCode.toString().trim();
+    const fullName = coalesceString(record, ["fullName", "name", "recipientName"]) ||
+        (fallbackContact === null || fallbackContact === void 0 ? void 0 : fallbackContact.fullName);
+    if (fullName)
+        normalized.fullName = fullName;
+    const phone = coalesceString(record, [
+        "phone",
+        "contactNumber",
+        "contactPhone",
+        "mobile",
+    ]) || (fallbackContact === null || fallbackContact === void 0 ? void 0 : fallbackContact.phone);
+    if (phone)
+        normalized.phone = phone;
+    const line2 = coalesceString(record, [
+        "line2",
+        "address2",
+        "addressLine2",
+        "street2",
+        "apartment",
+        "suite",
+    ]);
+    if (line2)
+        normalized.line2 = line2;
+    const city = coalesceString(record, ["city", "town"]);
+    if (city)
+        normalized.city = city;
+    const state = coalesceString(record, ["state", "province", "region"]);
+    if (state)
+        normalized.state = state;
+    const postalCode = coalesceString(record, [
+        "postalCode",
+        "zip",
+        "zipCode",
+        "postcode",
+    ]);
+    if (postalCode)
+        normalized.postalCode = postalCode;
     return normalized;
+}
+function normalizePayment(body) {
+    var _a;
+    const nested = body.payment || undefined;
+    const method = toTrimmedString(body.paymentMethod) ||
+        (nested &&
+            coalesceString(nested, [
+                "method",
+                "type",
+                "provider",
+                "name",
+            ]));
+    const transactionId = toTrimmedString(body.transactionId) ||
+        (nested &&
+            coalesceString(nested, [
+                "transactionId",
+                "reference",
+                "id",
+            ]));
+    const statusCandidate = (_a = body.paymentStatus) !== null && _a !== void 0 ? _a : (nested && nested.status);
+    let status = PAYMENT_STATUSES[0];
+    if (statusCandidate) {
+        const normalized = toTrimmedString(statusCandidate);
+        if (normalized &&
+            PAYMENT_STATUSES.includes(normalized.toLowerCase())) {
+            status = normalized.toLowerCase();
+        }
+    }
+    const payment = { status };
+    if (method)
+        payment.method = method;
+    if (transactionId)
+        payment.transactionId = transactionId;
+    return payment;
 }
 function resolveDelivery(cart, options) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -118,7 +239,7 @@ function resolveDelivery(cart, options) {
     });
 }
 router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c, _d;
+    var _a, _b;
     const body = req.body;
     try {
         const cart = yield Cart_1.default.findOne({ user: req.user.id })
@@ -129,9 +250,17 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
             res.status(400).json({ error: "Cart is empty." });
             return;
         }
+        const deliveryOption = body.deliverySelection || body.delivery || null;
+        const deliveryOptionRecord = deliveryOption || null;
         const delivery = yield resolveDelivery(cart, {
-            methodId: body.deliveryMethodId,
-            method: body.deliveryMethod,
+            methodId: toTrimmedString(body.deliveryMethodId) ||
+                coalesceString(deliveryOptionRecord, [
+                    "id",
+                    "_id",
+                    "setting",
+                ]),
+            method: toTrimmedString(body.deliveryMethod) ||
+                coalesceString(deliveryOptionRecord, ["method"]),
         });
         if (!delivery) {
             res
@@ -166,7 +295,14 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
         const discount = cart.discount || 0;
         const deliveryMethod = delivery.method || "standard";
         const { serviceTax, deliveryFee, total } = yield (0, cartTotals_1.calculateCartTotals)(subTotal, discount, deliveryMethod);
-        const shippingAddress = normalizeAddress(body.shippingAddress);
+        const contactDetails = normalizeContact(body.contact) ||
+            normalizeContact(body.personalDetails) ||
+            normalizeContact(body.customer) ||
+            normalizeContact(body.shippingAddress) ||
+            normalizeContact(body.address);
+        const shippingAddress = normalizeAddress(body.shippingAddress ||
+            body.address, contactDetails);
+        const payment = normalizePayment(body);
         const order = new Order_1.default({
             user: req.user.id,
             items: cart.items.map((item) => {
@@ -188,17 +324,15 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
             serviceTax,
             total,
             status: "pending",
-            payment: {
-                method: ((_a = body.paymentMethod) === null || _a === void 0 ? void 0 : _a.toString().trim()) || undefined,
-                status: body.paymentStatus || "pending",
-                transactionId: ((_b = body.transactionId) === null || _b === void 0 ? void 0 : _b.toString().trim()) || undefined,
-            },
+            summary: {},
+            payment,
             shippingAddress,
             delivery,
             promoCode: cart.promoCode && typeof cart.promoCode._id !== "undefined"
                 ? cart.promoCode._id
                 : cart.promoCode || null,
-            notes: ((_c = body.notes) === null || _c === void 0 ? void 0 : _c.toString().trim()) || undefined,
+            notes: ((_a = body.notes) === null || _a === void 0 ? void 0 : _a.toString().trim()) || undefined,
+            contact: contactDetails,
         });
         yield order.save();
         for (const { rawProduct, quantity } of items) {
@@ -220,7 +354,7 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
         cart.deliveryFee = 0;
         cart.total = 0;
         cart.promoCode = null;
-        cart.delivery = ((_d = delivery.setting) !== null && _d !== void 0 ? _d : null);
+        cart.delivery = ((_b = delivery.setting) !== null && _b !== void 0 ? _b : null);
         yield cart.save();
         const emptyCartPayload = {
             items: [],

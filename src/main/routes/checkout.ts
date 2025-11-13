@@ -3,6 +3,8 @@ import { Types } from "mongoose";
 import Cart from "../../models/Cart";
 import DeliverySetting from "../../models/DeliverySetting";
 import Order, {
+  IContactDetails,
+  IPaymentSummary,
   IDeliverySummary,
   IShippingAddress,
   PaymentStatus,
@@ -13,23 +15,135 @@ import { invalidateCart, setCachedCart } from "../utils/cache";
 
 const router = Router();
 
+type ContactPayload = Partial<IContactDetails> & {
+  firstName?: string;
+  lastName?: string;
+  name?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  contactNumber?: string;
+  mobile?: string;
+};
+
+type PaymentPayload = Partial<IPaymentSummary> & {
+  type?: string;
+  provider?: string;
+  name?: string;
+  reference?: string;
+  id?: string;
+};
+
+type DeliverySelectionPayload = {
+  id?: string;
+  _id?: string;
+  setting?: string;
+  method?: string;
+};
+
 type CheckoutRequestBody = {
   paymentMethod?: string;
-  paymentStatus?: PaymentStatus;
+  paymentStatus?: PaymentStatus | string;
   transactionId?: string;
+  payment?: PaymentPayload | null;
   shippingAddress?: Partial<IShippingAddress> | null;
+  address?: Partial<IShippingAddress> | null;
+  contact?: ContactPayload | null;
+  personalDetails?: ContactPayload | null;
+  customer?: ContactPayload | null;
   deliveryMethodId?: string;
   deliveryMethod?: string;
+  deliverySelection?: DeliverySelectionPayload | null;
+  delivery?: DeliverySelectionPayload | null;
   notes?: string;
 };
 
+const PAYMENT_STATUSES: PaymentStatus[] = [
+  "pending",
+  "authorized",
+  "paid",
+  "failed",
+  "refunded",
+];
+
+function toTrimmedString(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  const str = String(value).trim();
+  return str.length > 0 ? str : undefined;
+}
+
+function coalesceString(
+  source: Record<string, unknown> | null | undefined,
+  keys: string[]
+): string | undefined {
+  if (!source) return undefined;
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      const value = toTrimmedString((source as any)[key]);
+      if (value) return value;
+    }
+  }
+  return undefined;
+}
+
+function normalizeContact(
+  payload?: ContactPayload | null
+): IContactDetails | undefined {
+  if (!payload) return undefined;
+
+  const firstName = toTrimmedString(payload.firstName);
+  const lastName = toTrimmedString(payload.lastName);
+
+  let fullName =
+    toTrimmedString(payload.fullName) || toTrimmedString(payload.name);
+
+  if (!fullName && (firstName || lastName)) {
+    fullName = [firstName, lastName].filter(Boolean).join(" ");
+  }
+
+  const email =
+    toTrimmedString(payload.email) || toTrimmedString(payload.contactEmail);
+
+  const phone =
+    toTrimmedString(payload.phone) ||
+    toTrimmedString(payload.contactPhone) ||
+    toTrimmedString(payload.contactNumber) ||
+    toTrimmedString(payload.mobile);
+
+  if (!fullName && !email && !phone) {
+    return undefined;
+  }
+
+  const contact: IContactDetails = {};
+  if (fullName) contact.fullName = fullName;
+  if (email) contact.email = email;
+  if (phone) contact.phone = phone;
+
+  return contact;
+}
+
 function normalizeAddress(
-  payload?: Partial<IShippingAddress> | null
+  payload?: Partial<IShippingAddress> | null,
+  fallbackContact?: IContactDetails
 ): IShippingAddress | undefined {
   if (!payload) return undefined;
 
-  const line1 = payload.line1?.toString().trim();
-  const country = payload.country?.toString().trim();
+  const record = payload as Record<string, unknown>;
+
+  const line1 = coalesceString(record, [
+    "line1",
+    "address1",
+    "addressLine1",
+    "street",
+    "street1",
+    "streetAddress",
+    "address",
+  ]);
+
+  const country = coalesceString(record, [
+    "country",
+    "countryCode",
+    "countryName",
+  ]);
 
   if (!line1 || !country) {
     throw new Error("Shipping address requires line1 and country.");
@@ -40,15 +154,89 @@ function normalizeAddress(
     country,
   };
 
-  if (payload.fullName) normalized.fullName = payload.fullName.toString().trim();
-  if (payload.phone) normalized.phone = payload.phone.toString().trim();
-  if (payload.line2) normalized.line2 = payload.line2.toString().trim();
-  if (payload.city) normalized.city = payload.city.toString().trim();
-  if (payload.state) normalized.state = payload.state.toString().trim();
-  if (payload.postalCode)
-    normalized.postalCode = payload.postalCode.toString().trim();
+  const fullName =
+    coalesceString(record, ["fullName", "name", "recipientName"]) ||
+    fallbackContact?.fullName;
+  if (fullName) normalized.fullName = fullName;
+
+  const phone =
+    coalesceString(record, [
+      "phone",
+      "contactNumber",
+      "contactPhone",
+      "mobile",
+    ]) || fallbackContact?.phone;
+  if (phone) normalized.phone = phone;
+
+  const line2 = coalesceString(record, [
+    "line2",
+    "address2",
+    "addressLine2",
+    "street2",
+    "apartment",
+    "suite",
+  ]);
+  if (line2) normalized.line2 = line2;
+
+  const city = coalesceString(record, ["city", "town"]);
+  if (city) normalized.city = city;
+
+  const state = coalesceString(record, ["state", "province", "region"]);
+  if (state) normalized.state = state;
+
+  const postalCode = coalesceString(record, [
+    "postalCode",
+    "zip",
+    "zipCode",
+    "postcode",
+  ]);
+  if (postalCode) normalized.postalCode = postalCode;
 
   return normalized;
+}
+
+function normalizePayment(body: CheckoutRequestBody): IPaymentSummary {
+  const nested = body.payment || undefined;
+
+  const method =
+    toTrimmedString(body.paymentMethod) ||
+    (nested &&
+      (coalesceString(nested as Record<string, unknown>, [
+        "method",
+        "type",
+        "provider",
+        "name",
+      ]) as string | undefined));
+
+  const transactionId =
+    toTrimmedString(body.transactionId) ||
+    (nested &&
+      (coalesceString(nested as Record<string, unknown>, [
+        "transactionId",
+        "reference",
+        "id",
+      ]) as string | undefined));
+
+  const statusCandidate =
+    body.paymentStatus ??
+    (nested && (nested as Record<string, unknown>).status);
+
+  let status = PAYMENT_STATUSES[0];
+  if (statusCandidate) {
+    const normalized = toTrimmedString(statusCandidate);
+    if (
+      normalized &&
+      PAYMENT_STATUSES.includes(normalized.toLowerCase() as PaymentStatus)
+    ) {
+      status = normalized.toLowerCase() as PaymentStatus;
+    }
+  }
+
+  const payment: IPaymentSummary = { status };
+  if (method) payment.method = method;
+  if (transactionId) payment.transactionId = transactionId;
+
+  return payment;
 }
 
 async function resolveDelivery(
@@ -141,9 +329,21 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
       return;
     }
 
+    const deliveryOption = body.deliverySelection || body.delivery || null;
+    const deliveryOptionRecord =
+      (deliveryOption as Record<string, unknown>) || null;
+
     const delivery = await resolveDelivery(cart, {
-      methodId: body.deliveryMethodId,
-      method: body.deliveryMethod,
+      methodId:
+        toTrimmedString(body.deliveryMethodId) ||
+        coalesceString(deliveryOptionRecord, [
+          "id",
+          "_id",
+          "setting",
+        ]),
+      method:
+        toTrimmedString(body.deliveryMethod) ||
+        coalesceString(deliveryOptionRecord, ["method"]),
     });
 
     if (!delivery) {
@@ -188,7 +388,20 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
       deliveryMethod
     );
 
-    const shippingAddress = normalizeAddress(body.shippingAddress);
+    const contactDetails =
+      normalizeContact(body.contact) ||
+      normalizeContact(body.personalDetails) ||
+      normalizeContact(body.customer) ||
+      normalizeContact(body.shippingAddress as ContactPayload) ||
+      normalizeContact(body.address as ContactPayload);
+
+    const shippingAddress = normalizeAddress(
+      (body.shippingAddress as Partial<IShippingAddress>) ||
+        (body.address as Partial<IShippingAddress>),
+      contactDetails
+    );
+
+    const payment = normalizePayment(body);
 
     const order = new Order({
       user: req.user.id,
@@ -211,11 +424,8 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
       serviceTax,
       total,
       status: "pending",
-      payment: {
-        method: body.paymentMethod?.toString().trim() || undefined,
-        status: body.paymentStatus || "pending",
-        transactionId: body.transactionId?.toString().trim() || undefined,
-      },
+      summary: {},
+      payment,
       shippingAddress,
       delivery,
       promoCode:
@@ -223,6 +433,7 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
           ? (cart.promoCode as any)._id
           : cart.promoCode || null,
       notes: body.notes?.toString().trim() || undefined,
+      contact: contactDetails,
     });
 
     await order.save();

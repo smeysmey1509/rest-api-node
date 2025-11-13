@@ -14,6 +14,7 @@ import deliveryRoute from './routes/delivery';
 import reviewRoute from './routes/review';
 import brandRoute from './routes/brand';
 import wishlistRoute from './routes/wishlist'
+import checkoutRoute from './routes/checkout'
 import cors from "cors";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { connectRabbitMQ } from "./services/rabbitmq";
@@ -68,7 +69,7 @@ app.get("/debug", (req, res) => {
     });
 });
 
-app.use("/api/v1", sidebarItemRoute)
+app.use("/api/v1", sidebarItemRoute);
 app.use("/api/v1", userRoutes);
 app.use("/api/v1", productRoutes);
 app.use("/api/v1", categoryRoutes);
@@ -78,7 +79,8 @@ app.use("/api/v1", promocodeRoute);
 app.use("/api/v1", deliveryRoute);
 app.use("/api/v1", reviewRoute);
 app.use("/api/v1", brandRoute);
-app.use("/api/v1", wishlistRoute)
+app.use("/api/v1", wishlistRoute);
+app.use("/api/v1", checkoutRoute);
 app.use('/uploads', express.static('uploads'));
 
 // Connect DB and then start server

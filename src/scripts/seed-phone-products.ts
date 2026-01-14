@@ -507,6 +507,32 @@ function buildProductPayload({
   const seoDescription = `${modelName} pairs ${profile.displayTechnology} visuals with ${chipset} performance and ${storage}GB storage for discerning users.`;
 
   const priceFloor = Math.max(price - 40, Math.round(price * 0.88));
+  const storageLabel = `${storage}GB`;
+  const variantSkuBase = `${profile.slugSegment}-${modelVariant}-${storageLabel}-${color}-${globalIndex + 1}`;
+  const variantSku = variantSkuBase
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+
+  const variants = [
+    {
+      sku: variantSku,
+      price,
+      stock,
+      inventory: {
+        onHand: stock,
+        reserved: 0,
+        safetyStock: 0,
+      },
+      attributes: {
+        Color: color,
+        Storage: storageLabel,
+      },
+      images,
+      isActive: true,
+    },
+  ];
 
   return {
     productId: generateProductId(profile.brand, globalIndex),
@@ -541,7 +567,7 @@ function buildProductPayload({
       height: Number((0.75 + Math.random() * 0.2).toFixed(2)),
     },
     weight: Number((185 + Math.random() * 35).toFixed(0)),
-    variants: [],
+    variants,
     attributes,
     seo: {
       title: seoTitle,

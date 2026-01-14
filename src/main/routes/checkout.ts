@@ -9,7 +9,7 @@ import Order, {
   IShippingAddress,
   IStatusHistoryEntry,
   PaymentStatus,
-  OrderStatus
+  OrderStatus,
 } from "../../models/Order";
 import { authenticateToken } from "../../middleware/auth";
 import { calculateCartTotals } from "../utils/cartTotals";
@@ -97,7 +97,9 @@ function toTrimmedString(value: unknown): string | undefined {
   return str.length > 0 ? str : undefined;
 }
 
-function headerToString(value: string | string[] | undefined): string | undefined {
+function headerToString(
+  value: string | string[] | undefined
+): string | undefined {
   if (Array.isArray(value)) {
     return value[0];
   }
@@ -500,9 +502,7 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
 
     const taxableBase = Math.max(subTotal - discount, 0);
     const taxRate =
-      taxableBase > 0
-        ? Number((serviceTax / taxableBase).toFixed(4))
-        : 0;
+      taxableBase > 0 ? Number((serviceTax / taxableBase).toFixed(4)) : 0;
 
     const orderSummary = {
       subTotal,
@@ -597,8 +597,9 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
     if (contactDetails) orderPayload.contact = contactDetails;
 
     const order = new Order(orderPayload);
-
     await order.save();
+
+    await order.populate("promoCode");
 
     for (const { rawProduct, quantity } of items) {
       if (typeof rawProduct.stock === "number") {
@@ -649,6 +650,7 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
       payment: orderPayment,
       delivery: orderDelivery,
       summary: orderSummaryDoc,
+      promoCode: orderPromoCode,
       ...orderRest
     } = plainOrder as any;
 
@@ -668,8 +670,7 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
             carrier: orderDelivery?.carrier ?? null,
             trackingNumber: orderDelivery?.trackingNumber ?? null,
             trackingUrl: orderDelivery?.trackingUrl ?? null,
-            estimatedDeliveryDate:
-              orderDelivery?.estimatedDeliveryDate || null,
+            estimatedDeliveryDate: orderDelivery?.estimatedDeliveryDate || null,
           }
         : undefined,
       status: {
@@ -678,8 +679,8 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
       },
       summary: {
         ...(orderSummaryDoc || {}),
-        promo: orderSummaryDoc?.promo || null,
       },
+      promoCode: orderPromoCode || null,
       meta: plainOrder.meta || null,
     };
 

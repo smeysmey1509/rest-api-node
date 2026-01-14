@@ -398,9 +398,7 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
         const { serviceTax, deliveryFee, total } = yield (0, cartTotals_1.calculateCartTotals)(subTotal, discount, deliveryMethod);
         const promoSummary = buildPromoSummary(cart.promoCode, discount);
         const taxableBase = Math.max(subTotal - discount, 0);
-        const taxRate = taxableBase > 0
-            ? Number((serviceTax / taxableBase).toFixed(4))
-            : 0;
+        const taxRate = taxableBase > 0 ? Number((serviceTax / taxableBase).toFixed(4)) : 0;
         const orderSummary = {
             subTotal,
             discount,
@@ -480,6 +478,7 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
             orderPayload.contact = contactDetails;
         const order = new Order_1.default(orderPayload);
         yield order.save();
+        yield order.populate("promoCode");
         for (const { rawProduct, quantity } of items) {
             if (typeof rawProduct.stock === "number") {
                 rawProduct.stock = Math.max(0, rawProduct.stock - quantity);
@@ -520,12 +519,12 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
         yield (0, cache_1.invalidateCart)(req.user.id);
         const plainOrder = order.toObject({ virtuals: false });
         delete plainOrder.__v;
-        const _m = plainOrder, { statusHistory: storedStatusHistory, payment: orderPayment, delivery: orderDelivery, summary: orderSummaryDoc } = _m, orderRest = __rest(_m, ["statusHistory", "payment", "delivery", "summary"]);
+        const _m = plainOrder, { statusHistory: storedStatusHistory, payment: orderPayment, delivery: orderDelivery, summary: orderSummaryDoc, promoCode: orderPromoCode } = _m, orderRest = __rest(_m, ["statusHistory", "payment", "delivery", "summary", "promoCode"]);
         const responseOrder = Object.assign(Object.assign({}, orderRest), { payment: Object.assign(Object.assign({}, (orderPayment || {})), { method: (_g = orderPayment === null || orderPayment === void 0 ? void 0 : orderPayment.method) !== null && _g !== void 0 ? _g : null, status: (orderPayment === null || orderPayment === void 0 ? void 0 : orderPayment.status) || "pending", transactionId: (_h = orderPayment === null || orderPayment === void 0 ? void 0 : orderPayment.transactionId) !== null && _h !== void 0 ? _h : null, currency: (orderPayment === null || orderPayment === void 0 ? void 0 : orderPayment.currency) || "USD", paidAt: (orderPayment === null || orderPayment === void 0 ? void 0 : orderPayment.paidAt) || null }), delivery: orderDelivery
                 ? Object.assign(Object.assign({}, orderDelivery), { carrier: (_j = orderDelivery === null || orderDelivery === void 0 ? void 0 : orderDelivery.carrier) !== null && _j !== void 0 ? _j : null, trackingNumber: (_k = orderDelivery === null || orderDelivery === void 0 ? void 0 : orderDelivery.trackingNumber) !== null && _k !== void 0 ? _k : null, trackingUrl: (_l = orderDelivery === null || orderDelivery === void 0 ? void 0 : orderDelivery.trackingUrl) !== null && _l !== void 0 ? _l : null, estimatedDeliveryDate: (orderDelivery === null || orderDelivery === void 0 ? void 0 : orderDelivery.estimatedDeliveryDate) || null }) : undefined, status: {
                 current: plainOrder.status,
                 history: storedStatusHistory || [],
-            }, summary: Object.assign(Object.assign({}, (orderSummaryDoc || {})), { promo: (orderSummaryDoc === null || orderSummaryDoc === void 0 ? void 0 : orderSummaryDoc.promo) || null }), meta: plainOrder.meta || null });
+            }, summary: Object.assign({}, (orderSummaryDoc || {})), promoCode: orderPromoCode || null, meta: plainOrder.meta || null });
         res.status(201).json({
             message: "Order placed successfully.",
             order: responseOrder,

@@ -1,4 +1,4 @@
-// src/main/models/Brand.ts
+// src/models/Brand.ts
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IBrand extends Document {

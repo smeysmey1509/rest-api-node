@@ -2,10 +2,10 @@ module.exports = {
     apps: [
         {
             name: "main-api",
-            script: "./dist/main/server.js",
+            script: "./dist/server.js",
             instances: "max",
             exec_mode: "cluster",
-            watch: ["dist/main"],
+            watch: ["dist"],
             env: {
                 JWT_SECRET: process.env.JWT_SECRET
             }

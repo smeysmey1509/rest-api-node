@@ -219,11 +219,137 @@ const ROG_PROFILE = {
     productType: "Gaming Phone",
     defaultCategory: { id: "ROG", name: "ROG" },
 };
+const GOOGLE_PROFILE = {
+    brand: "Google",
+    brandRecordName: "Google",
+    brandSlug: "google",
+    slugSegment: "pixel",
+    series: ["Pixel 8", "Pixel 8 Pro", "Pixel 8a", "Pixel Fold", "Pixel 7a"],
+    colors: ["Obsidian", "Porcelain", "Hazel", "Bay", "Aloe"],
+    storageOptions: [128, 256, 512],
+    displaySizes: [6.1, 6.3, 6.7],
+    chipsets: ["Google Tensor G3", "Google Tensor G2"],
+    os: "Android 14",
+    displayTechnology: "OLED",
+    charging: "30W fast charging with wireless support",
+    basePrice: 599,
+    priceStep: 45,
+    priceVariance: 75,
+    baseStock: 26,
+    productType: "Phone",
+    defaultCategory: { id: "GOOGLE", name: "GOOGLE" },
+};
+const XIAOMI_PROFILE = {
+    brand: "Xiaomi",
+    brandRecordName: "Xiaomi",
+    brandSlug: "xiaomi",
+    slugSegment: "xiaomi",
+    series: ["Xiaomi 14", "Xiaomi 14 Ultra", "Redmi Note 13", "Redmi K70", "Poco F6"],
+    colors: ["Black", "White", "Jade Green", "Silver", "Sunrise Orange"],
+    storageOptions: [128, 256, 512],
+    displaySizes: [6.36, 6.67, 6.73],
+    chipsets: ["Snapdragon 8 Gen 3", "Dimensity 8300-Ultra", "Snapdragon 8 Gen 2"],
+    os: "HyperOS (Android 14)",
+    displayTechnology: "LTPO AMOLED",
+    charging: "90W HyperCharge",
+    basePrice: 499,
+    priceStep: 40,
+    priceVariance: 70,
+    baseStock: 30,
+    productType: "Phone",
+    defaultCategory: { id: "XIAOMI", name: "XIAOMI" },
+};
+const ONEPLUS_PROFILE = {
+    brand: "OnePlus",
+    brandRecordName: "OnePlus",
+    brandSlug: "oneplus",
+    slugSegment: "oneplus",
+    series: ["OnePlus 12", "OnePlus 12R", "OnePlus Open", "OnePlus Nord 3", "OnePlus Nord CE 4"],
+    colors: ["Silky Black", "Emerald Green", "Glacier Silver", "Iron Gray", "Celadon Marble"],
+    storageOptions: [128, 256, 512],
+    displaySizes: [6.43, 6.7, 7.82],
+    chipsets: ["Snapdragon 8 Gen 3", "Snapdragon 8 Gen 2", "Dimensity 9000"],
+    os: "OxygenOS 14 (Android 14)",
+    displayTechnology: "Fluid AMOLED",
+    charging: "100W SUPERVOOC",
+    basePrice: 549,
+    priceStep: 45,
+    priceVariance: 85,
+    baseStock: 27,
+    productType: "Phone",
+    defaultCategory: { id: "ONEPLUS", name: "ONEPLUS" },
+};
+const MOTOROLA_PROFILE = {
+    brand: "Motorola",
+    brandRecordName: "Motorola",
+    brandSlug: "motorola",
+    slugSegment: "motorola",
+    series: ["Razr 40 Ultra", "Razr 40", "Edge 40 Pro", "Edge 40", "Moto G Power 5G"],
+    colors: ["Viva Magenta", "Satin Blue", "Eclipse Black", "Nebula Green", "Lunar Blue"],
+    storageOptions: [128, 256, 512],
+    displaySizes: [6.5, 6.6, 6.9],
+    chipsets: ["Snapdragon 8 Gen 2", "Dimensity 8020", "Snapdragon 6 Gen 1"],
+    os: "Android 14",
+    displayTechnology: "pOLED",
+    charging: "68W TurboPower",
+    basePrice: 449,
+    priceStep: 35,
+    priceVariance: 65,
+    baseStock: 33,
+    productType: "Phone",
+    defaultCategory: { id: "MOTOROLA", name: "MOTOROLA" },
+};
+const SONY_PROFILE = {
+    brand: "Sony",
+    brandRecordName: "Sony",
+    brandSlug: "sony",
+    slugSegment: "sony",
+    series: ["Xperia 1 V", "Xperia 5 V", "Xperia 10 V", "Xperia Pro-I", "Xperia 1 IV"],
+    colors: ["Black", "Khaki Green", "Platinum Silver", "Burgundy", "Slate"],
+    storageOptions: [128, 256, 512],
+    displaySizes: [6.1, 6.5, 6.7],
+    chipsets: ["Snapdragon 8 Gen 2", "Snapdragon 8 Gen 1", "Snapdragon 695"],
+    os: "Android 14",
+    displayTechnology: "4K OLED",
+    charging: "30W USB-C Power Delivery",
+    basePrice: 899,
+    priceStep: 60,
+    priceVariance: 100,
+    baseStock: 20,
+    productType: "Phone",
+    defaultCategory: { id: "SONY", name: "SONY" },
+};
+const VIVO_PROFILE = {
+    brand: "Vivo",
+    brandRecordName: "Vivo",
+    brandSlug: "vivo",
+    slugSegment: "vivo",
+    series: ["X100 Pro", "X100", "V30 Pro", "V30", "iQOO 12"],
+    colors: ["Asteroid Black", "Startrail Blue", "Petals White", "Andes Blue", "Legendary Black"],
+    storageOptions: [128, 256, 512],
+    displaySizes: [6.44, 6.78],
+    chipsets: ["Dimensity 9300", "Snapdragon 8 Gen 3", "Snapdragon 7 Gen 3"],
+    os: "Funtouch OS 14 (Android 14)",
+    displayTechnology: "AMOLED",
+    charging: "120W FlashCharge",
+    basePrice: 529,
+    priceStep: 40,
+    priceVariance: 75,
+    baseStock: 31,
+    productType: "Phone",
+    defaultCategory: { id: "VIVO", name: "VIVO" },
+};
 const BRAND_ALLOCATIONS = [
-    { profile: APPLE_PROFILE, quantity: 60 },
-    { profile: SAMSUNG_PROFILE, quantity: 20 },
+    { profile: APPLE_PROFILE, quantity: 10 },
+    { profile: SAMSUNG_PROFILE, quantity: 10 },
     { profile: OPPO_PROFILE, quantity: 10 },
     { profile: ROG_PROFILE, quantity: 10 },
+    { profile: GOOGLE_PROFILE, quantity: 10 },
+    { profile: XIAOMI_PROFILE, quantity: 10 },
+    { profile: ONEPLUS_PROFILE, quantity: 10 },
+    { profile: MOTOROLA_PROFILE, quantity: 10 },
+    { profile: SONY_PROFILE, quantity: 10 },
+    { profile: VIVO_PROFILE, quantity: 10 },
 ];
 function resolveCategoryId(profile, series, modelVariant, categoryCache, fallbackCategoryId) {
     if (profile.categoryRules) {
@@ -289,6 +415,31 @@ function buildProductPayload({ sellerId, brandId, profile, globalIndex, localInd
     const seoTitle = `${modelName} ${storage}GB ${color} | ${profile.brand} ${profile.productType}`;
     const seoDescription = `${modelName} pairs ${profile.displayTechnology} visuals with ${chipset} performance and ${storage}GB storage for discerning users.`;
     const priceFloor = Math.max(price - 40, Math.round(price * 0.88));
+    const storageLabel = `${storage}GB`;
+    const variantSkuBase = `${profile.slugSegment}-${modelVariant}-${storageLabel}-${color}-${globalIndex + 1}`;
+    const variantSku = variantSkuBase
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 64);
+    const variants = [
+        {
+            sku: variantSku,
+            price,
+            stock,
+            inventory: {
+                onHand: stock,
+                reserved: 0,
+                safetyStock: 0,
+            },
+            attributes: {
+                Color: color,
+                Storage: storageLabel,
+            },
+            images,
+            isActive: true,
+        },
+    ];
     return {
         productId: generateProductId(profile.brand, globalIndex),
         name: modelName,
@@ -322,7 +473,7 @@ function buildProductPayload({ sellerId, brandId, profile, globalIndex, localInd
             height: Number((0.75 + Math.random() * 0.2).toFixed(2)),
         },
         weight: Number((185 + Math.random() * 35).toFixed(0)),
-        variants: [],
+        variants,
         attributes,
         seo: {
             title: seoTitle,

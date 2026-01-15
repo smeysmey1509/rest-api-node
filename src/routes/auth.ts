@@ -6,8 +6,8 @@ import {
   authenticateToken,
   AuthenicationRequest,
   authorizeRoles,
-} from "../../middleware/auth";
-import { authorizePermission } from "../../middleware/authorizePermission";
+} from "../middleware/auth";
+import { authorizePermission } from "../middleware/authorizePermission";
 import Category from "../models/Category";
 
 const router = Router();

@@ -1,7 +1,7 @@
 // src/controllers/brand/listBrands.controller.ts
 import { Response } from "express";
 import Brand from "../../models/Brand";
-import { AuthenicationRequest } from "../../../middleware/auth";
+import { AuthenicationRequest } from "../../middleware/auth";
 
 function parseSort(input?: string): Record<string, 1 | -1> {
   const sort: Record<string, 1 | -1> = {};

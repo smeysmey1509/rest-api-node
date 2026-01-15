@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import PromoCode from "../models/PromoCode";
-import { authenticateToken } from "../../middleware/auth";
+import { authenticateToken } from "../middleware/auth";
 
 const router = Router();
 

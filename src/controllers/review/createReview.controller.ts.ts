@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 import Review from "../../models/Review";
 import Product from "../../models/Product";
 import { applyNewRating } from "../../services/rating.service";
-import { AuthenicationRequest } from "../../../middleware/auth";
+import { AuthenicationRequest } from "../../middleware/auth";
 
 export const createReview: RequestHandler = async (req, res) => {
   try {

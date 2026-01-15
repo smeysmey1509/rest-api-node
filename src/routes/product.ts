@@ -1,14 +1,14 @@
 import { Router, Request, Response } from "express";
 import Product from "../models/Product";
 import User from "../models/User";
-import { AuthenicationRequest, authenticateToken } from "../../middleware/auth";
-import { authorizePermission } from "../../middleware/authorizePermission";
+import { AuthenicationRequest, authenticateToken } from "../middleware/auth";
+import { authorizePermission } from "../middleware/authorizePermission";
 import { searchProducts } from "../controllers/product/searchProduct.controller";
 import { deleteProductById } from "../controllers/product/deleteProductById.controller";
 import { createProduct } from "../controllers/product/createProduct.controller";
 import { multiDeleteProductController } from "../controllers/product/multiDeleteProduct.controller";
 import { editProduct } from "../controllers/product/editProduct.controller";
-import { upload } from "../../middleware/upload";
+import { upload } from "../middleware/upload";
 import { listProducts } from "../controllers/product/listProducts.controller";
 import { getProductRecommendations } from "../controllers/product/recommendations.controller";
 

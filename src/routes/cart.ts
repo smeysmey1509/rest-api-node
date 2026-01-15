@@ -4,7 +4,7 @@ import Product from "../models/Product";
 import PromoCode from "../models/PromoCode";
 import PromoUsage from "../models/PromoUsage";
 import DeliverySetting from "../models/DeliverySetting";
-import { authenticateToken } from "../../middleware/auth";
+import { authenticateToken } from "../middleware/auth";
 import { calculateCartTotals } from "../utils/cartTotals";
 import multer from "multer";
 import { getCachedCart, setCachedCart, invalidateCart } from "../utils/cache";

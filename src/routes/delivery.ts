@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import DeliverySetting from "../models/DeliverySetting";
-import { authenticateToken } from "../../middleware/auth";
+import { authenticateToken } from "../middleware/auth";
 import { generatePickupCode } from "../utils/pickupCode";
 
 const router = Router();

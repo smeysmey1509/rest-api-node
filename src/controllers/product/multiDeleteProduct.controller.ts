@@ -1,4 +1,4 @@
-import { AuthenicationRequest } from "../../../middleware/auth";
+import { AuthenicationRequest } from "../../middleware/auth";
 import { Response } from "express";
 import Product from "../../models/Product";
 import Category, { ICategory } from "../../models/Category";

@@ -1,5 +1,5 @@
 import { Router, Response } from "express";
-import { authenticateToken } from "../../middleware/auth";
+import { authenticateToken } from "../middleware/auth";
 import Wishlist from "../models/Wishlist";
 import Product from "../models/Product";
 import Cart from "../models/Cart";

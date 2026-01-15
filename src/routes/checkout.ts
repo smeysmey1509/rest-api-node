@@ -11,7 +11,7 @@ import Order, {
   PaymentStatus,
   OrderStatus,
 } from "../models/Order";
-import { authenticateToken } from "../../middleware/auth";
+import { authenticateToken } from "../middleware/auth";
 import { calculateCartTotals } from "../utils/cartTotals";
 import { invalidateCart, setCachedCart } from "../utils/cache";
 

@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { authenticateToken } from "../../middleware/auth";
-import { authorizePermission } from "../../middleware/authorizePermission";
+import { authenticateToken } from "../middleware/auth";
+import { authorizePermission } from "../middleware/authorizePermission";
 
 import { createCategory } from "../controllers/category/createCategory.controller";
 import { listCategories } from "../controllers/category/listCategories.controller";

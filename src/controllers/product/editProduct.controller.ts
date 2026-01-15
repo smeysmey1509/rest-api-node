@@ -1,4 +1,4 @@
-import { AuthenicationRequest } from "../../../middleware/auth";
+import { AuthenicationRequest } from "../../middleware/auth";
 import { Response } from "express";
 import { HydratedDocument } from "mongoose";
 import Product, { IProduct } from "../../models/Product";

@@ -6,7 +6,7 @@ interface ICounter extends Document {
 }
 
 const CounterSchema = new Schema<ICounter>({
-  scope: { type: String, unique: true },
+  scope: { type: String, unique: true, required: true },
   seq: { type: Number, default: 0 },
 });
 

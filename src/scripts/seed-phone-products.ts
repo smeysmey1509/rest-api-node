@@ -385,11 +385,11 @@ const VIVO_PROFILE: BrandProfile = {
 };
 
 const BRAND_ALLOCATIONS: BrandAllocation[] = [
-   { profile: APPLE_PROFILE, quantity: 10 },
+  { profile: APPLE_PROFILE, quantity: 10 },
   { profile: SAMSUNG_PROFILE, quantity: 10 },
   { profile: OPPO_PROFILE, quantity: 10 },
   { profile: ROG_PROFILE, quantity: 10 },
-    { profile: GOOGLE_PROFILE, quantity: 10 },
+  { profile: GOOGLE_PROFILE, quantity: 10 },
   { profile: XIAOMI_PROFILE, quantity: 10 },
   { profile: ONEPLUS_PROFILE, quantity: 10 },
   { profile: MOTOROLA_PROFILE, quantity: 10 },
@@ -471,9 +471,9 @@ function buildProductPayload({
 
   const price = Math.round(
     profile.basePrice +
-      generation * profile.priceStep +
-      seriesIndex * Math.round(profile.priceStep / 2) +
-      Math.random() * profile.priceVariance
+    generation * profile.priceStep +
+    seriesIndex * Math.round(profile.priceStep / 2) +
+    Math.random() * profile.priceVariance
   );
   const compareAtPrice = price + Math.round(120 + Math.random() * 160);
   const stock = profile.baseStock + ((localIndex + globalIndex) * 3) % 64;

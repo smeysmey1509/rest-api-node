@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import User from "../../models/User";
+import User from "../models/User";
 import { authenticateToken, AuthenicationRequest, authorizeRoles } from "../../middleware/auth";
 
 const router = Router();
@@ -31,7 +31,7 @@ router.get(
 );
 
 //User
-router.get("/users",  authenticateToken,
+router.get("/users", authenticateToken,
     authorizeRoles("admin"), async (req: Request, res: Response) => {
         try {
             const users = await User.find().select("-password");

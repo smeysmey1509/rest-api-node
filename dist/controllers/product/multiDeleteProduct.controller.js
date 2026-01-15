@@ -13,8 +13,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.multiDeleteProductController = void 0;
-const Product_1 = __importDefault(require("../../../models/Product"));
-const Category_1 = __importDefault(require("../../../models/Category"));
+const Product_1 = __importDefault(require("../../models/Product"));
+const Category_1 = __importDefault(require("../../models/Category"));
 const activity_service_1 = require("../../services/activity.service");
 const server_1 = require("../../server");
 const notification_service_1 = require("../../services/notification.service");

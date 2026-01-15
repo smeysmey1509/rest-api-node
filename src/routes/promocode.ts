@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import PromoCode from "../../models/PromoCode";
+import PromoCode from "../models/PromoCode";
 import { authenticateToken } from "../../middleware/auth";
 
 const router = Router();
@@ -7,8 +7,8 @@ const router = Router();
 // Example middleware to check admin role (adjust as needed)
 const checkAdmin = (req: any, res: Response, next: Function) => {
   if (req.user?.role !== "admin") {
-     res.status(403).json({ error: "Access denied, admin only." });
-     return
+    res.status(403).json({ error: "Access denied, admin only." });
+    return
   }
   next();
 };

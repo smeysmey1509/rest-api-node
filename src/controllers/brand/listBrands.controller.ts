@@ -1,6 +1,6 @@
 // src/controllers/brand/listBrands.controller.ts
 import { Response } from "express";
-import Brand from "../../../models/Brand";
+import Brand from "../../models/Brand";
 import { AuthenicationRequest } from "../../../middleware/auth";
 
 function parseSort(input?: string): Record<string, 1 | -1> {
@@ -15,10 +15,10 @@ function parseSort(input?: string): Record<string, 1 | -1> {
 export const listBrands = async (req: AuthenicationRequest, res: Response) => {
   try {
     const q = String(req.query.q ?? "").trim();
-    const page  = Math.max(parseInt(String(req.query.page ?? "1"), 10), 1);
+    const page = Math.max(parseInt(String(req.query.page ?? "1"), 10), 1);
     const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "25"), 10), 1), 100);
-    const skip  = (page - 1) * limit;
-    const sort  = parseSort(String(req.query.sort ?? "name:1"));
+    const skip = (page - 1) * limit;
+    const sort = parseSort(String(req.query.sort ?? "name:1"));
 
     const filter: any = {};
     if (q) {

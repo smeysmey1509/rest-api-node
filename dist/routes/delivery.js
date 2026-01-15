@@ -13,7 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const DeliverySetting_1 = __importDefault(require("../../models/DeliverySetting"));
+const DeliverySetting_1 = __importDefault(require("../models/DeliverySetting"));
 const auth_1 = require("../../middleware/auth");
 const pickupCode_1 = require("../utils/pickupCode");
 const router = (0, express_1.Router)();

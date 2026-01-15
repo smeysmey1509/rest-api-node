@@ -14,8 +14,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createReview = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
-const Review_1 = __importDefault(require("../../../models/Review"));
-const Product_1 = __importDefault(require("../../../models/Product"));
+const Review_1 = __importDefault(require("../../models/Review"));
+const Product_1 = __importDefault(require("../../models/Product"));
 const rating_service_1 = require("../../services/rating.service");
 const createReview = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b;

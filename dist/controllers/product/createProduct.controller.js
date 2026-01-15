@@ -47,7 +47,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createProduct = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
-const Product_1 = __importDefault(require("../../../models/Product"));
+const Product_1 = __importDefault(require("../../models/Product"));
 const server_1 = require("../../server");
 const notification_service_1 = require("../../services/notification.service");
 /** ---------------- helpers ---------------- */

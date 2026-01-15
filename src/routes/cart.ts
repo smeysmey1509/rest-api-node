@@ -1,9 +1,9 @@
 import { Router, Request, Response } from "express";
-import Cart, { ICart } from "../../models/Cart";
-import Product from "../../models/Product";
-import PromoCode from "../../models/PromoCode";
-import PromoUsage from "../../models/PromoUsage";
-import DeliverySetting from "../../models/DeliverySetting";
+import Cart, { ICart } from "../models/Cart";
+import Product from "../models/Product";
+import PromoCode from "../models/PromoCode";
+import PromoUsage from "../models/PromoUsage";
+import DeliverySetting from "../models/DeliverySetting";
 import { authenticateToken } from "../../middleware/auth";
 import { calculateCartTotals } from "../utils/cartTotals";
 import multer from "multer";
@@ -275,23 +275,23 @@ router.post("/cart/add", authenticateToken, async (req: any, res: Response) => {
     await setCachedCart(req.user.id, response);
     const taxRate = computeTaxRate(subtotal, 0, serviceTax);
     res.status(200).json({
-        _id: cart._id,
-        user: cart.user,
-        items: cart.items,
+      _id: cart._id,
+      user: cart.user,
+      items: cart.items,
+      promoCode: null,
+      summary: {
+        subTotal: subtotal,
+        discount: 0,
+        deliveryFee,
+        serviceTax,
+        total,
+        taxRate,
         promoCode: null,
-        summary: {
-          subTotal: subtotal,
-          discount: 0,
-          deliveryFee,
-          serviceTax,
-          total,
-          taxRate,
-          promoCode: null,
-          promo: null,
-        },
-        createdAt: cart.createdAt,
-        updatedAt: cart.updatedAt,
-      });
+        promo: null,
+      },
+      createdAt: cart.createdAt,
+      updatedAt: cart.updatedAt,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to add to cart." });
@@ -375,7 +375,7 @@ router.post(
 
       await cart.save();
       await invalidateCart(req.user.id);
-      
+
       res.status(200).json({ msg: "Cart cleared." });
     } catch (err) {
       console.error(err);

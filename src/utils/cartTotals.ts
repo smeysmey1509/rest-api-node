@@ -1,4 +1,4 @@
-import DeliverySetting from "../../models/DeliverySetting";
+import DeliverySetting from "../models/DeliverySetting";
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -13,8 +13,8 @@ export async function calculateCartTotals(
   const methodQuery =
     normalizedMethod.length > 0
       ? {
-          $regex: new RegExp(`^${escapeRegex(normalizedMethod)}$`, "i"),
-        }
+        $regex: new RegExp(`^${escapeRegex(normalizedMethod)}$`, "i"),
+      }
       : undefined;
 
   const delivery = await DeliverySetting.findOne({

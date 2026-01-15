@@ -14,7 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.applyNewRating = applyNewRating;
 // src/services/rating.service.ts
-const Product_1 = __importDefault(require("../../models/Product"));
+const Product_1 = __importDefault(require("../models/Product"));
 function applyNewRating(productId, value) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a, _b;

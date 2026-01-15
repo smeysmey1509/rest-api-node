@@ -1,5 +1,5 @@
 // src/services/rating.service.ts
-import Product from "../../models/Product";
+import Product from "../models/Product";
 
 export async function applyNewRating(productId: string, value: number) {
   // Read current snapshot
@@ -7,10 +7,10 @@ export async function applyNewRating(productId: string, value: number) {
   if (!p) throw new Error("Product not found");
 
   const count = p.ratingCount ?? 0;
-  const avg   = p.ratingAvg ?? 0;
+  const avg = p.ratingAvg ?? 0;
 
   const newCount = count + 1;
-  const newAvg   = ((avg * count) + value) / newCount;
+  const newAvg = ((avg * count) + value) / newCount;
 
   await Product.updateOne(
     { _id: productId },

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
-import PromoUsage from "../../models/PromoUsage";
-import PromoCode from "../../models/PromoCode";
+import PromoUsage from "../models/PromoUsage";
+import PromoCode from "../models/PromoCode";
 import { authenticateToken } from "../../middleware/auth";
 
 const router = Router();
@@ -9,8 +9,8 @@ router.post("/cart/apply-promo", authenticateToken, async (req: Request | any, r
   try {
     const { code } = req.body;
     if (!code) {
-       res.status(400).json({ error: "Promo code is required." })
-       return;
+      res.status(400).json({ error: "Promo code is required." })
+      return;
     }
 
     const promo = await PromoCode.findOne({ code: code.toUpperCase(), isActive: true });
@@ -30,12 +30,12 @@ router.post("/cart/apply-promo", authenticateToken, async (req: Request | any, r
       return;
     }
 
-     res.status(200).json({ message: "Promo code applied successfully." });
-     return;
+    res.status(200).json({ message: "Promo code applied successfully." });
+    return;
   } catch (err) {
     console.error(err);
-     res.status(500).json({ error: "Failed to apply promo code." });
-     return;
+    res.status(500).json({ error: "Failed to apply promo code." });
+    return;
   }
 });
 

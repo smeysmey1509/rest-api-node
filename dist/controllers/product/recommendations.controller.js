@@ -14,9 +14,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getProductRecommendations = void 0;
 const mongoose_1 = require("mongoose");
-const Product_1 = __importDefault(require("../../../models/Product"));
-const Wishlist_1 = __importDefault(require("../../../models/Wishlist"));
-const Cart_1 = __importDefault(require("../../../models/Cart"));
+const Product_1 = __importDefault(require("../../models/Product"));
+const Wishlist_1 = __importDefault(require("../../models/Wishlist"));
+const Cart_1 = __importDefault(require("../../models/Cart"));
 const DEFAULT_LIMIT = 8;
 const BASE_PRODUCT_FILTER = {
     isDeleted: { $ne: true },

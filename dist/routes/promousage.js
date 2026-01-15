@@ -13,8 +13,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const PromoUsage_1 = __importDefault(require("../../models/PromoUsage"));
-const PromoCode_1 = __importDefault(require("../../models/PromoCode"));
+const PromoUsage_1 = __importDefault(require("../models/PromoUsage"));
+const PromoCode_1 = __importDefault(require("../models/PromoCode"));
 const auth_1 = require("../../middleware/auth");
 const router = (0, express_1.Router)();
 router.post("/cart/apply-promo", auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {

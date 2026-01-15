@@ -1,4 +1,4 @@
-import Counter from "../../models/Counter";
+import Counter from "../models/Counter";
 
 export async function nextProductSeq(sellerId: string): Promise<number> {
   const normalizedSellerId = String(sellerId || "").trim();

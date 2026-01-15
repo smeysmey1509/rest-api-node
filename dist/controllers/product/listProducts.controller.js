@@ -13,9 +13,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.listProducts = void 0;
-const Product_1 = __importDefault(require("../../../models/Product"));
-const Category_1 = __importDefault(require("../../../models/Category"));
-const User_1 = __importDefault(require("../../../models/User"));
+const Product_1 = __importDefault(require("../../models/Product"));
+const Category_1 = __importDefault(require("../../models/Category"));
+const User_1 = __importDefault(require("../../models/User"));
 const mongoose_1 = require("mongoose");
 function buildSort(sortParam) {
     const normalized = (sortParam || "")

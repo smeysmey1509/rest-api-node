@@ -13,8 +13,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.addToBatch = addToBatch;
-const Product_1 = __importDefault(require("../../models/Product"));
-const Category_1 = __importDefault(require("../../models/Category"));
+const Product_1 = __importDefault(require("../models/Product"));
+const Category_1 = __importDefault(require("../models/Category"));
 const activity_service_1 = require("../services/activity.service");
 const mongoose_1 = __importDefault(require("mongoose"));
 const server_1 = require("../server");

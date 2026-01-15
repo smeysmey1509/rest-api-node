@@ -13,7 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteCategory = void 0;
-const Category_1 = __importDefault(require("../../../models/Category"));
+const Category_1 = __importDefault(require("../../models/Category"));
 const deleteCategory = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;

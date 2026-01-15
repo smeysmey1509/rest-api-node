@@ -13,7 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const SidebarItem_1 = __importDefault(require("../../models/SidebarItem"));
+const SidebarItem_1 = __importDefault(require("../models/SidebarItem"));
 const router = (0, express_1.Router)();
 router.post('/sidebar-items', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { name, path, icon, order, type, parentId } = req.body;

@@ -1,5 +1,5 @@
 // utils/deliveryCache.ts
-import DeliverySetting from "../../models/DeliverySetting";
+import DeliverySetting from "../models/DeliverySetting";
 
 type DeliveryLite = {
   _id: any;
@@ -36,5 +36,5 @@ export function getDelivery(method: string): DeliveryLite | undefined {
 }
 
 // Refresh every 30s (cheap), and whenever you mutate Delivery via your CRUD routes.
-setInterval(() => { loadDeliveryCache().catch(() => {}); }, 30_000);
-loadDeliveryCache().catch(() => {});
+setInterval(() => { loadDeliveryCache().catch(() => { }); }, 30_000);
+loadDeliveryCache().catch(() => { });

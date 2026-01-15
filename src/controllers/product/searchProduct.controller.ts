@@ -1,9 +1,9 @@
-import Product from '../../../models/Product'
-import {Request, Response} from 'express';
+import Product from '../../models/Product'
+import { Request, Response } from 'express';
 import redisClient from "../../utils/redisClient";
 
 export const searchProducts = async (req: Request, res: Response): Promise<void> => {
-    const query  = req.query.query?.toString().trim() || "";
+    const query = req.query.query?.toString().trim() || "";
     const limit = Math.max(parseInt(String(req.query.limit ?? ""), 10) || 10, 1);
     const page = Math.max(parseInt(String(req.query.page ?? ""), 10) || 1, 1);
     const skip = (page - 1) * limit;

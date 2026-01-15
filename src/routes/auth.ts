@@ -1,14 +1,14 @@
 import { Router, Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import User from "../../models/User";
-import Product from "../../models/Product";
+import User from "../models/User";
+import Product from "../models/Product";
 import {
   authenticateToken,
   AuthenicationRequest,
   authorizeRoles,
 } from "../../middleware/auth";
 import { authorizePermission } from "../../middleware/authorizePermission";
-import Category from "../../models/Category";
+import Category from "../models/Category";
 
 const router = Router();
 
@@ -38,15 +38,15 @@ router.get(
 );
 
 //User
-router.get("/users",  authenticateToken,
-    authorizeRoles("admin"), async (req: Request, res: Response) => {
-  try {
-    const users = await User.find().select("-password");
-    res.status(200).json(users);
-  } catch (error) {
-    res.status(500).json({ error: "Faild to fetch users" });
-  }
-});
+router.get("/users", authenticateToken,
+  authorizeRoles("admin"), async (req: Request, res: Response) => {
+    try {
+      const users = await User.find().select("-password");
+      res.status(200).json(users);
+    } catch (error) {
+      res.status(500).json({ error: "Faild to fetch users" });
+    }
+  });
 
 router.get("/users/:id", async (req: Request, res: Response) => {
   try {
@@ -183,9 +183,9 @@ router.post("/refresh", async (req: Request, res: Response): Promise<any> => {
 
     // Issue new access token
     const newAccessToken = jwt.sign(
-        { id: user._id, role: user.role },
-        accessSecret,
-        { expiresIn: "7d" }
+      { id: user._id, role: user.role },
+      accessSecret,
+      { expiresIn: "7d" }
     );
 
     return res.json({ accessToken: newAccessToken });
@@ -318,46 +318,46 @@ router.delete(
 //Category
 
 router.get("/category", async (req, res) => {
-  try{
+  try {
     const categories = await Category.find({})
     console.log("category:", categories)
     res.status(200).json(categories);
-  }catch(err){
-    res.status(500).json({message: 'Failed to fetch categories', err})
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch categories', err })
   }
 })
 
 router.post('/category', async (req: Request, res: Response) => {
-  try{
-    const {name, description} = req.body
-    const category = await Category.create({name, description})
+  try {
+    const { name, description } = req.body
+    const category = await Category.create({ name, description })
     res.status(200).json(category)
-  }catch (err: any){
-    res.status(400).json({error: err.message})
+  } catch (err: any) {
+    res.status(400).json({ error: err.message })
   }
 })
 
 router.put('/category/:id', async (req: Request, res: Response): Promise<any> => {
-  try{
+  try {
     const { id } = req.params
-    const {name, description} = req.body
-    const updateCategory = await Category.findByIdAndUpdate(id, {name, description}, {new: true, runValidations: true})
-    if (!updateCategory){
-      return res.status(404).json({message: "Category not found."})
+    const { name, description } = req.body
+    const updateCategory = await Category.findByIdAndUpdate(id, { name, description }, { new: true, runValidations: true })
+    if (!updateCategory) {
+      return res.status(404).json({ message: "Category not found." })
     }
     res.json(updateCategory)
-  }catch (e) {
-    res.status(500).json({message: "Failed to update cagory.", e})
+  } catch (e) {
+    res.status(500).json({ message: "Failed to update cagory.", e })
   }
 })
 
 router.delete("/category/:id", async (req: Request, res: Response): Promise<any> => {
-  try{
-    const {id } = req.params
+  try {
+    const { id } = req.params
 
-    const usedByProduct = await Product.exists({category: id})
+    const usedByProduct = await Product.exists({ category: id })
 
-    if (usedByProduct){
+    if (usedByProduct) {
       return res.status(400).json({
         message: "Cannot delete category because some products are still assigned to it."
       })
@@ -365,18 +365,17 @@ router.delete("/category/:id", async (req: Request, res: Response): Promise<any>
 
     const deletedGategory = await Category.findByIdAndDelete(id)
 
-    if(!deletedGategory){
+    if (!deletedGategory) {
       return res.status(404).json({
         message: "Categor not found."
       })
     }
 
-    res.json({message: "Category delete successfuly"})
+    res.json({ message: "Category delete successfuly" })
 
-  }catch (e) {
-    res.status(401).json({message: 'Failed to delete category.', e})
+  } catch (e) {
+    res.status(401).json({ message: 'Failed to delete category.', e })
   }
 })
 
 export default router;
-  

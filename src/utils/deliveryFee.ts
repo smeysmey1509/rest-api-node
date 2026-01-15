@@ -1,4 +1,4 @@
-import DeliverySetting from "../../models/DeliverySetting";
+import DeliverySetting from "../models/DeliverySetting";
 
 export async function calculateDeliveryFee(
   subtotal: number,
@@ -13,5 +13,5 @@ export async function calculateDeliveryFee(
   const qualifiesForFree =
     threshold !== null && baseFee <= 0 && subtotal >= threshold;
 
-   return qualifiesForFree ? 0 : baseFee;
+  return qualifiesForFree ? 0 : baseFee;
 }

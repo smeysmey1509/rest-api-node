@@ -1,6 +1,6 @@
 // services/reviews.ts
-import Review from "../../models/Review";
-import Product from "../../models/Product";
+import Review from "../models/Review";
+import Product from "../models/Product";
 import mongoose from "mongoose";
 
 // Create or update a review

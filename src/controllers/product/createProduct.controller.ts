@@ -1,7 +1,7 @@
 // src/controllers/product/createProduct.controller.ts
 import { Response } from "express";
 import mongoose, { Types } from "mongoose";
-import Product from "../../../models/Product";
+import Product from "../../models/Product";
 import { AuthenicationRequest } from "../../../middleware/auth";
 import { io } from "../../server";
 import { publishNotificationEvent } from "../../services/notification.service";
@@ -83,10 +83,10 @@ function normalizeVariants(raw: unknown): any[] {
       const stock = toNumber(v.stock, 0);
       const inv = v.inventory
         ? {
-            onHand: toNumber(v.inventory.onHand, stock || 0),
-            reserved: toNumber(v.inventory.reserved, 0),
-            safetyStock: toNumber(v.inventory.safetyStock, 0),
-          }
+          onHand: toNumber(v.inventory.onHand, stock || 0),
+          reserved: toNumber(v.inventory.reserved, 0),
+          safetyStock: toNumber(v.inventory.safetyStock, 0),
+        }
         : { onHand: stock || 0, reserved: 0, safetyStock: 0 };
 
       const attrsObj = normalizeAttributes(v.attributes);
@@ -120,8 +120,8 @@ function normalizeSeo(
   const keywords = Array.isArray(seo.keywords)
     ? seo.keywords.map((k: any) => String(k))
     : typeof seo.keywords === "string" && seo.keywords.trim()
-    ? seo.keywords.split(",").map((k: string) => k.trim())
-    : [];
+      ? seo.keywords.split(",").map((k: string) => k.trim())
+      : [];
   return {
     title: typeof seo.title === "string" ? seo.title : "",
     description: typeof seo.description === "string" ? seo.description : "",
@@ -237,10 +237,10 @@ export const createProduct = async (
     const dims =
       dimsObj && (dimsObj.length || dimsObj.width || dimsObj.height)
         ? {
-            length: toNumber(dimsObj.length, 0),
-            width: toNumber(dimsObj.width, 0),
-            height: toNumber(dimsObj.height, 0),
-          }
+          length: toNumber(dimsObj.length, 0),
+          width: toNumber(dimsObj.width, 0),
+          height: toNumber(dimsObj.height, 0),
+        }
         : undefined;
 
     // normalize optional compare-at price

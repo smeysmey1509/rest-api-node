@@ -14,7 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-const User_1 = __importDefault(require("../../models/User"));
+const User_1 = __importDefault(require("../models/User"));
 const auth_1 = require("../../middleware/auth");
 const router = (0, express_1.Router)();
 //Protected Route

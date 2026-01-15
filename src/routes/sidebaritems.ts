@@ -1,16 +1,16 @@
-import {Router} from "express";
-import SidebarItem from "../../models/SidebarItem";
+import { Router } from "express";
+import SidebarItem from "../models/SidebarItem";
 
 const router = Router();
 
-router.post('/sidebar-items', async (req,  res) => {
-    const {name, path, icon, order, type, parentId} = req.body;
+router.post('/sidebar-items', async (req, res) => {
+    const { name, path, icon, order, type, parentId } = req.body;
 
-    const item = new SidebarItem({name, path, icon, order, type, parentId});
+    const item = new SidebarItem({ name, path, icon, order, type, parentId });
 
     await item.save();
 
-    res.status(200).json({item})
+    res.status(200).json({ item })
 
 })
 

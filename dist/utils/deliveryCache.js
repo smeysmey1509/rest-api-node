@@ -16,7 +16,7 @@ exports.normalizeMethod = void 0;
 exports.loadDeliveryCache = loadDeliveryCache;
 exports.getDelivery = getDelivery;
 // utils/deliveryCache.ts
-const DeliverySetting_1 = __importDefault(require("../../models/DeliverySetting"));
+const DeliverySetting_1 = __importDefault(require("../models/DeliverySetting"));
 let CACHE = new Map();
 let READY = false;
 const normalizeMethod = (m) => String(m || "").trim().toLowerCase();

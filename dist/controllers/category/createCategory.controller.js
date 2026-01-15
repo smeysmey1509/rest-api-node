@@ -13,7 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createCategory = void 0;
-const Category_1 = __importDefault(require("../../../models/Category"));
+const Category_1 = __importDefault(require("../../models/Category"));
 const createCategory = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { categoryId, categoryName, description = "", productCount = 0, totalStock = 0, avgPrice = 0, totalSales = 0, } = req.body || {};

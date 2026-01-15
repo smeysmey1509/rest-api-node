@@ -1,8 +1,8 @@
 // src/controllers/review/createReview.controller.ts
 import { RequestHandler } from "express";
 import mongoose from "mongoose";
-import Review from "../../../models/Review";
-import Product from "../../../models/Product";
+import Review from "../../models/Review";
+import Product from "../../models/Product";
 import { applyNewRating } from "../../services/rating.service";
 import { AuthenicationRequest } from "../../../middleware/auth";
 

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import Category from "../../../models/Category";
+import Category from "../../models/Category";
 import { AuthenicationRequest } from "../../../middleware/auth";
 
 export const createCategory = async (req: AuthenicationRequest, res: Response) => {

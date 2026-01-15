@@ -1,7 +1,7 @@
 import { AuthenicationRequest } from "../../../middleware/auth";
 import { Response } from "express";
 import { HydratedDocument } from "mongoose";
-import Product, { IProduct } from "../../../models/Product";
+import Product, { IProduct } from "../../models/Product";
 import { publishProductActivity } from "../../services/activity.service";
 import { io } from "../../server";
 import { publishNotificationEvent } from "../../services/notification.service";
@@ -293,13 +293,13 @@ export const editProduct = async (
     const files: Express.Multer.File[] = Array.isArray(rawFiles)
       ? rawFiles
       : rawFiles && typeof rawFiles === "object"
-      ? Object.values(rawFiles).reduce<Express.Multer.File[]>((acc, value) => {
+        ? Object.values(rawFiles).reduce<Express.Multer.File[]>((acc, value) => {
           if (Array.isArray(value)) {
             acc.push(...value);
           }
           return acc;
         }, [])
-      : [];
+        : [];
     const uploadedImagePaths = files.map((file) => `/uploads/${file.filename}`);
 
     const productDoc = await Product.findById(id);
@@ -441,17 +441,17 @@ export const editProduct = async (
             );
             const sku = coerceIdentifier(
               record.sku ??
-                record.SKU ??
-                record.variantSku ??
-                record.variantSKU ??
-                record.variant_sku
+              record.SKU ??
+              record.variantSku ??
+              record.variantSKU ??
+              record.variant_sku
             );
             const indexHint = parseVariantIndexHint(record);
             const attrKey = buildAttributesKey(
               record.attributes ??
-                record.attrs ??
-                record.attributeValues ??
-                record.variantAttributes
+              record.attrs ??
+              record.attributeValues ??
+              record.variantAttributes
             );
 
             return {

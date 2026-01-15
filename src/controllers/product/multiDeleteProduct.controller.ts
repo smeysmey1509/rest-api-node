@@ -1,10 +1,10 @@
-import {AuthenicationRequest} from "../../../middleware/auth";
-import {Response} from "express";
-import Product from "../../../models/Product";
-import Category, {ICategory} from "../../../models/Category";
-import {publishProductActivity} from "../../services/activity.service";
+import { AuthenicationRequest } from "../../../middleware/auth";
+import { Response } from "express";
+import Product from "../../models/Product";
+import Category, { ICategory } from "../../models/Category";
+import { publishProductActivity } from "../../services/activity.service";
 import { io } from "../../server";
-import {publishNotificationEvent} from "../../services/notification.service";
+import { publishNotificationEvent } from "../../services/notification.service";
 
 export const multiDeleteProductController = async (req: AuthenicationRequest, res: Response) => {
     try {
@@ -12,7 +12,8 @@ export const multiDeleteProductController = async (req: AuthenicationRequest, re
         const userId = req?.user?.id
 
         // Multiple delete
-        if (Array.isArray(ids) && ids.length > 0) {           const products = await Product.find({ _id: { $in: ids } });
+        if (Array.isArray(ids) && ids.length > 0) {
+            const products = await Product.find({ _id: { $in: ids } });
             const categories: ICategory[] = await Category.find({
                 _id: { $in: products.map((p) => p.category) },
             });
@@ -49,7 +50,7 @@ export const multiDeleteProductController = async (req: AuthenicationRequest, re
 
             const result = await Product.deleteMany({ _id: { $in: ids } });
 
-            if (result.deletedCount === 0){
+            if (result.deletedCount === 0) {
                 res.status(404).json({ msg: "Product not found no deleted." });
                 return
             }

@@ -1,7 +1,7 @@
 import { Response } from "express";
-import Product from "../../../models/Product";
-import Category from "../../../models/Category";
-import User from "../../../models/User";
+import Product from "../../models/Product";
+import Category from "../../models/Category";
+import User from "../../models/User";
 import { Types } from "mongoose";
 import { AuthenicationRequest } from "../../../middleware/auth";
 
@@ -105,8 +105,8 @@ const toArrayParam = (v: unknown): string[] =>
   v == null
     ? []
     : (Array.isArray(v) ? v : String(v).split(","))
-        .map((s) => s.trim())
-        .filter(Boolean);
+      .map((s) => s.trim())
+      .filter(Boolean);
 
 export const listProducts = async (
   req: AuthenicationRequest,
@@ -145,8 +145,8 @@ export const listProducts = async (
       | undefined;
     const priceObject =
       rawPriceParam &&
-      !Array.isArray(rawPriceParam) &&
-      typeof rawPriceParam === "object"
+        !Array.isArray(rawPriceParam) &&
+        typeof rawPriceParam === "object"
         ? (rawPriceParam as Record<string, unknown>)
         : {};
 

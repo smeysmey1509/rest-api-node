@@ -1,8 +1,8 @@
 import { Response } from "express";
 import { Types } from "mongoose";
-import Product from "../../../models/Product";
-import Wishlist from "../../../models/Wishlist";
-import Cart from "../../../models/Cart";
+import Product from "../../models/Product";
+import Wishlist from "../../models/Wishlist";
+import Cart from "../../models/Cart";
 import { AuthenicationRequest } from "../../../middleware/auth";
 
 const DEFAULT_LIMIT = 8;
@@ -242,8 +242,8 @@ export const getProductRecommendations = async (
 
     const product = productId
       ? await leanPopulate(
-          Product.findOne({ _id: productId, ...BASE_PRODUCT_FILTER })
-        )
+        Product.findOne({ _id: productId, ...BASE_PRODUCT_FILTER })
+      )
       : null;
 
     if (productId && !product) {
@@ -255,14 +255,14 @@ export const getProductRecommendations = async (
     const brandId = product ? toObjectId((product as any).brand) : null;
     const productTags = product && Array.isArray((product as any).tag)
       ? (product as any).tag.filter((value: unknown): value is string =>
-          typeof value === "string" && value.length > 0
-        )
+        typeof value === "string" && value.length > 0
+      )
       : [];
     const productKeywords = product && Array.isArray((product as any)?.seo?.keywords)
       ? (product as any).seo.keywords.filter(
-          (value: unknown): value is string =>
-            typeof value === "string" && value.length > 0
-        )
+        (value: unknown): value is string =>
+          typeof value === "string" && value.length > 0
+      )
       : [];
     const { collectionId, groupKeys } = getCollectionContext(product);
 
@@ -376,7 +376,7 @@ export const getProductRecommendations = async (
     const frequentlyBoughtIdsPromise: Promise<
       { _id: Types.ObjectId; count: number }[]
     > = productId
-      ? Cart.aggregate<{
+        ? Cart.aggregate<{
           _id: Types.ObjectId;
           count: number;
         }>([
@@ -387,7 +387,7 @@ export const getProductRecommendations = async (
           { $sort: { count: -1 } },
           { $limit: limit },
         ])
-      : Promise.resolve<{ _id: Types.ObjectId; count: number }[]>([]);
+        : Promise.resolve<{ _id: Types.ObjectId; count: number }[]>([]);
 
     const userId = req.user?.id;
     const includePersonalized =
@@ -403,9 +403,9 @@ export const getProductRecommendations = async (
       frequentlyBoughtIdsPromise,
       includePersonalized
         ? Promise.all([
-            Wishlist.findOne({ user: userObjectId }).lean(),
-            Cart.findOne({ user: userObjectId }).lean(),
-          ])
+          Wishlist.findOne({ user: userObjectId }).lean(),
+          Cart.findOne({ user: userObjectId }).lean(),
+        ])
         : Promise.resolve<[null, null]>([null, null]),
     ]);
 
@@ -427,13 +427,13 @@ export const getProductRecommendations = async (
     const frequentlyBoughtIdsOrdered = frequentlyBoughtIds.map((doc) => doc._id);
     let frequentlyBoughtTogether = frequentlyBoughtIdsOrdered.length
       ? orderByIds(
-          await leanPopulate(
-            Product.find(
-              withIdCondition(baseFilter, { $in: frequentlyBoughtIdsOrdered })
-            )
-          ),
-          frequentlyBoughtIdsOrdered
-        )
+        await leanPopulate(
+          Product.find(
+            withIdCondition(baseFilter, { $in: frequentlyBoughtIdsOrdered })
+          )
+        ),
+        frequentlyBoughtIdsOrdered
+      )
       : [];
 
     if (!frequentlyBoughtTogether.length) {

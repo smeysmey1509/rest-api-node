@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import DeliverySetting from "../../models/DeliverySetting";
+import DeliverySetting from "../models/DeliverySetting";
 import { authenticateToken } from "../../middleware/auth";
 import { generatePickupCode } from "../utils/pickupCode";
 
@@ -20,8 +20,8 @@ router.post("/delivery", authenticateToken, async (req: any, res: Response) => {
     const { method, baseFee, freeThreshold, estimatedDays, isActive } = req.body;
 
     if (!method || baseFee == null || estimatedDays == null) {
-        res.status(400).json({ error: "Method, baseFee, and estimatedDays are required." });
-        return;
+      res.status(400).json({ error: "Method, baseFee, and estimatedDays are required." });
+      return;
     }
 
     const exists = await DeliverySetting.findOne({ method });

@@ -1,9 +1,9 @@
 import { Router, Response } from "express";
 import { authenticateToken } from "../../middleware/auth";
-import Wishlist from "../../models/Wishlist";
-import Product from "../../models/Product";
-import Cart from "../../models/Cart";
-import DeliverySetting from "../../models/DeliverySetting";
+import Wishlist from "../models/Wishlist";
+import Product from "../models/Product";
+import Cart from "../models/Cart";
+import DeliverySetting from "../models/DeliverySetting";
 import { calculateCartTotals } from "../utils/cartTotals";
 import { setCachedCart } from "../utils/cache";
 
@@ -13,11 +13,11 @@ const buildCartSnapshot = async (cartDoc: any) => {
   await cartDoc.populate("items.product");
   const deliveryDoc = cartDoc.delivery ||
     (await DeliverySetting.findOne({ isActive: true }).lean()) || {
-      _id: null,
-      method: "standard",
-      fee: 0,
-      taxRate: 0,
-    };
+    _id: null,
+    method: "standard",
+    fee: 0,
+    taxRate: 0,
+  };
 
   const subTotal = cartDoc.items.reduce((acc: number, item: any) => {
     const price = (item.product as any)?.price || 0;
@@ -212,13 +212,13 @@ router.delete(
 
       await wishlist.save();
       await wishlist.populate({
-          path: "items.product",
-          populate: [
-            { path: "brand" },
-            { path: "category" },
-            { path: "seller" },
-          ],
-        })
+        path: "items.product",
+        populate: [
+          { path: "brand" },
+          { path: "category" },
+          { path: "seller" },
+        ],
+      })
 
       res.status(200).json({
         message: "Product removed from wishlist.",

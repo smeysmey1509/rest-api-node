@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
-import {IProduct} from "./Product";
+import { IProduct } from "./Product";
 
 export interface IActivity extends Document {
     user: mongoose.Types.ObjectId;
@@ -9,7 +9,7 @@ export interface IActivity extends Document {
 }
 
 const ActivitySchema: Schema<IActivity> = new Schema({
-    user: {type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true},
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     products: [{
         _id: mongoose.Schema.Types.ObjectId,
         name: String,

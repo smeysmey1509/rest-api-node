@@ -13,7 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.listBrands = void 0;
-const Brand_1 = __importDefault(require("../../../models/Brand"));
+const Brand_1 = __importDefault(require("../../models/Brand"));
 function parseSort(input) {
     const sort = {};
     (input || "name:1").split(",").forEach(pair => {

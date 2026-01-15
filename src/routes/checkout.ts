@@ -1,7 +1,7 @@
 import { Router, Response } from "express";
 import { Types } from "mongoose";
-import Cart from "../../models/Cart";
-import DeliverySetting from "../../models/DeliverySetting";
+import Cart from "../models/Cart";
+import DeliverySetting from "../models/DeliverySetting";
 import Order, {
   IContactDetails,
   IPaymentSummary,
@@ -10,7 +10,7 @@ import Order, {
   IStatusHistoryEntry,
   PaymentStatus,
   OrderStatus,
-} from "../../models/Order";
+} from "../models/Order";
 import { authenticateToken } from "../../middleware/auth";
 import { calculateCartTotals } from "../utils/cartTotals";
 import { invalidateCart, setCachedCart } from "../utils/cache";
@@ -21,23 +21,23 @@ const ORDER_STATUS_FLOW: ReadonlyArray<{
   status: OrderStatus;
   message: string;
 }> = [
-  {
-    status: "pending",
-    message: "Order created, awaiting payment.",
-  },
-  {
-    status: "processing",
-    message: "Payment received, preparing for shipment.",
-  },
-  {
-    status: "shipped",
-    message: "Order shipped to carrier.",
-  },
-  {
-    status: "delivered",
-    message: "Order delivered to customer.",
-  },
-];
+    {
+      status: "pending",
+      message: "Order created, awaiting payment.",
+    },
+    {
+      status: "processing",
+      message: "Payment received, preparing for shipment.",
+    },
+    {
+      status: "shipped",
+      message: "Order shipped to carrier.",
+    },
+    {
+      status: "delivered",
+      message: "Order delivered to customer.",
+    },
+  ];
 
 type ContactPayload = Partial<IContactDetails> & {
   firstName?: string;
@@ -380,8 +380,8 @@ async function resolveDelivery(
       rawId instanceof Types.ObjectId
         ? rawId
         : typeof rawId === "string" && Types.ObjectId.isValid(rawId)
-        ? new Types.ObjectId(rawId)
-        : null;
+          ? new Types.ObjectId(rawId)
+          : null;
     return {
       setting: normalizedId,
       method: populated.method,
@@ -524,7 +524,7 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
 
     const shippingAddress = normalizeAddress(
       (body.shippingAddress as Partial<IShippingAddress>) ||
-        (body.address as Partial<IShippingAddress>),
+      (body.address as Partial<IShippingAddress>),
       contactDetails
     );
 
@@ -666,12 +666,12 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
       },
       delivery: orderDelivery
         ? {
-            ...orderDelivery,
-            carrier: orderDelivery?.carrier ?? null,
-            trackingNumber: orderDelivery?.trackingNumber ?? null,
-            trackingUrl: orderDelivery?.trackingUrl ?? null,
-            estimatedDeliveryDate: orderDelivery?.estimatedDeliveryDate || null,
-          }
+          ...orderDelivery,
+          carrier: orderDelivery?.carrier ?? null,
+          trackingNumber: orderDelivery?.trackingNumber ?? null,
+          trackingUrl: orderDelivery?.trackingUrl ?? null,
+          estimatedDeliveryDate: orderDelivery?.estimatedDeliveryDate || null,
+        }
         : undefined,
       status: {
         current: plainOrder.status,

@@ -15,8 +15,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.upsertReview = upsertReview;
 exports.deleteReview = deleteReview;
 // services/reviews.ts
-const Review_1 = __importDefault(require("../../models/Review"));
-const Product_1 = __importDefault(require("../../models/Product"));
+const Review_1 = __importDefault(require("../models/Review"));
+const Product_1 = __importDefault(require("../models/Product"));
 const mongoose_1 = __importDefault(require("mongoose"));
 // Create or update a review
 function upsertReview(_a) {

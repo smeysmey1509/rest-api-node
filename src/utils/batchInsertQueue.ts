@@ -1,8 +1,8 @@
-import Product from "../../models/Product";
-import Category from "../../models/Category";
-import {publishProductActivity} from '../services/activity.service'
+import Product from "../models/Product";
+import Category from "../models/Category";
+import { publishProductActivity } from '../services/activity.service'
 import mongoose from "mongoose";
-import {io} from "../server";
+import { io } from "../server";
 
 interface ProductInput {
     name: string;

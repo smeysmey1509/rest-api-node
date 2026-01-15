@@ -13,7 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.searchProducts = void 0;
-const Product_1 = __importDefault(require("../../../models/Product"));
+const Product_1 = __importDefault(require("../../models/Product"));
 const redisClient_1 = __importDefault(require("../../utils/redisClient"));
 const searchProducts = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c;

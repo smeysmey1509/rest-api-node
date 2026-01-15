@@ -1,9 +1,9 @@
 import { Response } from "express";
-import Product from "../../../models/Product";
+import Product from "../../models/Product";
 import { publishProductActivity } from "../../services/activity.service";
 import { io } from "../../server";
-import {publishNotificationEvent} from "../../services/notification.service";
-import {AuthenicationRequest} from "../../../middleware/auth";
+import { publishNotificationEvent } from "../../services/notification.service";
+import { AuthenicationRequest } from "../../../middleware/auth";
 
 export const deleteProductById = async (req: AuthenicationRequest, res: Response): Promise<void> => {
     try {

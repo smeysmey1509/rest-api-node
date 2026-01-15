@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
-import Product from "../../models/Product";
-import User from "../../models/User";
+import Product from "../models/Product";
+import User from "../models/User";
 import { AuthenicationRequest, authenticateToken } from "../../middleware/auth";
 import { authorizePermission } from "../../middleware/authorizePermission";
 import { searchProducts } from "../controllers/product/searchProduct.controller";

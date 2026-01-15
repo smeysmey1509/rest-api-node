@@ -14,7 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const PromoCode_1 = __importDefault(require("../models/PromoCode"));
-const auth_1 = require("../../middleware/auth");
+const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 // Example middleware to check admin role (adjust as needed)
 const checkAdmin = (req, res, next) => {

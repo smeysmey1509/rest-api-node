@@ -1,10 +1,10 @@
 import amqp from "amqplib";
 import Notification from "../../models/Notification";
 import User from "../../models/User";
-import {io} from "../server"
+import { io } from "../server"
 
 export const consumeNotifs = async () => {
-    try{
+    try {
         const connection = await amqp.connect("amqp://localhost");
         const channel = await connection.createChannel();
 
@@ -14,12 +14,12 @@ export const consumeNotifs = async () => {
         console.log("🎧 Worker listening to:", queue);
 
         channel.consume(queue, async (msg: any) => {
-            try{
+            try {
                 if (!msg) return;
                 const notificationData = JSON.parse(msg.content.toString());
                 console.log("📥 Received notification:", notificationData);
 
-                const users = await User.find({_id: {$ne: notificationData.userId}}).select("_id");
+                const users = await User.find({ _id: { $ne: notificationData.userId } }).select("_id");
 
                 console.log("Other users to notify:", users.map(u => u._id.toString()));
 
@@ -51,12 +51,12 @@ export const consumeNotifs = async () => {
                 });
 
                 channel.ack(msg);
-            }catch(err){
+            } catch (err) {
                 console.error("❌ Notification failed:", err);
             }
         });
 
-    }catch(err){
+    } catch (err) {
         console.error("❌ Worker failed to consume queue:", err);
     }
 }

@@ -6,8 +6,8 @@ import notificationRoute from "./routes/noticaiton";
 import { consumeActivityLogs } from "./queue/activityConsumer";
 import http from "http";
 import { Server as SocketIOServer } from "socket.io";
-import {connectRabbitMQ} from "./services/rabbitmq";
-import {consumeNotifs} from "./queue/notifcationConsumer";
+import { connectRabbitMQ } from "./services/rabbitmq";
+import { consumeNotifs } from "./queue/notifcationConsumer";
 import cors from "cors";
 
 const app = express();
@@ -17,7 +17,7 @@ const PORT = 5003;
 app.use(express.json());
 app.use(cookieParser());
 
-export const io = new SocketIOServer(server,{
+export const io = new SocketIOServer(server, {
     cors: {
         origin: "http://localhost:5173",
         credentials: true

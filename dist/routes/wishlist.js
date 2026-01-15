@@ -13,7 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const auth_1 = require("../../middleware/auth");
+const auth_1 = require("../middleware/auth");
 const Wishlist_1 = __importDefault(require("../models/Wishlist"));
 const Product_1 = __importDefault(require("../models/Product"));
 const Cart_1 = __importDefault(require("../models/Cart"));

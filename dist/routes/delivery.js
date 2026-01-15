@@ -14,7 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const DeliverySetting_1 = __importDefault(require("../models/DeliverySetting"));
-const auth_1 = require("../../middleware/auth");
+const auth_1 = require("../middleware/auth");
 const pickupCode_1 = require("../utils/pickupCode");
 const router = (0, express_1.Router)();
 router.get("/delivery", auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {

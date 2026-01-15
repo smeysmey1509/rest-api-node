@@ -15,7 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const User_1 = __importDefault(require("../models/User"));
-const auth_1 = require("../../middleware/auth");
+const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 //Protected Route
 router.get("/profile", auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {

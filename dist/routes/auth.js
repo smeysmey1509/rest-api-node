@@ -16,8 +16,8 @@ const express_1 = require("express");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const User_1 = __importDefault(require("../models/User"));
 const Product_1 = __importDefault(require("../models/Product"));
-const auth_1 = require("../../middleware/auth");
-const authorizePermission_1 = require("../../middleware/authorizePermission");
+const auth_1 = require("../middleware/auth");
+const authorizePermission_1 = require("../middleware/authorizePermission");
 const Category_1 = __importDefault(require("../models/Category"));
 const router = (0, express_1.Router)();
 //Protected Route

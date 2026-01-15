@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const auth_1 = require("../../middleware/auth");
-const authorizePermission_1 = require("../../middleware/authorizePermission");
+const auth_1 = require("../middleware/auth");
+const authorizePermission_1 = require("../middleware/authorizePermission");
 const createCategory_controller_1 = require("../controllers/category/createCategory.controller");
 const listCategories_controller_1 = require("../controllers/category/listCategories.controller");
 const getCategoryById_controller_1 = require("../controllers/category/getCategoryById.controller");

@@ -14,14 +14,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const Product_1 = __importDefault(require("../models/Product"));
-const auth_1 = require("../../middleware/auth");
-const authorizePermission_1 = require("../../middleware/authorizePermission");
+const auth_1 = require("../middleware/auth");
+const authorizePermission_1 = require("../middleware/authorizePermission");
 const searchProduct_controller_1 = require("../controllers/product/searchProduct.controller");
 const deleteProductById_controller_1 = require("../controllers/product/deleteProductById.controller");
 const createProduct_controller_1 = require("../controllers/product/createProduct.controller");
 const multiDeleteProduct_controller_1 = require("../controllers/product/multiDeleteProduct.controller");
 const editProduct_controller_1 = require("../controllers/product/editProduct.controller");
-const upload_1 = require("../../middleware/upload");
+const upload_1 = require("../middleware/upload");
 const listProducts_controller_1 = require("../controllers/product/listProducts.controller");
 const recommendations_controller_1 = require("../controllers/product/recommendations.controller");
 const router = (0, express_1.Router)();

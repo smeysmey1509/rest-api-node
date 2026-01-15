@@ -13,8 +13,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createBrand = void 0;
-const Brand_1 = __importDefault(require("../../../models/Brand"));
-const Product_1 = __importDefault(require("../../../models/Product"));
+const Brand_1 = __importDefault(require("../../models/Brand"));
+const Product_1 = __importDefault(require("../../models/Product"));
 const slugify = (s) => s.toLowerCase().trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");

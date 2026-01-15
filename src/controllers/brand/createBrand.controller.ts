@@ -1,7 +1,7 @@
 import { Response } from "express";
-import Brand from "../../../models/Brand";
-import Product from "../../../models/Product";
-import { AuthenicationRequest } from "../../../middleware/auth";
+import Brand from "../../models/Brand";
+import Product from "../../models/Product";
+import { AuthenicationRequest } from "../../middleware/auth";
 
 const slugify = (s: string) =>
   s.toLowerCase().trim()

@@ -822,25 +822,25 @@ export const editProduct = async (
     const imageIndexesToRemove = hasOwn(body, "removeImageIndexes")
       ? toIndexArray(body.removeImageIndexes)
       : [];
+    const hasIncomingImages = hasOwn(body, "images");
 
     if (
-      hasOwn(body, "images") ||
+      hasIncomingImages ||
       uploadedImagePaths.length ||
       imageIndexesToRemove.length
     ) {
       const existingImages = Array.isArray(productDoc.images)
         ? productDoc.images.map((img) => String(img))
         : [];
-      const baseImages = hasOwn(body, "images")
+      const baseImages = hasIncomingImages
         ? toImageArray(body.images)
-        : existingImages;
+        : uploadedImagePaths.length
+          ? uploadedImagePaths
+          : existingImages;
       const filteredImages = imageIndexesToRemove.length
         ? baseImages.filter((_, index) => !imageIndexesToRemove.includes(index))
         : baseImages;
-      const combinedImages = dedupeStringArray([
-        ...filteredImages,
-        ...uploadedImagePaths,
-      ]);
+      const combinedImages = dedupeStringArray(filteredImages);
 
       if (!areStringArraysEqual(combinedImages, existingImages)) {
         productDoc.images = combinedImages;

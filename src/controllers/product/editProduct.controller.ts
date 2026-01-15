@@ -824,8 +824,8 @@ export const editProduct = async (
         : baseImages;
       const filteredImages = imageIndexesToRemove.length
         ? filteredImagesByValue.filter(
-            (_, index) => !imageIndexesToRemove.includes(index)
-          )
+          (_, index) => !imageIndexesToRemove.includes(index)
+        )
         : filteredImagesByValue;
       const combinedImages = dedupeStringArray([
         ...filteredImages,

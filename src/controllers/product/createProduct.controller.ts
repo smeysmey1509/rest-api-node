@@ -1,4 +1,4 @@
-// src/main/controllers/product/createProduct.controller.ts
+// src/controllers/product/createProduct.controller.ts
 import { Response } from "express";
 import mongoose, { Types } from "mongoose";
 import Product from "../../../models/Product";

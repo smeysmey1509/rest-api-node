@@ -1,4 +1,4 @@
-// src/main/services/rating.service.ts
+// src/services/rating.service.ts
 import Product from "../../models/Product";
 
 export async function applyNewRating(productId: string, value: number) {

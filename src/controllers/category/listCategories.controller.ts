@@ -1,4 +1,4 @@
-// src/main/controllers/category/listCategories.controller.ts
+// src/controllers/category/listCategories.controller.ts
 import { Response } from "express";
 import Category from "../../../models/Category";
 import { AuthenicationRequest } from "../../../middleware/auth";

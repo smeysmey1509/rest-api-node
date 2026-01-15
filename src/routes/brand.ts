@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { authenticateToken } from "../../middleware/auth";
-import { authorizePermission } from "../../middleware/authorizePermission";
+import { authenticateToken } from "../middleware/auth";
+import { authorizePermission } from "../middleware/authorizePermission";
 import { createBrand } from "../controllers/brand/createBrand.controller";
 import { listBrands } from "../controllers/brand/listBrands.controller";
 

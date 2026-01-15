@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import PromoUsage from "../models/PromoUsage";
 import PromoCode from "../models/PromoCode";
-import { authenticateToken } from "../../middleware/auth";
+import { authenticateToken } from "../middleware/auth";
 
 const router = Router();
 

@@ -2,7 +2,7 @@
 import { Response } from "express";
 import mongoose, { Types } from "mongoose";
 import Product from "../../models/Product";
-import { AuthenicationRequest } from "../../../middleware/auth";
+import { AuthenicationRequest } from "../../middleware/auth";
 import { io } from "../../server";
 import { publishNotificationEvent } from "../../services/notification.service";
 

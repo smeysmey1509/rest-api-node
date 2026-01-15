@@ -3,7 +3,7 @@ import Product from "../../models/Product";
 import Category from "../../models/Category";
 import User from "../../models/User";
 import { Types } from "mongoose";
-import { AuthenicationRequest } from "../../../middleware/auth";
+import { AuthenicationRequest } from "../../middleware/auth";
 
 function buildSort(sortParam?: string): Record<string, 1 | -1> {
   const normalized = (sortParam || "")

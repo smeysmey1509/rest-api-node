@@ -3,7 +3,7 @@ import { Types } from "mongoose";
 import Product from "../../models/Product";
 import Wishlist from "../../models/Wishlist";
 import Cart from "../../models/Cart";
-import { AuthenicationRequest } from "../../../middleware/auth";
+import { AuthenicationRequest } from "../../middleware/auth";
 
 const DEFAULT_LIMIT = 8;
 

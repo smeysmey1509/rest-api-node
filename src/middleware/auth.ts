@@ -18,8 +18,8 @@ export interface AuthenicationRequest extends Request {
   user?: JwtPayload;
   file?: Express.Multer.File;
   files?:
-    | Express.Multer.File[]
-    | { [fieldname: string]: Express.Multer.File[] };
+  | Express.Multer.File[]
+  | { [fieldname: string]: Express.Multer.File[] };
 }
 
 export const authenticateToken = (

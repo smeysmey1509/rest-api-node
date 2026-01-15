@@ -819,9 +819,6 @@ export const editProduct = async (
       }
     }
 
-    const imagesToRemove = hasOwn(body, "removeImages")
-      ? toImageArray(body.removeImages)
-      : [];
     const imageIndexesToRemove = hasOwn(body, "removeImageIndexes")
       ? toIndexArray(body.removeImageIndexes)
       : [];
@@ -829,7 +826,6 @@ export const editProduct = async (
     if (
       hasOwn(body, "images") ||
       uploadedImagePaths.length ||
-      imagesToRemove.length ||
       imageIndexesToRemove.length
     ) {
       const existingImages = Array.isArray(productDoc.images)
@@ -838,14 +834,9 @@ export const editProduct = async (
       const baseImages = hasOwn(body, "images")
         ? toImageArray(body.images)
         : existingImages;
-      const filteredImagesByValue = imagesToRemove.length
-        ? baseImages.filter((img) => !imagesToRemove.includes(img))
-        : baseImages;
       const filteredImages = imageIndexesToRemove.length
-        ? filteredImagesByValue.filter(
-          (_, index) => !imageIndexesToRemove.includes(index)
-        )
-        : filteredImagesByValue;
+        ? baseImages.filter((_, index) => !imageIndexesToRemove.includes(index))
+        : baseImages;
       const combinedImages = dedupeStringArray([
         ...filteredImages,
         ...uploadedImagePaths,

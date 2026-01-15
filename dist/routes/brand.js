@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = require("../../middleware/auth");
+const authorizePermission_1 = require("../../middleware/authorizePermission");
+const createBrand_controller_1 = require("../controllers/brand/createBrand.controller");
+const listBrands_controller_1 = require("../controllers/brand/listBrands.controller");
+const router = (0, express_1.Router)();
+router.get("/brands", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("read"), listBrands_controller_1.listBrands);
+router.post("/brands", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("create"), createBrand_controller_1.createBrand);
+exports.default = router;

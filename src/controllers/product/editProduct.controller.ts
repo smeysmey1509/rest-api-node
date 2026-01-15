@@ -84,13 +84,32 @@ const dedupeStringArray = (values: string[]): string[] => {
 };
 
 const toImageArray = (input: unknown): string[] => {
+  if (typeof input === "number") {
+    const count = Math.max(0, Math.floor(toNumber(input, 0)));
+    return count
+      ? Array.from({ length: count }, (_, index) => String(index + 1))
+      : [];
+  }
+
   if (Array.isArray(input)) {
     return dedupeStringArray(input.map((img) => String(img)));
+  }
+
+  if (input && typeof input === "object") {
+    const values = Object.values(input as Record<string, unknown>);
+    return dedupeStringArray(values.map((img) => String(img)));
   }
 
   if (typeof input === "string") {
     const trimmed = input.trim();
     if (!trimmed.length) return [];
+
+    if (/^\d+$/.test(trimmed)) {
+      const count = Math.max(0, Math.floor(toNumber(trimmed, 0)));
+      return count
+        ? Array.from({ length: count }, (_, index) => String(index + 1))
+        : [];
+    }
 
     const parsed = parseJSON<string[]>(trimmed, []);
     if (Array.isArray(parsed) && parsed.length) {

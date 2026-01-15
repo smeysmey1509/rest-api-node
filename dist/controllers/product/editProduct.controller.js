@@ -619,15 +619,23 @@ const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
                 updatesForSummary.isHazardous = bool;
             }
         }
-        if (hasOwn(body, "images") || uploadedImagePaths.length) {
+        const imagesToRemove = hasOwn(body, "removeImages")
+            ? toImageArray(body.removeImages)
+            : [];
+        if (hasOwn(body, "images") ||
+            uploadedImagePaths.length ||
+            imagesToRemove.length) {
             const existingImages = Array.isArray(productDoc.images)
                 ? productDoc.images.map((img) => String(img))
                 : [];
             const baseImages = hasOwn(body, "images")
                 ? toImageArray(body.images)
                 : existingImages;
+            const filteredImages = imagesToRemove.length
+                ? baseImages.filter((img) => !imagesToRemove.includes(img))
+                : baseImages;
             const combinedImages = dedupeStringArray([
-                ...baseImages,
+                ...filteredImages,
                 ...uploadedImagePaths,
             ]);
             if (!areStringArraysEqual(combinedImages, existingImages)) {

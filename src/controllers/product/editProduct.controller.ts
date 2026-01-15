@@ -88,6 +88,11 @@ const toImageArray = (input: unknown): string[] => {
     return dedupeStringArray(input.map((img) => String(img)));
   }
 
+  if (input && typeof input === "object") {
+    const values = Object.values(input as Record<string, unknown>);
+    return dedupeStringArray(values.map((img) => String(img)));
+  }
+
   if (typeof input === "string") {
     const trimmed = input.trim();
     if (!trimmed.length) return [];

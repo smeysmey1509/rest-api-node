@@ -57,6 +57,12 @@ type PaymentPayload = Partial<IPaymentSummary> & {
   id?: string;
   currency?: string;
   paidAt?: string | Date | null;
+  credit?: string;
+  cardNumber?: string;
+  nameOnCard?: string;
+  expirationDate?: string;
+  cvv?: string;
+  otp?: string;
 };
 
 type DeliverySelectionPayload = {
@@ -75,6 +81,7 @@ type CheckoutRequestBody = {
   address?: Partial<IShippingAddress> | null;
   contact?: ContactPayload | null;
   personalDetails?: ContactPayload | null;
+  personalDetail?: ContactPayload | null;
   customer?: ContactPayload | null;
   deliveryMethodId?: string;
   deliveryMethod?: string;
@@ -304,6 +311,36 @@ function normalizePayment(body: CheckoutRequestBody): IPaymentSummary {
     payment.paidAt = paidAtDate;
   }
 
+  const credit =
+    toTrimmedString((nested as Record<string, unknown>)?.credit) ||
+    toTrimmedString((body as Record<string, unknown>).credit);
+  if (credit) payment.credit = credit;
+
+  const cardNumber =
+    toTrimmedString((nested as Record<string, unknown>)?.cardNumber) ||
+    toTrimmedString((body as Record<string, unknown>).cardNumber);
+  if (cardNumber) payment.cardNumber = cardNumber;
+
+  const nameOnCard =
+    toTrimmedString((nested as Record<string, unknown>)?.nameOnCard) ||
+    toTrimmedString((body as Record<string, unknown>).nameOnCard);
+  if (nameOnCard) payment.nameOnCard = nameOnCard;
+
+  const expirationDate =
+    toTrimmedString((nested as Record<string, unknown>)?.expirationDate) ||
+    toTrimmedString((body as Record<string, unknown>).expirationDate);
+  if (expirationDate) payment.expirationDate = expirationDate;
+
+  const cvv =
+    toTrimmedString((nested as Record<string, unknown>)?.cvv) ||
+    toTrimmedString((body as Record<string, unknown>).cvv);
+  if (cvv) payment.cvv = cvv;
+
+  const otp =
+    toTrimmedString((nested as Record<string, unknown>)?.otp) ||
+    toTrimmedString((body as Record<string, unknown>).otp);
+  if (otp) payment.otp = otp;
+
   if (!payment.currency) {
     payment.currency = "USD";
   }
@@ -361,7 +398,10 @@ function buildCheckoutResponse({
   };
 }) {
   return {
-    shipping: null,
+    shipping: {
+      method: delivery?.method ?? null,
+      address: null,
+    },
     personalDetail: null,
     payment: null,
     items,
@@ -379,6 +419,7 @@ function buildCheckoutResponse({
         promo: promoSummary,
       },
       delivery: delivery || null,
+      pickUpCode: delivery?.code ?? null,
       promoCode: promoSummary?.code ?? null,
       createdAt: null,
       updatedAt: null,
@@ -570,6 +611,7 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
 
     const contactDetails =
       normalizeContact(body.contact) ||
+      normalizeContact(body.personalDetail) ||
       normalizeContact(body.personalDetails) ||
       normalizeContact(body.customer) ||
       normalizeContact(body.shippingAddress as ContactPayload) ||
@@ -716,6 +758,12 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
         transactionId: orderPayment?.transactionId ?? null,
         currency: orderPayment?.currency || "USD",
         paidAt: orderPayment?.paidAt || null,
+        credit: orderPayment?.credit ?? null,
+        cardNumber: orderPayment?.cardNumber ?? null,
+        nameOnCard: orderPayment?.nameOnCard ?? null,
+        expirationDate: orderPayment?.expirationDate ?? null,
+        cvv: orderPayment?.cvv ?? null,
+        otp: orderPayment?.otp ?? null,
       },
       delivery: orderDelivery
         ? {
@@ -741,7 +789,10 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
       message: "Order placed successfully.",
       order: responseOrder,
       checkout: {
-        shipping: responseOrder.shippingAddress || null,
+        shipping: {
+          method: responseOrder.delivery?.method ?? null,
+          address: responseOrder.shippingAddress || null,
+        },
         personalDetail: responseOrder.contact || null,
         payment: responseOrder.payment || null,
         items: responseOrder.items || [],
@@ -750,6 +801,7 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
           status: responseOrder.status,
           summary: responseOrder.summary || null,
           delivery: responseOrder.delivery || null,
+          pickUpCode: responseOrder.delivery?.code ?? null,
           promoCode: responseOrder.promoCode || null,
           createdAt: responseOrder.createdAt,
           updatedAt: responseOrder.updatedAt,

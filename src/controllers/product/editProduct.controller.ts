@@ -834,13 +834,11 @@ export const editProduct = async (
         : [];
       const baseImages = hasIncomingImages
         ? toImageArray(body.images)
-        : uploadedImagePaths.length
-          ? uploadedImagePaths
-          : existingImages;
-      const filteredImages = imageIndexesToRemove.length
-        ? baseImages.filter((_, index) => !imageIndexesToRemove.includes(index))
-        : baseImages;
-      const combinedImages = dedupeStringArray(filteredImages);
+        : existingImages;
+      const combinedImages = dedupeStringArray([
+        ...baseImages,
+        ...uploadedImagePaths,
+      ]);
 
       if (!areStringArraysEqual(combinedImages, existingImages)) {
         productDoc.images = combinedImages;

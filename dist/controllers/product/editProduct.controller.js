@@ -78,13 +78,29 @@ const dedupeStringArray = (values) => {
     return result;
 };
 const toImageArray = (input) => {
+    if (typeof input === "number") {
+        const count = Math.max(0, Math.floor((0, productNormalization_1.toNumber)(input, 0)));
+        return count
+            ? Array.from({ length: count }, (_, index) => String(index + 1))
+            : [];
+    }
     if (Array.isArray(input)) {
         return dedupeStringArray(input.map((img) => String(img)));
+    }
+    if (input && typeof input === "object") {
+        const values = Object.values(input);
+        return dedupeStringArray(values.map((img) => String(img)));
     }
     if (typeof input === "string") {
         const trimmed = input.trim();
         if (!trimmed.length)
             return [];
+        if (/^\d+$/.test(trimmed)) {
+            const count = Math.max(0, Math.floor((0, productNormalization_1.toNumber)(trimmed, 0)));
+            return count
+                ? Array.from({ length: count }, (_, index) => String(index + 1))
+                : [];
+        }
         const parsed = (0, productNormalization_1.parseJSON)(trimmed, []);
         if (Array.isArray(parsed) && parsed.length) {
             return dedupeStringArray(parsed.map((img) => String(img)));
@@ -655,20 +671,18 @@ const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         const imageIndexesToRemove = hasOwn(body, "removeImageIndexes")
             ? toIndexArray(body.removeImageIndexes)
             : [];
-        if (hasOwn(body, "images") ||
+        const hasIncomingImages = hasOwn(body, "images");
+        if (hasIncomingImages ||
             uploadedImagePaths.length ||
             imageIndexesToRemove.length) {
             const existingImages = Array.isArray(productDoc.images)
                 ? productDoc.images.map((img) => String(img))
                 : [];
-            const baseImages = hasOwn(body, "images")
+            const baseImages = hasIncomingImages
                 ? toImageArray(body.images)
                 : existingImages;
-            const filteredImages = imageIndexesToRemove.length
-                ? baseImages.filter((_, index) => !imageIndexesToRemove.includes(index))
-                : baseImages;
             const combinedImages = dedupeStringArray([
-                ...filteredImages,
+                ...baseImages,
                 ...uploadedImagePaths,
             ]);
             if (!areStringArraysEqual(combinedImages, existingImages)) {

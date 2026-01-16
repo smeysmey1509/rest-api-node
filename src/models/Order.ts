@@ -44,6 +44,12 @@ export interface IPaymentSummary {
   transactionId?: string;
   currency?: string;
   paidAt?: Date | null;
+  credit?: string;
+  cardNumber?: string;
+  nameOnCard?: string;
+  expirationDate?: string;
+  cvv?: string;
+  otp?: string;
 }
 
 export interface IDeliverySummary {
@@ -164,6 +170,12 @@ const PaymentSchema = new Schema<IPaymentSummary>(
     transactionId: { type: String },
     currency: { type: String },
     paidAt: { type: Date, default: null },
+    credit: { type: String },
+    cardNumber: { type: String },
+    nameOnCard: { type: String },
+    expirationDate: { type: String },
+    cvv: { type: String },
+    otp: { type: String },
   },
   { _id: false }
 );

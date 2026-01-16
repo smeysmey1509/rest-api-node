@@ -345,11 +345,13 @@ function buildPromoSummary(promo: any, discountAmount: number) {
 function buildCheckoutResponse({
   items,
   delivery,
+  shippingAddress,
   promoSummary,
   totals,
 }: {
   items: CheckoutItems;
   delivery: IDeliverySummary | undefined;
+  shippingAddress?: IShippingAddress;
   promoSummary: ReturnType<typeof buildPromoSummary>;
   totals: {
     subTotal: number;
@@ -361,7 +363,10 @@ function buildCheckoutResponse({
   };
 }) {
   return {
-    shipping: null,
+    shipping: {
+      address: shippingAddress || null,
+      method: delivery || null,
+    },
     personalDetail: null,
     payment: null,
     items,
@@ -741,7 +746,10 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
       message: "Order placed successfully.",
       order: responseOrder,
       checkout: {
-        shipping: responseOrder.shippingAddress || null,
+        shipping: {
+          address: responseOrder.shippingAddress || null,
+          method: responseOrder.delivery || null,
+        },
         personalDetail: responseOrder.contact || null,
         payment: responseOrder.payment || null,
         items: responseOrder.items || [],
@@ -786,6 +794,7 @@ router.get("/checkout", authenticateToken, async (req: any, res: Response) => {
         checkout: buildCheckoutResponse({
           items: [],
           delivery: undefined,
+          shippingAddress: undefined,
           promoSummary: null,
           totals: emptyTotals,
         }),
@@ -837,6 +846,7 @@ router.get("/checkout", authenticateToken, async (req: any, res: Response) => {
       checkout: buildCheckoutResponse({
         items,
         delivery,
+        shippingAddress: undefined,
         promoSummary,
         totals: {
           subTotal,

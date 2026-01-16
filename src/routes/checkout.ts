@@ -66,6 +66,11 @@ type DeliverySelectionPayload = {
   method?: string;
 };
 
+type ShippingPayload = {
+  address?: Partial<IShippingAddress> | null;
+  method?: DeliverySelectionPayload | null;
+};
+
 type CheckoutRequestBody = {
   paymentMethod?: string;
   paymentStatus?: PaymentStatus | string;
@@ -73,6 +78,7 @@ type CheckoutRequestBody = {
   payment?: PaymentPayload | null;
   shippingAddress?: Partial<IShippingAddress> | null;
   address?: Partial<IShippingAddress> | null;
+  shipping?: ShippingPayload | null;
   contact?: ContactPayload | null;
   personalDetails?: ContactPayload | null;
   customer?: ContactPayload | null;
@@ -224,6 +230,9 @@ function normalizeAddress(
 
   const city = coalesceString(record, ["city", "town"]);
   if (city) normalized.city = city;
+
+  const district = coalesceString(record, ["district"]);
+  if (district) normalized.district = district;
 
   const state = coalesceString(record, ["state", "province", "region"]);
   if (state) normalized.state = state;
@@ -501,7 +510,8 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
       return;
     }
 
-    const deliveryOption = body.deliverySelection || body.delivery || null;
+    const deliveryOption =
+      body.deliverySelection || body.delivery || body.shipping?.method || null;
     const deliveryOptionRecord =
       (deliveryOption as Record<string, unknown>) || null;
 
@@ -573,16 +583,17 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
       promo: promoSummary,
     };
 
+    const shippingAddressInput =
+      body.shipping?.address || body.shippingAddress || body.address;
+
     const contactDetails =
       normalizeContact(body.contact) ||
       normalizeContact(body.personalDetails) ||
       normalizeContact(body.customer) ||
-      normalizeContact(body.shippingAddress as ContactPayload) ||
-      normalizeContact(body.address as ContactPayload);
+      normalizeContact(shippingAddressInput as ContactPayload);
 
     const shippingAddress = normalizeAddress(
-      (body.shippingAddress as Partial<IShippingAddress>) ||
-      (body.address as Partial<IShippingAddress>),
+      shippingAddressInput as Partial<IShippingAddress>,
       contactDetails
     );
 

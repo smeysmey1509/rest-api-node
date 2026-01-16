@@ -91,6 +91,15 @@ const PAYMENT_STATUSES: PaymentStatus[] = [
   "refunded",
 ];
 
+type CheckoutItems = Array<{
+  product: string;
+  name: string;
+  slug?: string;
+  image?: string;
+  price: number;
+  quantity: number;
+}>;
+
 function toTrimmedString(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined;
   const str = String(value).trim();
@@ -331,6 +340,50 @@ function buildPromoSummary(promo: any, discountAmount: number) {
   if (!Number.isNaN(normalizedAmount)) summary.amount = normalizedAmount;
 
   return summary;
+}
+
+function buildCheckoutResponse({
+  items,
+  delivery,
+  promoSummary,
+  totals,
+}: {
+  items: CheckoutItems;
+  delivery: IDeliverySummary | undefined;
+  promoSummary: ReturnType<typeof buildPromoSummary>;
+  totals: {
+    subTotal: number;
+    discount: number;
+    deliveryFee: number;
+    serviceTax: number;
+    total: number;
+    taxRate: number;
+  };
+}) {
+  return {
+    shipping: null,
+    personalDetail: null,
+    payment: null,
+    items,
+    completeOrder: {
+      id: null,
+      status: null,
+      summary: {
+        subTotal: totals.subTotal,
+        discount: totals.discount,
+        deliveryFee: totals.deliveryFee,
+        serviceTax: totals.serviceTax,
+        total: totals.total,
+        taxRate: totals.taxRate,
+        promoCode: promoSummary?.code ?? null,
+        promo: promoSummary,
+      },
+      delivery: delivery || null,
+      promoCode: promoSummary?.code ?? null,
+      createdAt: null,
+      updatedAt: null,
+    },
+  };
 }
 
 async function resolveDelivery(
@@ -687,6 +740,21 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
     res.status(201).json({
       message: "Order placed successfully.",
       order: responseOrder,
+      checkout: {
+        shipping: responseOrder.shippingAddress || null,
+        personalDetail: responseOrder.contact || null,
+        payment: responseOrder.payment || null,
+        items: responseOrder.items || [],
+        completeOrder: {
+          id: responseOrder._id,
+          status: responseOrder.status,
+          summary: responseOrder.summary || null,
+          delivery: responseOrder.delivery || null,
+          promoCode: responseOrder.promoCode || null,
+          createdAt: responseOrder.createdAt,
+          updatedAt: responseOrder.updatedAt,
+        },
+      },
     });
   } catch (err: any) {
     console.error(err);
@@ -695,6 +763,94 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
       return;
     }
     res.status(500).json({ error: "Failed to complete checkout." });
+  }
+});
+
+router.get("/checkout", authenticateToken, async (req: any, res: Response) => {
+  try {
+    const cart = await Cart.findOne({ user: req.user.id })
+      .populate("items.product")
+      .populate("promoCode")
+      .populate("delivery");
+
+    if (!cart || cart.items.length === 0) {
+      const emptyTotals = {
+        subTotal: 0,
+        discount: 0,
+        deliveryFee: 0,
+        serviceTax: 0,
+        total: 0,
+        taxRate: 0,
+      };
+      res.status(200).json({
+        checkout: buildCheckoutResponse({
+          items: [],
+          delivery: undefined,
+          promoSummary: null,
+          totals: emptyTotals,
+        }),
+      });
+      return;
+    }
+
+    const delivery = await resolveDelivery(cart, {});
+    if (!delivery) {
+      res
+        .status(400)
+        .json({ error: "No delivery methods are currently available." });
+      return;
+    }
+
+    const items: CheckoutItems = cart.items.map((item: any) => {
+      const productDoc = item.product as any;
+      return {
+        product: String(productDoc?._id || item.product),
+        name: productDoc?.name || "",
+        slug: productDoc?.slug,
+        image: Array.isArray(productDoc?.images)
+          ? productDoc.images[0]
+          : undefined,
+        price: productDoc?.price || 0,
+        quantity: item.quantity,
+      };
+    });
+
+    const subTotal = items.reduce(
+      (acc, item) => acc + item.price * item.quantity,
+      0
+    );
+    const discount = cart.discount || 0;
+    const deliveryMethod = delivery.method || "standard";
+
+    const { serviceTax, deliveryFee, total } = await calculateCartTotals(
+      subTotal,
+      discount,
+      deliveryMethod
+    );
+
+    const promoSummary = buildPromoSummary(cart.promoCode, discount);
+    const taxableBase = Math.max(subTotal - discount, 0);
+    const taxRate =
+      taxableBase > 0 ? Number((serviceTax / taxableBase).toFixed(4)) : 0;
+
+    res.status(200).json({
+      checkout: buildCheckoutResponse({
+        items,
+        delivery,
+        promoSummary,
+        totals: {
+          subTotal,
+          discount,
+          deliveryFee,
+          serviceTax,
+          total,
+          taxRate,
+        },
+      }),
+    });
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to load checkout." });
   }
 });
 

@@ -687,6 +687,21 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
     res.status(201).json({
       message: "Order placed successfully.",
       order: responseOrder,
+      checkout: {
+        shipping: responseOrder.shippingAddress || null,
+        personalDetail: responseOrder.contact || null,
+        payment: responseOrder.payment || null,
+        items: responseOrder.items || [],
+        completeOrder: {
+          id: responseOrder._id,
+          status: responseOrder.status,
+          summary: responseOrder.summary || null,
+          delivery: responseOrder.delivery || null,
+          promoCode: responseOrder.promoCode || null,
+          createdAt: responseOrder.createdAt,
+          updatedAt: responseOrder.updatedAt,
+        },
+      },
     });
   } catch (err: any) {
     console.error(err);

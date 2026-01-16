@@ -31,6 +31,7 @@ export interface IShippingAddress {
   line1: string;
   line2?: string;
   city?: string;
+  district?: string;
   state?: string;
   postalCode?: string;
   country: string;
@@ -144,6 +145,7 @@ const ShippingAddressSchema = new Schema<IShippingAddress>(
     line1: { type: String, required: true },
     line2: { type: String },
     city: { type: String },
+    district: { type: String },
     state: { type: String },
     postalCode: { type: String },
     country: { type: String, required: true },

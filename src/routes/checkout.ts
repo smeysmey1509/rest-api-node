@@ -64,6 +64,14 @@ type DeliverySelectionPayload = {
   _id?: string;
   setting?: string;
   method?: string;
+  baseFee?: number;
+  estimatedDays?: number;
+  code?: string;
+};
+
+type ShippingPayload = {
+  address?: Partial<IShippingAddress> | null;
+  method?: DeliverySelectionPayload | null;
 };
 
 type CheckoutRequestBody = {
@@ -73,6 +81,7 @@ type CheckoutRequestBody = {
   payment?: PaymentPayload | null;
   shippingAddress?: Partial<IShippingAddress> | null;
   address?: Partial<IShippingAddress> | null;
+  shipping?: ShippingPayload | null;
   contact?: ContactPayload | null;
   personalDetails?: ContactPayload | null;
   customer?: ContactPayload | null;
@@ -124,6 +133,22 @@ function coalesceString(
     if (Object.prototype.hasOwnProperty.call(source, key)) {
       const value = toTrimmedString((source as any)[key]);
       if (value) return value;
+    }
+  }
+  return undefined;
+}
+
+function coalesceNumber(
+  source: Record<string, unknown> | null | undefined,
+  keys: string[]
+): number | undefined {
+  if (!source) return undefined;
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      const raw = (source as any)[key];
+      const value =
+        typeof raw === "number" ? raw : raw !== undefined ? Number(raw) : NaN;
+      if (!Number.isNaN(value)) return value;
     }
   }
   return undefined;
@@ -224,6 +249,9 @@ function normalizeAddress(
 
   const city = coalesceString(record, ["city", "town"]);
   if (city) normalized.city = city;
+
+  const district = coalesceString(record, ["district"]);
+  if (district) normalized.district = district;
 
   const state = coalesceString(record, ["state", "province", "region"]);
   if (state) normalized.state = state;
@@ -393,9 +421,15 @@ function buildCheckoutResponse({
 
 async function resolveDelivery(
   cart: any,
-  options: { methodId?: string; method?: string }
+  options: {
+    methodId?: string;
+    method?: string;
+    selection?: DeliverySelectionPayload | null;
+  }
 ): Promise<IDeliverySummary | undefined> {
-  const { methodId, method } = options;
+  const { methodId, method, selection } = options;
+
+  const selectionRecord = (selection as Record<string, unknown>) || null;
 
   const byId = methodId
     ? await DeliverySetting.findById(methodId).lean()
@@ -429,6 +463,35 @@ async function resolveDelivery(
       trackingUrl: undefined,
       estimatedDeliveryDate: null,
     };
+  }
+
+  if (selectionRecord) {
+    const selectionMethod = coalesceString(selectionRecord, ["method"]);
+    if (selectionMethod) {
+      const selectionSettingRaw = coalesceString(selectionRecord, [
+        "setting",
+        "id",
+        "_id",
+      ]);
+      const selectionSetting =
+        selectionSettingRaw && Types.ObjectId.isValid(selectionSettingRaw)
+          ? new Types.ObjectId(selectionSettingRaw)
+          : null;
+      return {
+        setting: selectionSetting,
+        method: selectionMethod,
+        baseFee: coalesceNumber(selectionRecord, ["baseFee", "fee"]),
+        estimatedDays: coalesceNumber(selectionRecord, [
+          "estimatedDays",
+          "days",
+        ]),
+        code: coalesceString(selectionRecord, ["code"]),
+        carrier: undefined,
+        trackingNumber: undefined,
+        trackingUrl: undefined,
+        estimatedDeliveryDate: null,
+      };
+    }
   }
 
   const populated = cart?.delivery as any;
@@ -501,7 +564,8 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
       return;
     }
 
-    const deliveryOption = body.deliverySelection || body.delivery || null;
+    const deliveryOption =
+      body.deliverySelection || body.delivery || body.shipping?.method || null;
     const deliveryOptionRecord =
       (deliveryOption as Record<string, unknown>) || null;
 
@@ -512,6 +576,7 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
       method:
         toTrimmedString(body.deliveryMethod) ||
         coalesceString(deliveryOptionRecord, ["method"]),
+      selection: deliveryOption as DeliverySelectionPayload | null,
     });
 
     if (!delivery) {
@@ -573,16 +638,17 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
       promo: promoSummary,
     };
 
+    const shippingAddressInput =
+      body.shipping?.address || body.shippingAddress || body.address;
+
     const contactDetails =
       normalizeContact(body.contact) ||
       normalizeContact(body.personalDetails) ||
       normalizeContact(body.customer) ||
-      normalizeContact(body.shippingAddress as ContactPayload) ||
-      normalizeContact(body.address as ContactPayload);
+      normalizeContact(shippingAddressInput as ContactPayload);
 
     const shippingAddress = normalizeAddress(
-      (body.shippingAddress as Partial<IShippingAddress>) ||
-      (body.address as Partial<IShippingAddress>),
+      shippingAddressInput as Partial<IShippingAddress>,
       contactDetails
     );
 

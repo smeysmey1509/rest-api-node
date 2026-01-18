@@ -11,6 +11,8 @@ import Order, {
   PaymentStatus,
   OrderStatus,
 } from "../../models/Order";
+import PromoCode from "../../models/PromoCode";
+import PromoUsage from "../../models/PromoUsage";
 import { authenticateToken } from "../../middleware/auth";
 import { calculateCartTotals } from "../utils/cartTotals";
 import { invalidateCart, setCachedCart } from "../utils/cache";
@@ -429,6 +431,31 @@ async function resolveDelivery(
   };
 }
 
+async function incrementPromoUsage(options: {
+  userId: string;
+  promoCodeId: Types.ObjectId;
+  maxUsesPerUser: number;
+}): Promise<boolean> {
+  const { userId, promoCodeId, maxUsesPerUser } = options;
+  const usage = await PromoUsage.findOneAndUpdate(
+    {
+      user: userId,
+      promoCode: promoCodeId,
+      $or: [
+        { usageCount: { $lt: maxUsesPerUser } },
+        { usageCount: { $exists: false } },
+      ],
+    },
+    {
+      $inc: { usageCount: 1 },
+      $setOnInsert: { user: userId, promoCode: promoCodeId },
+    },
+    { new: true, upsert: true }
+  );
+
+  return Boolean(usage);
+}
+
 router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
   const body = req.body as CheckoutRequestBody;
 
@@ -499,6 +526,45 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
     );
 
     const promoSummary = buildPromoSummary(cart.promoCode, discount);
+
+    let promoToConsume: {
+      id: Types.ObjectId;
+      maxUsesPerUser: number;
+    } | null = null;
+    if (cart.promoCode) {
+      const promoRecord =
+        typeof (cart.promoCode as any).toObject === "function"
+          ? (cart.promoCode as any)
+          : await PromoCode.findById(cart.promoCode);
+      if (!promoRecord) {
+        res.status(400).json({ error: "Promo code not found." });
+        return;
+      }
+      if (!promoRecord.isActive) {
+        res.status(400).json({ error: "Promo code is inactive." });
+        return;
+      }
+      if (promoRecord.expiresAt < new Date()) {
+        res.status(400).json({ error: "Promo code has expired." });
+        return;
+      }
+
+      const usage = await PromoUsage.findOne({
+        user: req.user.id,
+        promoCode: promoRecord._id,
+      });
+      if (usage && usage.usageCount >= promoRecord.maxUsesPerUser) {
+        res.status(400).json({
+          error: `Promo code usage limit reached (${promoRecord.maxUsesPerUser} times).`,
+        });
+        return;
+      }
+
+      promoToConsume = {
+        id: promoRecord._id,
+        maxUsesPerUser: promoRecord.maxUsesPerUser,
+      };
+    }
 
     const taxableBase = Math.max(subTotal - discount, 0);
     const taxRate =
@@ -600,6 +666,21 @@ router.post("/checkout", authenticateToken, async (req: any, res: Response) => {
     await order.save();
 
     await order.populate("promoCode");
+
+    if (promoToConsume) {
+      const updated = await incrementPromoUsage({
+        userId: req.user.id,
+        promoCodeId: promoToConsume.id,
+        maxUsesPerUser: promoToConsume.maxUsesPerUser,
+      });
+      if (!updated) {
+        await Order.findByIdAndDelete(order._id);
+        res.status(400).json({
+          error: `Promo code usage limit reached (${promoToConsume.maxUsesPerUser} times).`,
+        });
+        return;
+      }
+    }
 
     for (const { rawProduct, quantity } of items) {
       if (typeof rawProduct.stock === "number") {

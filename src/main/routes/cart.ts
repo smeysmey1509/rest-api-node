@@ -462,26 +462,16 @@ router.post(
         return;
       }
 
-      let usage = await PromoUsage.findOne({
+      const usage = await PromoUsage.findOne({
         user: req.user.id,
         promoCode: promo._id,
       });
-      if (usage) {
-        if (usage.usageCount >= promo.maxUsesPerUser) {
-          res.status(400).json({
-            error: `Promo code usage limit reached (${promo.maxUsesPerUser} times).`,
-          });
-          return;
-        }
-        usage.usageCount += 1;
-      } else {
-        usage = new PromoUsage({
-          user: req.user.id,
-          promoCode: promo._id,
-          usageCount: 1,
+      if (usage && usage.usageCount >= promo.maxUsesPerUser) {
+        res.status(400).json({
+          error: `Promo code usage limit reached (${promo.maxUsesPerUser} times).`,
         });
+        return;
       }
-      await usage.save();
 
       const cart = await Cart.findOne({ user: req.user.id })
         .populate("items.product")
@@ -523,7 +513,7 @@ router.post(
           type: promo.discountType,
           value: promo.discountValue,
           amount: discountAmount,
-          usageCount: usage.usageCount,
+          usageCount: usage?.usageCount ?? 0,
           maxUsesPerUser: promo.maxUsesPerUser,
           expiresAt: promo.expiresAt,
         },

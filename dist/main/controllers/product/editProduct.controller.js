@@ -625,7 +625,9 @@ const editProduct = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
                 : [];
             const baseImages = hasOwn(body, "images")
                 ? toImageArray(body.images)
-                : existingImages;
+                : uploadedImagePaths.length
+                    ? []
+                    : existingImages;
             const combinedImages = dedupeStringArray([
                 ...baseImages,
                 ...uploadedImagePaths,

@@ -22,48 +22,57 @@ const deleteProductById = (req, res) => __awaiter(void 0, void 0, void 0, functi
     try {
         const { id } = req.params;
         if (!id) {
-            res.status(400).json({ msg: "Noo valid id provided for deletion." });
+            res.status(400).json({ msg: "No valid id provided for deletion." });
             return;
         }
-        // Fetch product before deletion d
-        const product = yield Product_1.default.findById(id).populate("category", "name description");
+        // Fetch product before deletion
+        const product = yield Product_1.default.findById(id).populate("category", "categoryName description");
         if (!product) {
             res.status(404).json({ msg: "Product not found." });
             return;
         }
         // Prepare snapshot for activity log
+        const populatedCategory = product.category;
         const productSnapshot = {
             _id: product._id,
             name: product.name,
             description: product.description,
             price: product.price,
             stock: product.stock,
-            category: product.category
+            category: populatedCategory
                 ? {
-                    _id: product.category._id,
-                    name: product.category.name,
-                    description: product.category.description,
+                    _id: populatedCategory._id,
+                    name: populatedCategory.categoryName,
+                    description: populatedCategory.description,
                 }
                 : null,
             createdAt: product.createdAt,
-            updatedAt: product.updatedAt
+            updatedAt: product.updatedAt,
         };
-        // Publish notification for other users
-        yield (0, notification_service_1.publishNotificationEvent)({
+        // Delete the product first to avoid notification failures blocking the operation
+        const deletedProduct = yield Product_1.default.findByIdAndDelete(id);
+        if (!deletedProduct) {
+            res.status(404).json({ msg: "Product not found." });
+            return;
+        }
+        // Publish notification for other users without failing the request
+        (0, notification_service_1.publishNotificationEvent)({
             userId: (_a = req === null || req === void 0 ? void 0 : req.user) === null || _a === void 0 ? void 0 : _a.id,
             title: "Delete Product",
-            message: `Product ${product === null || product === void 0 ? void 0 : product.name} has been deleted.`,
+            message: `Product ${product.name} has been deleted.`,
             read: false,
+        }).catch((err) => {
+            console.error("Failed to publish notification event:", err);
         });
-        // Log activity via RabbitMQ
+        // Log activity via RabbitMQ without failing the request
         (0, activity_service_1.publishProductActivity)({
-            user: (_b = req.user) === null || _b === void 0 ? void 0 : _b.id,
+            userId: (_b = req === null || req === void 0 ? void 0 : req.user) === null || _b === void 0 ? void 0 : _b.id,
             action: "delete",
             products: [productSnapshot],
+        }).catch((err) => {
+            console.error("Failed to publish activity log:", err);
         });
-        // Delete the product
-        yield Product_1.default.findByIdAndDelete(id);
-        // 👇 Emit real-time delete event
+        // Emit real-time delete event
         server_1.io.emit("product:deleted", product._id);
         res.status(200).json({ msg: "Product deleted successfully.", id: product._id });
         return;

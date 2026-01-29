@@ -12,6 +12,8 @@ import { getCachedCart, setCachedCart, invalidateCart } from "../utils/cache";
 const upload = multer();
 const router = Router();
 
+const DEFAULT_CURRENCY = "USD";
+
 // helper: compute subtotal from an already populated cart
 const subtotalFromCart = (cart: Pick<ICart, "items">): number => {
   return cart.items.reduce((acc: number, item: any) => {
@@ -19,6 +21,49 @@ const subtotalFromCart = (cart: Pick<ICart, "items">): number => {
     return acc + price * item.quantity;
   }, 0);
 };
+
+const formatCurrency = (amount: number, currency: string): string => {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+    }).format(amount);
+  } catch (err) {
+    console.warn(
+      "[cart] failed to format currency, returning raw amount",
+      err
+    );
+    return Number(amount).toFixed(2);
+  }
+};
+
+const resolveCartCurrency = (items: any[]): string => {
+  for (const item of items) {
+    const candidate = (item?.product as any)?.currency;
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate.trim().toUpperCase();
+    }
+  }
+  return DEFAULT_CURRENCY;
+};
+
+const buildFormattedSummary = (
+  summary: {
+    subTotal: number;
+    discount: number;
+    deliveryFee: number;
+    serviceTax: number;
+    total: number;
+  },
+  currency: string
+) => ({
+  currency,
+  subTotal: formatCurrency(summary.subTotal, currency),
+  discount: formatCurrency(summary.discount, currency),
+  deliveryFee: formatCurrency(summary.deliveryFee, currency),
+  serviceTax: formatCurrency(summary.serviceTax, currency),
+  total: formatCurrency(summary.total, currency),
+});
 
 const computeTaxRate = (
   subTotal: number,
@@ -95,6 +140,7 @@ async function buildCartResponse(cartDoc: any) {
   const discount = cartDoc.discount || 0;
   const promoSummary = buildPromoSummary(cartDoc.promoCode, discount);
   const taxRate = computeTaxRate(subTotal, discount, serviceTax);
+  const currency = resolveCartCurrency(cartDoc.items);
 
   const response = {
     _id: cartDoc._id,
@@ -111,6 +157,10 @@ async function buildCartResponse(cartDoc: any) {
       taxRate,
       promoCode: promoSummary?.code ?? null,
       promo: promoSummary,
+      formatted: buildFormattedSummary(
+        { subTotal, discount, deliveryFee, serviceTax, total },
+        currency
+      ),
     },
     createdAt: cartDoc.createdAt,
     updatedAt: cartDoc.updatedAt,
@@ -152,6 +202,16 @@ router.get(
         .exec();
 
       if (!cart) {
+        const formattedSummary = buildFormattedSummary(
+          {
+            subTotal: 0,
+            discount: 0,
+            deliveryFee: 0,
+            serviceTax: 0,
+            total: 0,
+          },
+          DEFAULT_CURRENCY
+        );
         const empty = {
           items: [],
           promoCode: null,
@@ -165,6 +225,7 @@ router.get(
             taxRate: 0,
             promoCode: null,
             promo: null,
+            formatted: formattedSummary,
           },
         };
         await setCachedCart(req.user.id, empty);
@@ -202,6 +263,7 @@ router.get(
       const discount = cart.discount || 0;
       const promoSummary = buildPromoSummary(cart.promoCode, discount);
       const taxRate = computeTaxRate(subTotal, discount, serviceTax);
+      const currency = resolveCartCurrency(cart.items);
 
       const response = {
         _id: cart._id,
@@ -218,6 +280,10 @@ router.get(
           taxRate,
           promoCode: promoSummary?.code ?? null,
           promo: promoSummary,
+          formatted: buildFormattedSummary(
+            { subTotal, discount, deliveryFee, serviceTax, total },
+            currency
+          ),
         },
         createdAt: cart.createdAt,
         updatedAt: cart.updatedAt,

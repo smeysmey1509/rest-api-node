@@ -364,6 +364,7 @@ router.put("/cart/update/:productId", auth_1.authenticateToken, (req, res) => __
 }));
 // POST /api/v1/cart/apply-promo
 router.post("/cart/apply-promo", auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
         const { code } = req.body;
         if (!code) {
@@ -382,27 +383,16 @@ router.post("/cart/apply-promo", auth_1.authenticateToken, (req, res) => __await
             res.status(400).json({ error: "Promo code has expired." });
             return;
         }
-        let usage = yield PromoUsage_1.default.findOne({
+        const usage = yield PromoUsage_1.default.findOne({
             user: req.user.id,
             promoCode: promo._id,
         });
-        if (usage) {
-            if (usage.usageCount >= promo.maxUsesPerUser) {
-                res.status(400).json({
-                    error: `Promo code usage limit reached (${promo.maxUsesPerUser} times).`,
-                });
-                return;
-            }
-            usage.usageCount += 1;
-        }
-        else {
-            usage = new PromoUsage_1.default({
-                user: req.user.id,
-                promoCode: promo._id,
-                usageCount: 1,
+        if (usage && usage.usageCount >= promo.maxUsesPerUser) {
+            res.status(400).json({
+                error: `Promo code usage limit reached (${promo.maxUsesPerUser} times).`,
             });
+            return;
         }
-        yield usage.save();
         const cart = yield Cart_1.default.findOne({ user: req.user.id })
             .populate("items.product")
             .populate("delivery");
@@ -433,7 +423,7 @@ router.post("/cart/apply-promo", auth_1.authenticateToken, (req, res) => __await
                 type: promo.discountType,
                 value: promo.discountValue,
                 amount: discountAmount,
-                usageCount: usage.usageCount,
+                usageCount: (_a = usage === null || usage === void 0 ? void 0 : usage.usageCount) !== null && _a !== void 0 ? _a : 0,
                 maxUsesPerUser: promo.maxUsesPerUser,
                 expiresAt: promo.expiresAt,
             },

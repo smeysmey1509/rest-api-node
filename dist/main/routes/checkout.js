@@ -28,6 +28,8 @@ const mongoose_1 = require("mongoose");
 const Cart_1 = __importDefault(require("../../models/Cart"));
 const DeliverySetting_1 = __importDefault(require("../../models/DeliverySetting"));
 const Order_1 = __importDefault(require("../../models/Order"));
+const PromoCode_1 = __importDefault(require("../../models/PromoCode"));
+const PromoUsage_1 = __importDefault(require("../../models/PromoUsage"));
 const auth_1 = require("../../middleware/auth");
 const cartTotals_1 = require("../utils/cartTotals");
 const cache_1 = require("../utils/cache");
@@ -343,6 +345,23 @@ function resolveDelivery(cart, options) {
         };
     });
 }
+function incrementPromoUsage(options) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const { userId, promoCodeId, maxUsesPerUser } = options;
+        const usage = yield PromoUsage_1.default.findOneAndUpdate({
+            user: userId,
+            promoCode: promoCodeId,
+            $or: [
+                { usageCount: { $lt: maxUsesPerUser } },
+                { usageCount: { $exists: false } },
+            ],
+        }, {
+            $inc: { usageCount: 1 },
+            $setOnInsert: { user: userId, promoCode: promoCodeId },
+        }, { new: true, upsert: true });
+        return Boolean(usage);
+    });
+}
 router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
     const body = req.body;
@@ -397,6 +416,38 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
         const deliveryMethod = delivery.method || "standard";
         const { serviceTax, deliveryFee, total } = yield (0, cartTotals_1.calculateCartTotals)(subTotal, discount, deliveryMethod);
         const promoSummary = buildPromoSummary(cart.promoCode, discount);
+        let promoToConsume = null;
+        if (cart.promoCode) {
+            const promoRecord = typeof cart.promoCode.toObject === "function"
+                ? cart.promoCode
+                : yield PromoCode_1.default.findById(cart.promoCode);
+            if (!promoRecord) {
+                res.status(400).json({ error: "Promo code not found." });
+                return;
+            }
+            if (!promoRecord.isActive) {
+                res.status(400).json({ error: "Promo code is inactive." });
+                return;
+            }
+            if (promoRecord.expiresAt < new Date()) {
+                res.status(400).json({ error: "Promo code has expired." });
+                return;
+            }
+            const usage = yield PromoUsage_1.default.findOne({
+                user: req.user.id,
+                promoCode: promoRecord._id,
+            });
+            if (usage && usage.usageCount >= promoRecord.maxUsesPerUser) {
+                res.status(400).json({
+                    error: `Promo code usage limit reached (${promoRecord.maxUsesPerUser} times).`,
+                });
+                return;
+            }
+            promoToConsume = {
+                id: promoRecord._id,
+                maxUsesPerUser: promoRecord.maxUsesPerUser,
+            };
+        }
         const taxableBase = Math.max(subTotal - discount, 0);
         const taxRate = taxableBase > 0 ? Number((serviceTax / taxableBase).toFixed(4)) : 0;
         const orderSummary = {
@@ -479,6 +530,20 @@ router.post("/checkout", auth_1.authenticateToken, (req, res) => __awaiter(void 
         const order = new Order_1.default(orderPayload);
         yield order.save();
         yield order.populate("promoCode");
+        if (promoToConsume) {
+            const updated = yield incrementPromoUsage({
+                userId: req.user.id,
+                promoCodeId: promoToConsume.id,
+                maxUsesPerUser: promoToConsume.maxUsesPerUser,
+            });
+            if (!updated) {
+                yield Order_1.default.findByIdAndDelete(order._id);
+                res.status(400).json({
+                    error: `Promo code usage limit reached (${promoToConsume.maxUsesPerUser} times).`,
+                });
+                return;
+            }
+        }
         for (const { rawProduct, quantity } of items) {
             if (typeof rawProduct.stock === "number") {
                 rawProduct.stock = Math.max(0, rawProduct.stock - quantity);

@@ -30,6 +30,27 @@ const computeTaxRate = (
   return Number((serviceTax / taxableBase).toFixed(4));
 };
 
+const resolveCartCurrency = (cart: { items?: any[] } | null): string => {
+  const items = cart?.items ?? [];
+  for (const item of items) {
+    const currency = (item?.product as any)?.currency;
+    if (typeof currency === "string" && currency.trim().length > 0) {
+      return currency.trim().toUpperCase();
+    }
+  }
+  return "USD";
+};
+
+const formatCurrency = (amount: number, currency: string): string => {
+  const formatter = (curr: string) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: curr });
+  try {
+    return formatter(currency).format(amount);
+  } catch (error) {
+    return formatter("USD").format(amount);
+  }
+};
+
 // helper: chosen delivery method (lowercase), defaulting to active isActive=true or "standard"
 async function resolveDeliveryMethod(cart: any): Promise<string> {
   // if cart has populated delivery with a method, prefer that
@@ -95,6 +116,7 @@ async function buildCartResponse(cartDoc: any) {
   const discount = cartDoc.discount || 0;
   const promoSummary = buildPromoSummary(cartDoc.promoCode, discount);
   const taxRate = computeTaxRate(subTotal, discount, serviceTax);
+  const currency = resolveCartCurrency(cartDoc);
 
   const response = {
     _id: cartDoc._id,
@@ -109,6 +131,14 @@ async function buildCartResponse(cartDoc: any) {
       serviceTax,
       total,
       taxRate,
+      currency,
+      formatted: {
+        subTotal: formatCurrency(subTotal, currency),
+        discount: formatCurrency(discount, currency),
+        deliveryFee: formatCurrency(deliveryFee, currency),
+        serviceTax: formatCurrency(serviceTax, currency),
+        total: formatCurrency(total, currency),
+      },
       promoCode: promoSummary?.code ?? null,
       promo: promoSummary,
     },
@@ -163,6 +193,14 @@ router.get(
             serviceTax: 0,
             total: 0,
             taxRate: 0,
+            currency: "USD",
+            formatted: {
+              subTotal: formatCurrency(0, "USD"),
+              discount: formatCurrency(0, "USD"),
+              deliveryFee: formatCurrency(0, "USD"),
+              serviceTax: formatCurrency(0, "USD"),
+              total: formatCurrency(0, "USD"),
+            },
             promoCode: null,
             promo: null,
           },
@@ -202,6 +240,7 @@ router.get(
       const discount = cart.discount || 0;
       const promoSummary = buildPromoSummary(cart.promoCode, discount);
       const taxRate = computeTaxRate(subTotal, discount, serviceTax);
+      const currency = resolveCartCurrency(cart);
 
       const response = {
         _id: cart._id,
@@ -216,6 +255,14 @@ router.get(
           serviceTax,
           total,
           taxRate,
+          currency,
+          formatted: {
+            subTotal: formatCurrency(subTotal, currency),
+            discount: formatCurrency(discount, currency),
+            deliveryFee: formatCurrency(deliveryFee, currency),
+            serviceTax: formatCurrency(serviceTax, currency),
+            total: formatCurrency(total, currency),
+          },
           promoCode: promoSummary?.code ?? null,
           promo: promoSummary,
         },

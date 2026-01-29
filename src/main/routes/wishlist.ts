@@ -6,6 +6,7 @@ import Cart from "../../models/Cart";
 import DeliverySetting from "../../models/DeliverySetting";
 import { calculateCartTotals } from "../utils/cartTotals";
 import { setCachedCart } from "../utils/cache";
+import { sanitizeCartItems } from "../utils/cartSanitizer";
 
 const router = Router();
 
@@ -41,7 +42,7 @@ const buildCartSnapshot = async (cartDoc: any) => {
   const snapshot = {
     _id: cartDoc._id,
     user: cartDoc.user,
-    items: cartDoc.items,
+    items: sanitizeCartItems(cartDoc.items),
     promoCode: cartDoc.promoCode,
     delivery:
       typeof (deliveryDoc as any).toObject === "function"

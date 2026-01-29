@@ -8,6 +8,7 @@ import { authenticateToken } from "../../middleware/auth";
 import { calculateCartTotals } from "../utils/cartTotals";
 import multer from "multer";
 import { getCachedCart, setCachedCart, invalidateCart } from "../utils/cache";
+import { sanitizeCartItems } from "../utils/cartSanitizer";
 
 const upload = multer();
 const router = Router();
@@ -99,7 +100,7 @@ async function buildCartResponse(cartDoc: any) {
   const response = {
     _id: cartDoc._id,
     user: cartDoc.user,
-    items: cartDoc.items,
+    items: sanitizeCartItems(cartDoc.items),
     promoCode: cartDoc.promoCode,
     delivery: deliveryDoc,
     summary: {
@@ -206,7 +207,7 @@ router.get(
       const response = {
         _id: cart._id,
         user: cart.user,
-        items: cart.items,
+        items: sanitizeCartItems(cart.items),
         promoCode: cart.promoCode,
         delivery: deliveryDoc,
         summary: {
@@ -277,7 +278,7 @@ router.post("/cart/add", authenticateToken, async (req: any, res: Response) => {
     res.status(200).json({
         _id: cart._id,
         user: cart.user,
-        items: cart.items,
+        items: sanitizeCartItems(cart.items),
         promoCode: null,
         summary: {
           subTotal: subtotal,
@@ -375,7 +376,7 @@ router.post(
 
       await cart.save();
       await invalidateCart(req.user.id);
-      
+
       res.status(200).json({ msg: "Cart cleared." });
     } catch (err) {
       console.error(err);
@@ -429,7 +430,13 @@ router.put(
 
       await cart.save();
       await invalidateCart(req.user.id);
-      res.status(200).json(cart);
+      const cartPayload =
+        typeof cart.toObject === "function" ? cart.toObject() : cart;
+      res.status(200).json({
+        ...cartPayload,
+        items: sanitizeCartItems(cartPayload.items),
+      });
+      return;
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Failed to update cart quantity." });
@@ -561,7 +568,7 @@ router.post(
       res.status(200).json({
         _id: cart._id,
         user: cart.user,
-        items: cart.items,
+        items: sanitizeCartItems(cart.items),
         promoCode: null,
         summary: {
           subTotal: subtotal,

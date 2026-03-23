@@ -183,3 +183,7 @@ erDiagram
     datetime appliedAt
     decimal discountAmount
   }
+
+## Architecture planning
+
+- See `docs/architecture-restructure-plan.md` for a recommended scalable folder architecture and migration plan.

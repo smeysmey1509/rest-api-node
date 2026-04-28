@@ -60,6 +60,7 @@ export interface IProduct extends Document {
   // analytics (denormalized for speed)
   ratingAvg: number;
   ratingCount: number;
+  ratingSum: number;
   salesCount: number;
   isTrending?: boolean;
 
@@ -261,6 +262,7 @@ const ProductSchema = new Schema<IProduct>(
     // analytics
     ratingAvg: { type: Number, default: 0, min: 0, max: 5, index: true },
     ratingCount: { type: Number, default: 0, min: 0 },
+    ratingSum: { type: Number, default: 0, min: 0 },
     salesCount: { type: Number, default: 0, min: 0, index: true },
     isTrending: { type: Boolean, default: false, index: true },
 

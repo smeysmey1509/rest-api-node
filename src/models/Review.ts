@@ -6,6 +6,10 @@ export interface IReview extends Document {
   rating: number;
   title?: string;
   body?: string;
+  comment?: string;
+  orderItem?: Types.ObjectId;
+  isVerifiedPurchase?: boolean;
+  status: "PENDING" | "APPROVED" | "REJECTED";
 }
 
 const ReviewSchema = new Schema<IReview>({
@@ -14,6 +18,10 @@ const ReviewSchema = new Schema<IReview>({
   rating:  { type: Number, min: 1, max: 5, required: true },
   title:   { type: String, trim: true },
   body:    { type: String, trim: true, maxlength: 2000 },
+  comment: { type: String, trim: true, maxlength: 2000 },
+  orderItem: { type: Schema.Types.ObjectId, default: null },
+  isVerifiedPurchase: { type: Boolean, default: false },
+  status: { type: String, enum: ["PENDING", "APPROVED", "REJECTED"], default: "PENDING", index: true },
 }, { timestamps: true });
 
 ReviewSchema.index({ product: 1, user: 1 }, { unique: true }); // one review per user per product

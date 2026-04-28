@@ -187,3 +187,127 @@ erDiagram
 ## Architecture planning
 
 - See `docs/architecture-restructure-plan.md` for a recommended scalable folder architecture and migration plan.
+
+## Clean API Architecture
+
+This project now uses a modular Express architecture without changing frameworks:
+
+```text
+Route -> Controller -> Service -> Repository/Model -> Database
+```
+
+The Express app is assembled in `src/app.ts`. Runtime startup stays in
+`src/main/server.ts`, which connects MongoDB, Redis, RabbitMQ, HTTP, and
+Socket.IO.
+
+### Folder Layout
+
+```text
+src/
+  config/                 # environment, database, JWT, payment config
+  common/
+    constants/            # roles, order statuses, payment statuses
+    middlewares/          # auth, role, validation, async, global error handling
+    utils/                # AppError, API response helper, slug helper
+  modules/
+    auth/
+    users/
+    roles/
+    brands/
+    categories/
+    products/
+    reviews/
+    wishlist/
+    cart/
+    checkout/
+    orders/
+    payments/
+  app.ts
+```
+
+Each module follows the same pattern:
+
+```text
+module.routes.ts
+module.controller.ts
+module.service.ts
+module.repository.ts
+module.model.ts
+module.validation.ts
+```
+
+Controllers only handle `req`, `res`, and `next` behavior. Services contain
+business rules. Repositories contain database queries. Models define schemas.
+
+### Route Compatibility
+
+The API still uses `/api/v1`. Existing route names such as `/register`,
+`/login`, `/refresh`, `/logout`, `/product`, `/product/:id`, `/cart/add`,
+`/wishlist/:productId`, `/reviews`, and `/checkout` are kept as aliases where
+possible.
+
+Read-only storefront endpoints for brands, categories, products, product
+details, and approved reviews are public. User and admin mutations require JWT
+authentication. Admin actions use role middleware; an admin is a normal user
+with the `ADMIN` role.
+
+### Order And Payment Rules
+
+Order statuses:
+
+```text
+PENDING_PAYMENT
+PAID
+PROCESSING
+SHIPPED
+DELIVERED
+CANCELLED
+REFUNDED
+FAILED
+```
+
+Payment statuses:
+
+```text
+PENDING
+SUCCESS
+FAILED
+CANCELLED
+REFUNDED
+```
+
+Checkout validates the cart, checks stock, calculates totals, creates an order
+with `PENDING_PAYMENT`, and creates a payment transaction with `PENDING`.
+Checkout does not reduce product stock.
+
+Stock is reduced only after the backend confirms payment success. For ABA
+PayWay/KHQR, the backend receives the PayWay webhook and then calls PayWay's
+check-transaction API before marking the payment `SUCCESS` and the order
+`PAID`.
+
+Supported payment methods:
+
+```text
+ABA_PAY
+VISA_MASTER
+KHQR
+BANK_TRANSFER
+CASH_ON_DELIVERY
+```
+
+Do not send or store card numbers or CVV values. Card payments must go through a
+PCI-compliant hosted provider flow.
+
+### Environment
+
+Copy `.env.example` and fill in project-specific values. PayWay secrets must
+stay on the backend:
+
+```text
+PAYWAY_MERCHANT_ID=
+PAYWAY_API_KEY=
+PAYWAY_CALLBACK_URL=https://your-domain.com/api/v1/payments/webhook/payway
+```
+
+The frontend may receive checkout data such as QR strings, QR images, or hosted
+payment links, but it must never decide whether a payment succeeded.

@@ -1,18 +1,34 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
 
 export type OrderStatus =
+  | "PENDING_PAYMENT"
+  | "PAID"
+  | "PROCESSING"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "CANCELLED"
+  | "REFUNDED"
+  | "FAILED"
   | "pending"
   | "processing"
   | "paid"
   | "shipped"
   | "delivered"
-  | "cancelled";
+  | "cancelled"
+  | "refunded"
+  | "failed";
 
 export type PaymentStatus =
+  | "PENDING"
+  | "SUCCESS"
+  | "FAILED"
+  | "CANCELLED"
+  | "REFUNDED"
   | "pending"
   | "authorized"
   | "paid"
   | "failed"
+  | "cancelled"
   | "refunded";
 
 export interface IOrderItem {
@@ -158,8 +174,20 @@ const PaymentSchema = new Schema<IPaymentSummary>(
     method: { type: String },
     status: {
       type: String,
-      enum: ["pending", "authorized", "paid", "failed", "refunded"],
-      default: "pending",
+      enum: [
+        "PENDING",
+        "SUCCESS",
+        "FAILED",
+        "CANCELLED",
+        "REFUNDED",
+        "pending",
+        "authorized",
+        "paid",
+        "failed",
+        "cancelled",
+        "refunded",
+      ],
+      default: "PENDING",
     },
     transactionId: { type: String },
     currency: { type: String },
@@ -226,7 +254,24 @@ const StatusHistorySchema = new Schema<IStatusHistoryEntry>(
   {
     status: {
       type: String,
-      enum: ["pending", "processing", "paid", "shipped", "delivered", "cancelled"],
+      enum: [
+        "PENDING_PAYMENT",
+        "PAID",
+        "PROCESSING",
+        "SHIPPED",
+        "DELIVERED",
+        "CANCELLED",
+        "REFUNDED",
+        "FAILED",
+        "pending",
+        "processing",
+        "paid",
+        "shipped",
+        "delivered",
+        "cancelled",
+        "refunded",
+        "failed",
+      ],
       required: true,
     },
     message: { type: String },
@@ -257,18 +302,28 @@ const OrderSchema = new Schema<IOrder>(
     status: {
       type: String,
       enum: [
+        "PENDING_PAYMENT",
+        "PAID",
+        "PROCESSING",
+        "SHIPPED",
+        "DELIVERED",
+        "CANCELLED",
+        "REFUNDED",
+        "FAILED",
         "pending",
         "processing",
         "paid",
         "shipped",
         "delivered",
         "cancelled",
+        "refunded",
+        "failed",
       ],
-      default: "pending",
+      default: "PENDING_PAYMENT",
     },
     statusHistory: { type: [StatusHistorySchema], default: [] },
     meta: { type: OrderMetaSchema, default: false },
-    payment: { type: PaymentSchema, default: () => ({ status: "pending" }) },
+    payment: { type: PaymentSchema, default: () => ({ status: "PENDING" }) },
     shippingAddress: { type: ShippingAddressSchema, required: false },
     delivery: { type: DeliverySummarySchema, required: false },
     promoCode: { type: Schema.Types.ObjectId, ref: "PromoCode", default: null },

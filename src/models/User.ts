@@ -1,12 +1,16 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Document, Schema } from "mongoose";
 import { Role } from "../main/types/Role";
 import bcrypt from "bcryptjs";
+import { normalizeRole, RoleValue, Roles } from "../common/constants/roles";
+
+export type UserStatus = "ACTIVE" | "INACTIVE" | "BLOCKED";
 
 export interface IUser extends Document {
   name: string;
   email: string;
   password: string;
-  role: Role;
+  role: Role | RoleValue;
+  status: UserStatus;
   limit: number;
   createdAt: Date;
   modifiedAt: Date;
@@ -37,8 +41,14 @@ const userSchema: Schema<IUser> = new Schema(
     },
     role: {
       type: String,
-      enum: Object.values(Role),
-      default: Role.USER,
+      enum: [...Object.values(Roles), Role.USER, Role.EDITOR, Role.VIEWER],
+      default: Roles.CUSTOMER,
+      set: (value: string) => normalizeRole(value),
+    },
+    status: {
+      type: String,
+      enum: ["ACTIVE", "INACTIVE", "BLOCKED"],
+      default: "ACTIVE",
     },
       limit: {
           type: Number,
@@ -49,6 +59,11 @@ const userSchema: Schema<IUser> = new Schema(
     timestamps: true,
   }
 );
+
+userSchema.pre("validate", function (next) {
+  this.role = normalizeRole(String(this.role)) as any;
+  next();
+});
 
 //Hash password before saving
 userSchema.pre("save", async function (next) {

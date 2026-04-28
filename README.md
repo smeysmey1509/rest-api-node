@@ -197,8 +197,7 @@ Route -> Controller -> Service -> Repository/Model -> Database
 ```
 
 The Express app is assembled in `src/app.ts`. Runtime startup stays in
-`src/main/server.ts`, which connects MongoDB, Redis, RabbitMQ, HTTP, and
-Socket.IO.
+`src/main/server.ts`, which connects MongoDB, Redis, HTTP, and Socket.IO.
 
 ### Folder Layout
 

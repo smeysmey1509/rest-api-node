@@ -27,7 +27,7 @@ This codebase already has useful separation in some places, but the overall layo
    - Inconsistent naming makes the codebase feel larger and less predictable than it is.
 
 6. **Cross-cutting concerns are not centralized enough**
-   - App bootstrapping, DB connection, environment setup, Redis, RabbitMQ, upload handling, and logging are spread across unrelated folders.
+   - App bootstrapping, DB connection, environment setup, Redis, upload handling, and logging are spread across unrelated folders.
    - This can make production configuration and troubleshooting harder.
 
 7. **No obvious home for validation, error handling, events, constants, or shared DTOs**
@@ -102,8 +102,6 @@ src/
     database/
       mongo.ts
       redis.ts
-    queue/
-      rabbitmq.ts
     uploads/
       multer.ts
     docs/
@@ -420,13 +418,13 @@ Do this incrementally to avoid breaking the app.
 
 ### Phase 1 — Establish the new skeleton
 1. Create `src/app`, `src/config`, `src/modules`, and `src/jobs`.
-2. Add central bootstrap files for env, middleware, routes, DB, Redis, and RabbitMQ.
+2. Add central bootstrap files for env, middleware, routes, DB, and Redis.
 3. Keep existing code working by re-exporting or temporarily importing old modules.
 
 ### Phase 2 — Move cross-cutting infrastructure first
 1. Move `src/middleware/*` into `src/app/middleware/`.
 2. Move `src/config/multer.ts` into `src/config/uploads/multer.ts`.
-3. Move cache/Redis/RabbitMQ connection setup into `src/config/database/` and `src/config/queue/`.
+3. Move cache/Redis connection setup into `src/config/database/`.
 4. Add global error handler and request logger middleware.
 
 ### Phase 3 — Migrate one module at a time
@@ -477,7 +475,7 @@ A modular monolith with clear services/repositories is usually enough.
 If you want to start with the highest-impact improvements, do these first:
 1. Create `src/modules/products` and move the product route/controller logic out of `src/main`.
 2. Introduce `product.service.ts` and `product.repository.ts`.
-3. Centralize Mongo/Redis/RabbitMQ/env setup under `src/config`.
+3. Centralize Mongo/Redis/env setup under `src/config`.
 4. Add shared error and logging middleware.
 5. Normalize route naming and fix typo files.
 

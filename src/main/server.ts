@@ -1,5 +1,4 @@
 import http from "http";
-import { connectRabbitMQ } from "./services/rabbitmq";
 import { Server as SocketIOServer } from "socket.io";
 import { connectRedis } from "./utils/cache";
 import app from "../app";
@@ -21,8 +20,6 @@ io = new SocketIOServer(server, {
 connectDatabase()
     .then(() => {
         console.log(`[${process.pid}] Connected to MongoDB: Main`);
-
-        connectRabbitMQ().catch(console.error);
 
         server.listen(env.port, () => {
             console.log(`[${process.pid}] Server running on port ${env.port}`);

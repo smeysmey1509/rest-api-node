@@ -6,7 +6,8 @@ const router = Router();
 
 // Example middleware to check admin role (adjust as needed)
 const checkAdmin = (req: any, res: Response, next: Function) => {
-  if (req.user?.role !== "admin") {
+  const role = String(req.user?.role || "").toUpperCase();
+  if (role !== "ADMIN") {
      res.status(403).json({ error: "Access denied, admin only." });
      return
   }

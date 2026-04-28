@@ -1,17 +1,8 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const auth_1 = require("../../middleware/auth");
-const authorizePermission_1 = require("../../middleware/authorizePermission");
-const createCategory_controller_1 = require("../controllers/category/createCategory.controller");
-const listCategories_controller_1 = require("../controllers/category/listCategories.controller");
-const getCategoryById_controller_1 = require("../controllers/category/getCategoryById.controller");
-const updateCategory_controller_1 = require("../controllers/category/updateCategory.controller");
-const deleteCategory_controller_1 = require("../controllers/category/deleteCategory.controller");
-const router = (0, express_1.Router)();
-router.get("/categories", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("read"), listCategories_controller_1.listCategories);
-router.get("/categories/:id", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("read"), getCategoryById_controller_1.getCategoryById);
-router.post("/categories", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("create"), createCategory_controller_1.createCategory);
-router.patch("/categories/:id", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("update"), updateCategory_controller_1.updateCategory);
-router.delete("/categories/:id", auth_1.authenticateToken, (0, authorizePermission_1.authorizePermission)("delete"), deleteCategory_controller_1.deleteCategory);
-exports.default = router;
+exports.default = void 0;
+var category_routes_1 = require("../../modules/categories/category.routes");
+Object.defineProperty(exports, "default", { enumerable: true, get: function () { return __importDefault(category_routes_1).default; } });

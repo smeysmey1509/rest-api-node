@@ -40,6 +40,10 @@ const ReviewSchema = new mongoose_1.Schema({
     rating: { type: Number, min: 1, max: 5, required: true },
     title: { type: String, trim: true },
     body: { type: String, trim: true, maxlength: 2000 },
+    comment: { type: String, trim: true, maxlength: 2000 },
+    orderItem: { type: mongoose_1.Schema.Types.ObjectId, default: null },
+    isVerifiedPurchase: { type: Boolean, default: false },
+    status: { type: String, enum: ["PENDING", "APPROVED", "REJECTED"], default: "PENDING", index: true },
 }, { timestamps: true });
 ReviewSchema.index({ product: 1, user: 1 }, { unique: true }); // one review per user per product
 const Review = mongoose_1.default.models.Review || mongoose_1.default.model("Review", ReviewSchema);

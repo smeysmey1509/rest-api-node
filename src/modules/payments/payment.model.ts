@@ -5,9 +5,8 @@ import {
 } from "../../common/constants/paymentStatus";
 
 export const PaymentMethod = {
-  ABA_PAY: "ABA_PAY",
+  NORMAL_PAYMENT: "NORMAL_PAYMENT",
   VISA_MASTER: "VISA_MASTER",
-  KHQR: "KHQR",
   BANK_TRANSFER: "BANK_TRANSFER",
   CASH_ON_DELIVERY: "CASH_ON_DELIVERY",
 } as const;

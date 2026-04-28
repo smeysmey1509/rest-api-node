@@ -19,7 +19,8 @@ const router = (0, express_1.Router)();
 // Example middleware to check admin role (adjust as needed)
 const checkAdmin = (req, res, next) => {
     var _a;
-    if (((_a = req.user) === null || _a === void 0 ? void 0 : _a.role) !== "admin") {
+    const role = String(((_a = req.user) === null || _a === void 0 ? void 0 : _a.role) || "").toUpperCase();
+    if (role !== "ADMIN") {
         res.status(403).json({ error: "Access denied, admin only." });
         return;
     }

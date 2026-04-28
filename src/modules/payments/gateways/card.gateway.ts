@@ -8,10 +8,11 @@ import {
 export class CardGateway implements PaymentGateway {
   async initiate(input: GatewayInitiateInput): Promise<GatewayInitiateResult> {
     return {
-      provider: "PAYWAY_CARD",
+      provider: "CARD_HOSTED",
       status: "PENDING",
       checkoutData: {
-        message: "Card payments must be completed through a PCI-compliant hosted gateway. Do not send card number or CVV to this API.",
+        message:
+          "Card payments must be completed through a PCI-compliant hosted gateway. Do not send card number or CVV to this API.",
         orderId: input.order._id,
       },
     };

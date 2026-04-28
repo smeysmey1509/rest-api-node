@@ -48,6 +48,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
 const Role_1 = require("../main/types/Role");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
+const roles_1 = require("../common/constants/roles");
 const userSchema = new mongoose_1.Schema({
     name: {
         type: String,
@@ -71,8 +72,14 @@ const userSchema = new mongoose_1.Schema({
     },
     role: {
         type: String,
-        enum: Object.values(Role_1.Role),
-        default: Role_1.Role.USER,
+        enum: [...Object.values(roles_1.Roles), Role_1.Role.USER, Role_1.Role.EDITOR, Role_1.Role.VIEWER],
+        default: roles_1.Roles.CUSTOMER,
+        set: (value) => (0, roles_1.normalizeRole)(value),
+    },
+    status: {
+        type: String,
+        enum: ["ACTIVE", "INACTIVE", "BLOCKED"],
+        default: "ACTIVE",
     },
     limit: {
         type: Number,
@@ -80,6 +87,10 @@ const userSchema = new mongoose_1.Schema({
     },
 }, {
     timestamps: true,
+});
+userSchema.pre("validate", function (next) {
+    this.role = (0, roles_1.normalizeRole)(String(this.role));
+    next();
 });
 //Hash password before saving
 userSchema.pre("save", function (next) {

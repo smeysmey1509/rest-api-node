@@ -7,7 +7,7 @@ This codebase already has useful separation in some places, but the overall layo
 ### Current pain points
 
 1. **Technical layers and business domains are mixed together**
-   - HTTP routes and controllers live under `src/main`, while database models live in `src/models`, middleware lives in `src/middleware`, uploads config lives in `src/config`, and worker code lives in `src/worker`.
+   - HTTP routes and controllers live under `src/main`, while database models live in `src/models`, middleware lives in `src/middleware`, and uploads config lives in `src/config`.
    - A single feature such as `products` spans multiple top-level folders, which makes onboarding and feature work slower.
 
 2. **Routes still contain business logic and direct database access**
@@ -23,26 +23,22 @@ This codebase already has useful separation in some places, but the overall layo
    - Data access is tightly coupled to controllers/routes through direct model usage.
 
 5. **Naming is inconsistent**
-   - Examples include singular and plural route naming (`/product` and `/products`), inconsistent file suffixes, and typos like `noticaiton` and `createReview.controller.ts.ts`.
+   - Examples include singular and plural route naming (`/product` and `/products`), inconsistent file suffixes, and typos like `createReview.controller.ts.ts`.
    - Inconsistent naming makes the codebase feel larger and less predictable than it is.
 
-6. **Worker/process architecture is separated physically but not conceptually**
-   - The worker has its own controllers/routes/services structure, but it is not organized around queue consumers or background job responsibilities.
-   - Shared messaging code exists in multiple places.
-
-7. **Cross-cutting concerns are not centralized enough**
+6. **Cross-cutting concerns are not centralized enough**
    - App bootstrapping, DB connection, environment setup, Redis, RabbitMQ, upload handling, and logging are spread across unrelated folders.
    - This can make production configuration and troubleshooting harder.
 
-8. **No obvious home for validation, error handling, events, constants, or shared DTOs**
+7. **No obvious home for validation, error handling, events, constants, or shared DTOs**
    - The current structure does not clearly show where request schemas, domain errors, event contracts, or module-specific constants should live.
    - These concerns usually become essential in a medium/large backend.
 
-9. **`src/main` is not a strong architectural boundary**
+8. **`src/main` is not a strong architectural boundary**
    - The name suggests execution context rather than responsibility.
    - A feature-based or app/core/modules layout will scale better and be easier for teams to navigate.
 
-10. **Build output is committed alongside source-oriented navigation**
+9. **Build output is committed alongside source-oriented navigation**
     - `dist/` mirrors the app structure and adds noise when trying to understand architecture.
     - The source tree should be the primary place for design clarity.
 
@@ -230,20 +226,6 @@ src/
       wishlist.repository.ts
       wishlist.model.ts
 
-  jobs/
-    queues/
-      notification.consumer.ts
-      activity.consumer.ts
-    producers/
-      notification.producer.ts
-      activity.producer.ts
-    processors/
-      notification.processor.ts
-      activity.processor.ts
-    scheduler/
-      cleanup.job.ts
-      inventory-sync.job.ts
-
   scripts/
     migrate-images.ts
     review-script.ts
@@ -267,12 +249,6 @@ Business features grouped by domain.
 - Each module owns its route, controller, service, repository, validation, and model.
 - This is the most important structural change because it reduces feature sprawl.
 - Teams can work within one module without scanning unrelated folders.
-
-### `src/jobs`
-Background processing and async workflows.
-- Queue consumers, producers, processors, and scheduled jobs should live here.
-- This is cleaner than a generic `worker` tree when the real concern is background execution.
-- If you still run a separate worker process, it can boot from this folder.
 
 ### `src/scripts`
 One-off or operational scripts.
@@ -432,13 +408,10 @@ Examples:
 4. **Cross-cutting infrastructure scattered across source root**
    - Consolidate DB, queue, env, and upload setup under `src/config`.
 
-5. **Worker logic not organized as jobs**
-   - Refactor `src/worker` into `src/jobs` or keep a small `src/worker/server.ts` that imports from `src/jobs`.
+5. **Inconsistent or typo-prone filenames**
+   - Fix files like `createReview.controller.ts.ts` during migration.
 
-6. **Inconsistent or typo-prone filenames**
-   - Fix files like `noticaiton.ts`, `notifcationConsumer.ts`, and `createReview.controller.ts.ts` during migration.
-
-7. **Global utilities without ownership boundaries**
+6. **Global utilities without ownership boundaries**
    - Move feature-specific utilities closer to their modules, and keep only truly shared helpers in common utils.
 
 ## 9) Step-by-Step Migration Plan
@@ -478,18 +451,13 @@ Suggested migration order:
 10. `notifications`
 11. remaining supporting modules
 
-### Phase 4 — Move worker/background code
-1. Rename `src/worker` responsibilities into `src/jobs`.
-2. Split broker connection, event publishing, and consumer logic.
-3. Keep a worker entry file only if you deploy workers separately.
-
-### Phase 5 — Standardize names and endpoints
+### Phase 4 — Standardize names and endpoints
 1. Normalize singular/plural route naming.
 2. Rename typo files.
 3. Align controller/service/repository naming patterns.
 4. Add validation files for all request entry points.
 
-### Phase 6 — Remove transitional code
+### Phase 5 — Remove transitional code
 1. Delete compatibility imports and old directories.
 2. Update build/dev scripts if entry points changed.
 3. Refresh API docs and onboarding docs.
@@ -511,8 +479,7 @@ If you want to start with the highest-impact improvements, do these first:
 2. Introduce `product.service.ts` and `product.repository.ts`.
 3. Centralize Mongo/Redis/RabbitMQ/env setup under `src/config`.
 4. Add shared error and logging middleware.
-5. Migrate background processing from `src/worker` into `src/jobs`.
-6. Normalize route naming and fix typo files.
+5. Normalize route naming and fix typo files.
 
 ## 12) Summary Recommendation
 

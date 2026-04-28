@@ -1,10 +1,8 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const auth_1 = require("../../middleware/auth");
-const router = (0, express_1.Router)();
-// Get all roles
-router.get("/roles", auth_1.authenticateToken, (0, auth_1.authorizeRoles)("admin"), (req, res) => {
-    res.json({ msg: "Welcome Admin" });
-});
-exports.default = router;
+exports.default = void 0;
+var role_routes_1 = require("../../modules/roles/role.routes");
+Object.defineProperty(exports, "default", { enumerable: true, get: function () { return __importDefault(role_routes_1).default; } });

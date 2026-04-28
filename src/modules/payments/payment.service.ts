@@ -13,15 +13,14 @@ import {
 } from "../../common/constants/paymentStatus";
 import { OrderStatus } from "../../common/constants/orderStatus";
 import { AppError } from "../../common/utils/appError";
-import { abaGateway } from "./gateways/aba.gateway";
-import { khqrGateway } from "./gateways/khqr.gateway";
+import { normalGateway } from "./gateways/normal.gateway";
 import { cardGateway } from "./gateways/card.gateway";
 import { bankTransferGateway } from "./gateways/bankTransfer.gateway";
 import { cashOnDeliveryGateway } from "./gateways/cashOnDelivery.gateway";
 import { PaymentGateway } from "./gateways/paymentGateway";
 
 const normalizePaymentMethod = (method?: string): PaymentMethodValue => {
-  const normalized = String(method || PaymentMethod.CASH_ON_DELIVERY).toUpperCase();
+  const normalized = String(method || PaymentMethod.NORMAL_PAYMENT).toUpperCase();
   if (Object.values(PaymentMethod).includes(normalized as PaymentMethodValue)) {
     return normalized as PaymentMethodValue;
   }
@@ -36,10 +35,8 @@ const createTransactionId = () => {
 
 const getGateway = (method: PaymentMethodValue): PaymentGateway => {
   switch (method) {
-    case PaymentMethod.ABA_PAY:
-      return abaGateway;
-    case PaymentMethod.KHQR:
-      return khqrGateway;
+    case PaymentMethod.NORMAL_PAYMENT:
+      return normalGateway;
     case PaymentMethod.VISA_MASTER:
       return cardGateway;
     case PaymentMethod.BANK_TRANSFER:
@@ -52,13 +49,10 @@ const getGateway = (method: PaymentMethodValue): PaymentGateway => {
 };
 
 const getProvider = (method: PaymentMethodValue) => {
-  if (method === PaymentMethod.ABA_PAY || method === PaymentMethod.KHQR) return "PAYWAY";
-  if (method === PaymentMethod.VISA_MASTER) return "PAYWAY_CARD";
+  if (method === PaymentMethod.NORMAL_PAYMENT) return "NORMAL_PAYMENT";
+  if (method === PaymentMethod.VISA_MASTER) return "CARD_HOSTED";
   return method;
 };
-
-const isExternalVerifiedMethod = (method: PaymentMethodValue) =>
-  method === PaymentMethod.ABA_PAY || method === PaymentMethod.KHQR;
 
 export const paymentService = {
   normalizePaymentMethod,
@@ -111,10 +105,6 @@ export const paymentService = {
     const payment = await paymentRepository.findById(id);
     if (!payment) throw new AppError("Payment not found", 404);
 
-    if (!isExternalVerifiedMethod(payment.method)) {
-      return payment;
-    }
-
     const result = await getGateway(payment.method).verify(payment.transactionId);
     if (result.success) {
       return this.markSuccess(payment, result.raw, result.paidAt || new Date());
@@ -126,34 +116,9 @@ export const paymentService = {
     return payment;
   },
 
-  async handlePaywayWebhook(payload: Record<string, any>) {
-    const transactionId =
-      payload.tran_id ||
-      payload.transaction_id ||
-      payload.merchant_ref ||
-      payload.merchant_ref_no;
-    if (!transactionId) throw new AppError("Payment transaction reference is required", 400);
-
-    const payment = await paymentRepository.findByTransaction(String(transactionId));
-    if (!payment) throw new AppError("Payment not found", 404);
-
-    const result = await getGateway(payment.method).verify(payment.transactionId);
-    if (result.success) {
-      return this.markSuccess(payment, { webhook: payload, verification: result.raw }, result.paidAt || new Date());
-    }
-
-    payment.gatewayStatus = result.status;
-    payment.metadata = { ...(payment.metadata || {}), webhook: payload, verification: result.raw };
-    await payment.save();
-    return payment;
-  },
-
   async markManualSuccess(id: string) {
     const payment = await paymentRepository.findById(id);
     if (!payment) throw new AppError("Payment not found", 404);
-    if (isExternalVerifiedMethod(payment.method)) {
-      throw new AppError("External payments must be verified through the gateway.", 400);
-    }
     return this.markSuccess(payment, { manual: true }, new Date());
   },
 

@@ -280,17 +280,15 @@ Checkout validates the cart, checks stock, calculates totals, creates an order
 with `PENDING_PAYMENT`, and creates a payment transaction with `PENDING`.
 Checkout does not reduce product stock.
 
-Stock is reduced only after the backend confirms payment success. For ABA
-PayWay/KHQR, the backend receives the PayWay webhook and then calls PayWay's
-check-transaction API before marking the payment `SUCCESS` and the order
-`PAID`.
+Stock is reduced only after the backend confirms payment success. Manual
+methods must be confirmed by the backend before marking the payment `SUCCESS`
+and the order `PAID`.
 
 Supported payment methods:
 
 ```text
-ABA_PAY
+NORMAL_PAYMENT
 VISA_MASTER
-KHQR
 BANK_TRANSFER
 CASH_ON_DELIVERY
 ```
@@ -300,14 +298,6 @@ PCI-compliant hosted provider flow.
 
 ### Environment
 
-Copy `.env.example` and fill in project-specific values. PayWay secrets must
-stay on the backend:
-
-```text
-PAYWAY_MERCHANT_ID=
-PAYWAY_API_KEY=
-PAYWAY_CALLBACK_URL=https://your-domain.com/api/v1/payments/webhook/payway
-```
-
-The frontend may receive checkout data such as QR strings, QR images, or hosted
-payment links, but it must never decide whether a payment succeeded.
+Copy `.env.example` and fill in project-specific values. Provider secrets must
+stay on the backend. The frontend may receive hosted payment links or manual
+payment instructions, but it must never decide whether a payment succeeded.

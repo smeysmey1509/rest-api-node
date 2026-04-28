@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_middleware_1 = require("../../common/middlewares/auth.middleware");
+const async_handler_middleware_1 = require("../../common/middlewares/async-handler.middleware");
+const wishlist_controller_1 = require("./wishlist.controller");
+const router = (0, express_1.Router)();
+router.get("/wishlist", auth_middleware_1.authenticateToken, (0, async_handler_middleware_1.asyncHandler)(wishlist_controller_1.wishlistController.get));
+router.post("/wishlist/move-to-cart", auth_middleware_1.authenticateToken, (0, async_handler_middleware_1.asyncHandler)(wishlist_controller_1.wishlistController.moveToCart));
+router.post("/wishlist/:productId", auth_middleware_1.authenticateToken, (0, async_handler_middleware_1.asyncHandler)(wishlist_controller_1.wishlistController.add));
+router.post("/wishlist", auth_middleware_1.authenticateToken, (0, async_handler_middleware_1.asyncHandler)(wishlist_controller_1.wishlistController.add));
+router.delete("/wishlist/:productId", auth_middleware_1.authenticateToken, (0, async_handler_middleware_1.asyncHandler)(wishlist_controller_1.wishlistController.remove));
+exports.default = router;

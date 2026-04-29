@@ -23,6 +23,7 @@ const userSchema: Schema<IUser> = new Schema(
       type: String,
       required: true,
       minlength: 3,
+      maxlength: 80,
       trim: true,
     },
     email: {
@@ -31,12 +32,14 @@ const userSchema: Schema<IUser> = new Schema(
       unique: true,
       lowercase: true,
       trim: true,
+      maxlength: 120,
       match: [/\S+@\S+\.\S+/, "Invalid email"],
     },
     password: {
       type: String,
       required: true,
-      minlength: 3,
+      minlength: 8,
+      maxlength: 72,
       select: false,
     },
     role: {
@@ -61,6 +64,8 @@ const userSchema: Schema<IUser> = new Schema(
 );
 
 userSchema.pre("validate", function (next) {
+  this.name = this.name?.trim();
+  this.email = this.email?.toLowerCase().trim();
   this.role = normalizeRole(String(this.role)) as any;
   next();
 });
@@ -68,7 +73,7 @@ userSchema.pre("validate", function (next) {
 //Hash password before saving
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
-  const salt = await bcrypt.genSalt(10);
+  const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });

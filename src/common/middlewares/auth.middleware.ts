@@ -1,5 +1,6 @@
 import { NextFunction, Request, RequestHandler, Response } from "express";
 import jwt from "jsonwebtoken";
+import { jwtConfig } from "../../config/jwt";
 import { normalizeRole } from "../constants/roles";
 
 export interface JwtPayload {
@@ -21,33 +22,48 @@ export interface AuthenticatedRequest extends Request {
   files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
 }
 
+const extractBearerToken = (req: Request) => {
+  const authHeader = req.headers.authorization;
+  return authHeader?.startsWith("Bearer ")
+    ? authHeader.slice("Bearer ".length).trim()
+    : undefined;
+};
+
+const verifyAccessToken = (token: string): JwtPayload => {
+  const decoded = jwt.verify(token, jwtConfig.accessSecret, {
+    issuer: jwtConfig.issuer,
+    audience: jwtConfig.audience,
+  }) as jwt.JwtPayload;
+
+  if (!decoded.id || !decoded.role) {
+    throw new Error("Invalid token payload");
+  }
+
+  return {
+    id: String(decoded.id),
+    role: normalizeRole(String(decoded.role)),
+  };
+};
+
 export const authenticateToken = (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ): void => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith("Bearer ")
-    ? authHeader.slice("Bearer ".length)
-    : undefined;
+  const token = extractBearerToken(req);
 
   if (token) {
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) {
-      res.status(500).json({ error: "JWT secret not configured" });
+    if (!jwtConfig.accessSecret) {
+      res.status(500).json({ message: "JWT secret not configured" });
       return;
     }
 
     try {
-      const decoded = jwt.verify(token, jwtSecret) as JwtPayload;
-      req.user = {
-        id: String(decoded.id),
-        role: normalizeRole(decoded.role),
-      };
+      req.user = verifyAccessToken(token);
       next();
       return;
     } catch {
-      res.status(403).json({ message: "Invalid token" });
+      res.status(401).json({ message: "Invalid or expired token" });
       return;
     }
   }
@@ -67,23 +83,15 @@ export const authenticateToken = (
 };
 
 export const optionalAuth: RequestHandler = (req, _res, next) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith("Bearer ")
-    ? authHeader.slice("Bearer ".length)
-    : undefined;
-  const jwtSecret = process.env.JWT_SECRET;
+  const token = extractBearerToken(req);
 
-  if (!token || !jwtSecret) {
+  if (!token || !jwtConfig.accessSecret) {
     next();
     return;
   }
 
   try {
-    const decoded = jwt.verify(token, jwtSecret) as JwtPayload;
-    req.user = {
-      id: String(decoded.id),
-      role: normalizeRole(decoded.role),
-    };
+    req.user = verifyAccessToken(token);
   } catch {
     // Public routes must stay public; ignore bad optional tokens.
   }

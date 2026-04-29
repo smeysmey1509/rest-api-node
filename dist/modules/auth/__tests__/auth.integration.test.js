@@ -47,10 +47,28 @@ const getSetCookieHeader = (res) => {
     yield mongo.stop();
 }));
 (0, vitest_1.describe)("Auth API", () => {
-    (0, vitest_1.it)("registers a user and sets refresh cookie", () => __awaiter(void 0, void 0, void 0, function* () {
+    (0, vitest_1.it)("allows admin user to access admin route", () => __awaiter(void 0, void 0, void 0, function* () {
+        yield user_model_1.default.create({
+            name: "Admin User",
+            email: "admin@example.com",
+            password: "Password123",
+            role: "ADMIN",
+            status: "ACTIVE",
+        });
+        const login = yield (0, supertest_1.default)(app_1.default).post("/api/v1/login").send({
+            identifier: "admin@example.com",
+            password: "Password123",
+        });
+        (0, vitest_1.expect)(login.status).toBe(200);
+        (0, vitest_1.expect)(login.body.user.role).toBe("ADMIN");
+        const accessToken = login.body.accessToken;
         const res = yield (0, supertest_1.default)(app_1.default)
-            .post("/api/v1/register")
-            .send({
+            .get("/api/v1/admin/orders")
+            .set("Authorization", `Bearer ${accessToken}`);
+        (0, vitest_1.expect)(res.status).not.toBe(403);
+    }));
+    (0, vitest_1.it)("registers a user and sets refresh cookie", () => __awaiter(void 0, void 0, void 0, function* () {
+        const res = yield (0, supertest_1.default)(app_1.default).post("/api/v1/register").send({
             name: "Test User",
             email: "test@example.com",
             password: "Password123",
@@ -61,9 +79,7 @@ const getSetCookieHeader = (res) => {
         (0, vitest_1.expect)(getSetCookieHeader(res)).toContain("refreshToken");
     }));
     (0, vitest_1.it)("rejects weak password", () => __awaiter(void 0, void 0, void 0, function* () {
-        const res = yield (0, supertest_1.default)(app_1.default)
-            .post("/api/v1/register")
-            .send({
+        const res = yield (0, supertest_1.default)(app_1.default).post("/api/v1/register").send({
             name: "Test User",
             email: "weak@example.com",
             password: "123",
@@ -83,16 +99,12 @@ const getSetCookieHeader = (res) => {
         (0, vitest_1.expect)(res.body.message).toBe("User already exists");
     }));
     (0, vitest_1.it)("logs in with valid credentials", () => __awaiter(void 0, void 0, void 0, function* () {
-        yield (0, supertest_1.default)(app_1.default)
-            .post("/api/v1/register")
-            .send({
+        yield (0, supertest_1.default)(app_1.default).post("/api/v1/register").send({
             name: "Login User",
             email: "login@example.com",
             password: "Password123",
         });
-        const res = yield (0, supertest_1.default)(app_1.default)
-            .post("/api/v1/login")
-            .send({
+        const res = yield (0, supertest_1.default)(app_1.default).post("/api/v1/login").send({
             identifier: "login@example.com",
             password: "Password123",
         });
@@ -102,22 +114,16 @@ const getSetCookieHeader = (res) => {
         (0, vitest_1.expect)(getSetCookieHeader(res)).toContain("refreshToken");
     }));
     (0, vitest_1.it)("returns same message for unknown user and wrong password", () => __awaiter(void 0, void 0, void 0, function* () {
-        yield (0, supertest_1.default)(app_1.default)
-            .post("/api/v1/register")
-            .send({
+        yield (0, supertest_1.default)(app_1.default).post("/api/v1/register").send({
             name: "Secure User",
             email: "secure@example.com",
             password: "Password123",
         });
-        const wrongPassword = yield (0, supertest_1.default)(app_1.default)
-            .post("/api/v1/login")
-            .send({
+        const wrongPassword = yield (0, supertest_1.default)(app_1.default).post("/api/v1/login").send({
             identifier: "secure@example.com",
             password: "WrongPassword123",
         });
-        const unknownUser = yield (0, supertest_1.default)(app_1.default)
-            .post("/api/v1/login")
-            .send({
+        const unknownUser = yield (0, supertest_1.default)(app_1.default).post("/api/v1/login").send({
             identifier: "unknown@example.com",
             password: "WrongPassword123",
         });
@@ -127,9 +133,7 @@ const getSetCookieHeader = (res) => {
         (0, vitest_1.expect)(unknownUser.body.message).toBe("Invalid credentials");
     }));
     (0, vitest_1.it)("refreshes access token using refresh cookie", () => __awaiter(void 0, void 0, void 0, function* () {
-        const register = yield (0, supertest_1.default)(app_1.default)
-            .post("/api/v1/register")
-            .send({
+        const register = yield (0, supertest_1.default)(app_1.default).post("/api/v1/register").send({
             name: "Refresh User",
             email: "refresh@example.com",
             password: "Password123",
@@ -155,9 +159,7 @@ const getSetCookieHeader = (res) => {
         (0, vitest_1.expect)(getSetCookieHeader(res)).toContain("refreshToken=");
     }));
     (0, vitest_1.it)("stores password as hashed value", () => __awaiter(void 0, void 0, void 0, function* () {
-        yield (0, supertest_1.default)(app_1.default)
-            .post("/api/v1/register")
-            .send({
+        yield (0, supertest_1.default)(app_1.default).post("/api/v1/register").send({
             name: "Hash User",
             email: "hash@example.com",
             password: "Password123",
@@ -169,9 +171,7 @@ const getSetCookieHeader = (res) => {
         (0, vitest_1.expect)(user === null || user === void 0 ? void 0 : user.password.startsWith("$2")).toBe(true);
     }));
     (0, vitest_1.it)("sets default role to CUSTOMER", () => __awaiter(void 0, void 0, void 0, function* () {
-        const res = yield (0, supertest_1.default)(app_1.default)
-            .post("/api/v1/register")
-            .send({
+        const res = yield (0, supertest_1.default)(app_1.default).post("/api/v1/register").send({
             name: "Role User",
             email: "role@example.com",
             password: "Password123",
@@ -180,9 +180,7 @@ const getSetCookieHeader = (res) => {
         (0, vitest_1.expect)(res.body.user.role).toBe("CUSTOMER");
     }));
     (0, vitest_1.it)("rejects invalid email", () => __awaiter(void 0, void 0, void 0, function* () {
-        const res = yield (0, supertest_1.default)(app_1.default)
-            .post("/api/v1/register")
-            .send({
+        const res = yield (0, supertest_1.default)(app_1.default).post("/api/v1/register").send({
             name: "Invalid Email",
             email: "wrong-email",
             password: "Password123",
@@ -191,9 +189,7 @@ const getSetCookieHeader = (res) => {
         (0, vitest_1.expect)(res.body.code).toBe("VALIDATION_ERROR");
     }));
     (0, vitest_1.it)("rejects missing name", () => __awaiter(void 0, void 0, void 0, function* () {
-        const res = yield (0, supertest_1.default)(app_1.default)
-            .post("/api/v1/register")
-            .send({
+        const res = yield (0, supertest_1.default)(app_1.default).post("/api/v1/register").send({
             email: "noname@example.com",
             password: "Password123",
         });
@@ -201,17 +197,13 @@ const getSetCookieHeader = (res) => {
         (0, vitest_1.expect)(res.body.code).toBe("VALIDATION_ERROR");
     }));
     (0, vitest_1.it)("rejects blocked user login", () => __awaiter(void 0, void 0, void 0, function* () {
-        yield (0, supertest_1.default)(app_1.default)
-            .post("/api/v1/register")
-            .send({
+        yield (0, supertest_1.default)(app_1.default).post("/api/v1/register").send({
             name: "Blocked User",
             email: "blocked@example.com",
             password: "Password123",
         });
         yield user_model_1.default.findOneAndUpdate({ email: "blocked@example.com" }, { status: "BLOCKED" });
-        const res = yield (0, supertest_1.default)(app_1.default)
-            .post("/api/v1/login")
-            .send({
+        const res = yield (0, supertest_1.default)(app_1.default).post("/api/v1/login").send({
             identifier: "blocked@example.com",
             password: "Password123",
         });
@@ -219,9 +211,7 @@ const getSetCookieHeader = (res) => {
         (0, vitest_1.expect)(res.body.message).toBe("User account is not active");
     }));
     (0, vitest_1.it)("rotates refresh token cookie", () => __awaiter(void 0, void 0, void 0, function* () {
-        const register = yield (0, supertest_1.default)(app_1.default)
-            .post("/api/v1/register")
-            .send({
+        const register = yield (0, supertest_1.default)(app_1.default).post("/api/v1/register").send({
             name: "Rotate User",
             email: "rotate@example.com",
             password: "Password123",

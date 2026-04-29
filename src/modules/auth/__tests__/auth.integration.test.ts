@@ -44,14 +44,37 @@ afterAll(async () => {
 });
 
 describe("Auth API", () => {
-  it("registers a user and sets refresh cookie", async () => {
+  it("allows admin user to access admin route", async () => {
+    await User.create({
+      name: "Admin User",
+      email: "admin@example.com",
+      password: "Password123",
+      role: "ADMIN",
+      status: "ACTIVE",
+    });
+
+    const login = await request(app).post("/api/v1/login").send({
+      identifier: "admin@example.com",
+      password: "Password123",
+    });
+
+    expect(login.status).toBe(200);
+    expect(login.body.user.role).toBe("ADMIN");
+
+    const accessToken = login.body.accessToken;
+
     const res = await request(app)
-      .post("/api/v1/register")
-      .send({
-        name: "Test User",
-        email: "test@example.com",
-        password: "Password123",
-      });
+      .get("/api/v1/admin/orders")
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    expect(res.status).not.toBe(403);
+  });
+  it("registers a user and sets refresh cookie", async () => {
+    const res = await request(app).post("/api/v1/register").send({
+      name: "Test User",
+      email: "test@example.com",
+      password: "Password123",
+    });
 
     expect(res.status).toBe(201);
     expect(res.body.accessToken).toBeTruthy();
@@ -60,13 +83,11 @@ describe("Auth API", () => {
   });
 
   it("rejects weak password", async () => {
-    const res = await request(app)
-      .post("/api/v1/register")
-      .send({
-        name: "Test User",
-        email: "weak@example.com",
-        password: "123",
-      });
+    const res = await request(app).post("/api/v1/register").send({
+      name: "Test User",
+      email: "weak@example.com",
+      password: "123",
+    });
 
     expect(res.status).toBe(400);
     expect(res.body.code).toBe("VALIDATION_ERROR");
@@ -87,20 +108,16 @@ describe("Auth API", () => {
   });
 
   it("logs in with valid credentials", async () => {
-    await request(app)
-      .post("/api/v1/register")
-      .send({
-        name: "Login User",
-        email: "login@example.com",
-        password: "Password123",
-      });
+    await request(app).post("/api/v1/register").send({
+      name: "Login User",
+      email: "login@example.com",
+      password: "Password123",
+    });
 
-    const res = await request(app)
-      .post("/api/v1/login")
-      .send({
-        identifier: "login@example.com",
-        password: "Password123",
-      });
+    const res = await request(app).post("/api/v1/login").send({
+      identifier: "login@example.com",
+      password: "Password123",
+    });
 
     expect(res.status).toBe(200);
     expect(res.body.accessToken).toBeTruthy();
@@ -109,27 +126,21 @@ describe("Auth API", () => {
   });
 
   it("returns same message for unknown user and wrong password", async () => {
-    await request(app)
-      .post("/api/v1/register")
-      .send({
-        name: "Secure User",
-        email: "secure@example.com",
-        password: "Password123",
-      });
+    await request(app).post("/api/v1/register").send({
+      name: "Secure User",
+      email: "secure@example.com",
+      password: "Password123",
+    });
 
-    const wrongPassword = await request(app)
-      .post("/api/v1/login")
-      .send({
-        identifier: "secure@example.com",
-        password: "WrongPassword123",
-      });
+    const wrongPassword = await request(app).post("/api/v1/login").send({
+      identifier: "secure@example.com",
+      password: "WrongPassword123",
+    });
 
-    const unknownUser = await request(app)
-      .post("/api/v1/login")
-      .send({
-        identifier: "unknown@example.com",
-        password: "WrongPassword123",
-      });
+    const unknownUser = await request(app).post("/api/v1/login").send({
+      identifier: "unknown@example.com",
+      password: "WrongPassword123",
+    });
 
     expect(wrongPassword.status).toBe(401);
     expect(unknownUser.status).toBe(401);
@@ -138,13 +149,11 @@ describe("Auth API", () => {
   });
 
   it("refreshes access token using refresh cookie", async () => {
-    const register = await request(app)
-      .post("/api/v1/register")
-      .send({
-        name: "Refresh User",
-        email: "refresh@example.com",
-        password: "Password123",
-      });
+    const register = await request(app).post("/api/v1/register").send({
+      name: "Refresh User",
+      email: "refresh@example.com",
+      password: "Password123",
+    });
 
     const cookie = register.headers["set-cookie"];
 
@@ -174,114 +183,101 @@ describe("Auth API", () => {
   });
 
   it("stores password as hashed value", async () => {
-  await request(app)
-    .post("/api/v1/register")
-    .send({
+    await request(app).post("/api/v1/register").send({
       name: "Hash User",
       email: "hash@example.com",
       password: "Password123",
     });
 
-  const user = await User.findOne({ email: "hash@example.com" }).select("+password");
+    const user = await User.findOne({ email: "hash@example.com" }).select(
+      "+password",
+    );
 
-  expect(user).toBeTruthy();
-  expect(user?.password).toBeTruthy();
-  expect(user?.password).not.toBe("Password123");
-  expect(user?.password.startsWith("$2")).toBe(true);
-});
+    expect(user).toBeTruthy();
+    expect(user?.password).toBeTruthy();
+    expect(user?.password).not.toBe("Password123");
+    expect(user?.password.startsWith("$2")).toBe(true);
+  });
 
-it("sets default role to CUSTOMER", async () => {
-  const res = await request(app)
-    .post("/api/v1/register")
-    .send({
+  it("sets default role to CUSTOMER", async () => {
+    const res = await request(app).post("/api/v1/register").send({
       name: "Role User",
       email: "role@example.com",
       password: "Password123",
     });
 
-  expect(res.status).toBe(201);
-  expect(res.body.user.role).toBe("CUSTOMER");
-});
+    expect(res.status).toBe(201);
+    expect(res.body.user.role).toBe("CUSTOMER");
+  });
 
-it("rejects invalid email", async () => {
-  const res = await request(app)
-    .post("/api/v1/register")
-    .send({
+  it("rejects invalid email", async () => {
+    const res = await request(app).post("/api/v1/register").send({
       name: "Invalid Email",
       email: "wrong-email",
       password: "Password123",
     });
 
-  expect(res.status).toBe(400);
-  expect(res.body.code).toBe("VALIDATION_ERROR");
-});
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("VALIDATION_ERROR");
+  });
 
-it("rejects missing name", async () => {
-  const res = await request(app)
-    .post("/api/v1/register")
-    .send({
+  it("rejects missing name", async () => {
+    const res = await request(app).post("/api/v1/register").send({
       email: "noname@example.com",
       password: "Password123",
     });
 
-  expect(res.status).toBe(400);
-  expect(res.body.code).toBe("VALIDATION_ERROR");
-});
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("VALIDATION_ERROR");
+  });
 
-it("rejects blocked user login", async () => {
-  await request(app)
-    .post("/api/v1/register")
-    .send({
+  it("rejects blocked user login", async () => {
+    await request(app).post("/api/v1/register").send({
       name: "Blocked User",
       email: "blocked@example.com",
       password: "Password123",
     });
 
-  await User.findOneAndUpdate(
-    { email: "blocked@example.com" },
-    { status: "BLOCKED" }
-  );
+    await User.findOneAndUpdate(
+      { email: "blocked@example.com" },
+      { status: "BLOCKED" },
+    );
 
-  const res = await request(app)
-    .post("/api/v1/login")
-    .send({
+    const res = await request(app).post("/api/v1/login").send({
       identifier: "blocked@example.com",
       password: "Password123",
     });
 
-  expect(res.status).toBe(403);
-  expect(res.body.message).toBe("User account is not active");
-});
+    expect(res.status).toBe(403);
+    expect(res.body.message).toBe("User account is not active");
+  });
 
-it("rotates refresh token cookie", async () => {
-  const register = await request(app)
-    .post("/api/v1/register")
-    .send({
+  it("rotates refresh token cookie", async () => {
+    const register = await request(app).post("/api/v1/register").send({
       name: "Rotate User",
       email: "rotate@example.com",
       password: "Password123",
     });
 
-  const firstCookie = getSetCookieHeader(register);
+    const firstCookie = getSetCookieHeader(register);
 
-  const refresh = await request(app)
-    .post("/api/v1/refresh")
-    .set("Cookie", register.headers["set-cookie"]);
+    const refresh = await request(app)
+      .post("/api/v1/refresh")
+      .set("Cookie", register.headers["set-cookie"]);
 
-  const secondCookie = getSetCookieHeader(refresh);
+    const secondCookie = getSetCookieHeader(refresh);
 
-  expect(refresh.status).toBe(200);
-  expect(secondCookie).toContain("refreshToken");
-  expect(secondCookie).not.toBe(firstCookie);
-});
+    expect(refresh.status).toBe(200);
+    expect(secondCookie).toContain("refreshToken");
+    expect(secondCookie).not.toBe(firstCookie);
+  });
 
-it("rejects invalid refresh token", async () => {
-  const res = await request(app)
-    .post("/api/v1/refresh")
-    .set("Cookie", "refreshToken=invalid-token");
+  it("rejects invalid refresh token", async () => {
+    const res = await request(app)
+      .post("/api/v1/refresh")
+      .set("Cookie", "refreshToken=invalid-token");
 
-  expect(res.status).toBe(401);
-  expect(res.body.message).toBe("Invalid or expired refresh token");
-});
-
+    expect(res.status).toBe(401);
+    expect(res.body.message).toBe("Invalid or expired refresh token");
+  });
 });

@@ -13,12 +13,35 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.authService = void 0;
+const crypto_1 = require("crypto");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const jwt_1 = require("../../config/jwt");
 const roles_1 = require("../../common/constants/roles");
 const appError_1 = require("../../common/utils/appError");
 const auth_repository_1 = require("./auth.repository");
-const signToken = (payload, secret, expiresIn) => jsonwebtoken_1.default.sign(payload, secret, { expiresIn });
+const normalizeEmail = (email) => email.toLowerCase().trim();
+const normalizeIdentifier = (identifier) => identifier.trim();
+const assertJwtConfig = () => {
+    if (!jwt_1.jwtConfig.accessSecret || !jwt_1.jwtConfig.refreshSecret) {
+        throw new appError_1.AppError("JWT secret not configured", 500);
+    }
+};
+const signToken = (payload, secret, expiresIn) => jsonwebtoken_1.default.sign(payload, secret, {
+    expiresIn,
+    issuer: jwt_1.jwtConfig.issuer,
+    audience: jwt_1.jwtConfig.audience,
+});
+const verifyRefreshToken = (refreshToken) => {
+    try {
+        return jsonwebtoken_1.default.verify(refreshToken, jwt_1.jwtConfig.refreshSecret, {
+            issuer: jwt_1.jwtConfig.issuer,
+            audience: jwt_1.jwtConfig.audience,
+        });
+    }
+    catch (_a) {
+        throw new appError_1.AppError("Invalid or expired refresh token", 401);
+    }
+};
 const publicUser = (user) => ({
     id: user._id,
     name: user.name,
@@ -26,60 +49,66 @@ const publicUser = (user) => ({
     role: user.role,
     status: user.status,
 });
+const buildTokens = (user) => ({
+    accessToken: signToken({ id: String(user._id), role: user.role, tokenType: "access" }, jwt_1.jwtConfig.accessSecret, jwt_1.jwtConfig.accessExpiresIn),
+    refreshToken: signToken({
+        id: String(user._id),
+        role: user.role,
+        tokenType: "refresh",
+        jti: (0, crypto_1.randomUUID)(),
+    }, jwt_1.jwtConfig.refreshSecret, jwt_1.jwtConfig.refreshExpiresIn),
+});
 exports.authService = {
     register(payload) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!jwt_1.jwtConfig.accessSecret) {
-                throw new appError_1.AppError("JWT secret not configured", 500);
-            }
-            const existing = yield auth_repository_1.authRepository.findByEmail(payload.email);
+            assertJwtConfig();
+            const email = normalizeEmail(payload.email);
+            const existing = yield auth_repository_1.authRepository.findByEmail(email);
             if (existing)
-                throw new appError_1.AppError("User already exists", 400);
+                throw new appError_1.AppError("User already exists", 409);
             const user = yield auth_repository_1.authRepository.create({
-                name: payload.name,
-                email: payload.email,
+                name: payload.name.trim(),
+                email,
                 password: payload.password,
                 role: roles_1.Roles.CUSTOMER,
             });
-            const token = signToken({ id: String(user._id), role: user.role }, jwt_1.jwtConfig.accessSecret, jwt_1.jwtConfig.accessExpiresIn);
-            return { token, user: publicUser(user) };
+            const tokens = buildTokens(user);
+            return Object.assign(Object.assign({}, tokens), { user: publicUser(user) });
         });
     },
     login(payload) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!jwt_1.jwtConfig.accessSecret || !jwt_1.jwtConfig.refreshSecret) {
-                throw new appError_1.AppError("JWT secret not configured", 500);
-            }
-            const user = yield auth_repository_1.authRepository.findByLogin(payload.identifier);
+            assertJwtConfig();
+            const user = yield auth_repository_1.authRepository.findByLogin(normalizeIdentifier(payload.identifier));
             if (!user)
-                throw new appError_1.AppError("User does not exist", 400);
+                throw new appError_1.AppError("Invalid credentials", 401);
             if (user.status && user.status !== "ACTIVE") {
                 throw new appError_1.AppError("User account is not active", 403);
             }
             const isMatch = yield user.comparePassword(payload.password);
             if (!isMatch)
-                throw new appError_1.AppError("Invalid credentials", 400);
-            const accessToken = signToken({ id: String(user._id), role: user.role }, jwt_1.jwtConfig.accessSecret, jwt_1.jwtConfig.accessExpiresIn);
-            const refreshToken = signToken({ id: String(user._id), role: user.role }, jwt_1.jwtConfig.refreshSecret, jwt_1.jwtConfig.refreshExpiresIn);
-            return { accessToken, refreshToken, user: publicUser(user) };
+                throw new appError_1.AppError("Invalid credentials", 401);
+            const tokens = buildTokens(user);
+            return Object.assign(Object.assign({}, tokens), { user: publicUser(user) });
         });
     },
     refresh(refreshToken) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!refreshToken)
-                throw new appError_1.AppError("No refresh token provided!", 401);
-            if (!jwt_1.jwtConfig.accessSecret || !jwt_1.jwtConfig.refreshSecret) {
-                throw new appError_1.AppError("JWT secret not configured.", 500);
+                throw new appError_1.AppError("No refresh token provided", 401);
+            assertJwtConfig();
+            const decoded = verifyRefreshToken(refreshToken);
+            if (!decoded.id || decoded.tokenType !== "refresh") {
+                throw new appError_1.AppError("Invalid refresh token", 401);
             }
-            const decoded = jsonwebtoken_1.default.verify(refreshToken, jwt_1.jwtConfig.refreshSecret);
             const user = yield auth_repository_1.authRepository.findById(String(decoded.id));
             if (!user)
                 throw new appError_1.AppError("User not found", 404);
             if (user.status && user.status !== "ACTIVE") {
                 throw new appError_1.AppError("User account is not active", 403);
             }
-            const accessToken = signToken({ id: String(user._id), role: user.role }, jwt_1.jwtConfig.accessSecret, jwt_1.jwtConfig.accessExpiresIn);
-            return { accessToken };
+            const tokens = buildTokens(user);
+            return Object.assign(Object.assign({}, tokens), { user: publicUser(user) });
         });
     },
 };

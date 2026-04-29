@@ -5,30 +5,42 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.optionalAuth = exports.authenticateToken = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const jwt_1 = require("../../config/jwt");
 const roles_1 = require("../constants/roles");
+const extractBearerToken = (req) => {
+    const authHeader = req.headers.authorization;
+    return (authHeader === null || authHeader === void 0 ? void 0 : authHeader.startsWith("Bearer "))
+        ? authHeader.slice("Bearer ".length).trim()
+        : undefined;
+};
+const verifyAccessToken = (token) => {
+    const decoded = jsonwebtoken_1.default.verify(token, jwt_1.jwtConfig.accessSecret, {
+        issuer: jwt_1.jwtConfig.issuer,
+        audience: jwt_1.jwtConfig.audience,
+    });
+    if (!decoded.id || !decoded.role) {
+        throw new Error("Invalid token payload");
+    }
+    return {
+        id: String(decoded.id),
+        role: (0, roles_1.normalizeRole)(String(decoded.role)),
+    };
+};
 const authenticateToken = (req, res, next) => {
     var _a, _b;
-    const authHeader = req.headers.authorization;
-    const token = (authHeader === null || authHeader === void 0 ? void 0 : authHeader.startsWith("Bearer "))
-        ? authHeader.slice("Bearer ".length)
-        : undefined;
+    const token = extractBearerToken(req);
     if (token) {
-        const jwtSecret = process.env.JWT_SECRET;
-        if (!jwtSecret) {
-            res.status(500).json({ error: "JWT secret not configured" });
+        if (!jwt_1.jwtConfig.accessSecret) {
+            res.status(500).json({ message: "JWT secret not configured" });
             return;
         }
         try {
-            const decoded = jsonwebtoken_1.default.verify(token, jwtSecret);
-            req.user = {
-                id: String(decoded.id),
-                role: (0, roles_1.normalizeRole)(decoded.role),
-            };
+            req.user = verifyAccessToken(token);
             next();
             return;
         }
         catch (_c) {
-            res.status(403).json({ message: "Invalid token" });
+            res.status(401).json({ message: "Invalid or expired token" });
             return;
         }
     }
@@ -46,21 +58,13 @@ const authenticateToken = (req, res, next) => {
 };
 exports.authenticateToken = authenticateToken;
 const optionalAuth = (req, _res, next) => {
-    const authHeader = req.headers.authorization;
-    const token = (authHeader === null || authHeader === void 0 ? void 0 : authHeader.startsWith("Bearer "))
-        ? authHeader.slice("Bearer ".length)
-        : undefined;
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!token || !jwtSecret) {
+    const token = extractBearerToken(req);
+    if (!token || !jwt_1.jwtConfig.accessSecret) {
         next();
         return;
     }
     try {
-        const decoded = jsonwebtoken_1.default.verify(token, jwtSecret);
-        req.user = {
-            id: String(decoded.id),
-            role: (0, roles_1.normalizeRole)(decoded.role),
-        };
+        req.user = verifyAccessToken(token);
     }
     catch (_a) {
         // Public routes must stay public; ignore bad optional tokens.

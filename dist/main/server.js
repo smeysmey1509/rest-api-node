@@ -5,7 +5,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.io = void 0;
 const http_1 = __importDefault(require("http"));
-const rabbitmq_1 = require("./services/rabbitmq");
 const socket_io_1 = require("socket.io");
 const cache_1 = require("./utils/cache");
 const app_1 = __importDefault(require("../app"));
@@ -22,7 +21,6 @@ exports.io = new socket_io_1.Server(server, {
 (0, db_1.connectDatabase)()
     .then(() => {
     console.log(`[${process.pid}] Connected to MongoDB: Main`);
-    (0, rabbitmq_1.connectRabbitMQ)().catch(console.error);
     server.listen(env_1.env.port, () => {
         console.log(`[${process.pid}] Server running on port ${env_1.env.port}`);
     });

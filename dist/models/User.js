@@ -54,6 +54,7 @@ const userSchema = new mongoose_1.Schema({
         type: String,
         required: true,
         minlength: 3,
+        maxlength: 80,
         trim: true,
     },
     email: {
@@ -62,12 +63,14 @@ const userSchema = new mongoose_1.Schema({
         unique: true,
         lowercase: true,
         trim: true,
+        maxlength: 120,
         match: [/\S+@\S+\.\S+/, "Invalid email"],
     },
     password: {
         type: String,
         required: true,
-        minlength: 3,
+        minlength: 8,
+        maxlength: 72,
         select: false,
     },
     role: {
@@ -89,6 +92,9 @@ const userSchema = new mongoose_1.Schema({
     timestamps: true,
 });
 userSchema.pre("validate", function (next) {
+    var _a, _b;
+    this.name = (_a = this.name) === null || _a === void 0 ? void 0 : _a.trim();
+    this.email = (_b = this.email) === null || _b === void 0 ? void 0 : _b.toLowerCase().trim();
     this.role = (0, roles_1.normalizeRole)(String(this.role));
     next();
 });
@@ -97,7 +103,7 @@ userSchema.pre("save", function (next) {
     return __awaiter(this, void 0, void 0, function* () {
         if (!this.isModified("password"))
             return next();
-        const salt = yield bcryptjs_1.default.genSalt(10);
+        const salt = yield bcryptjs_1.default.genSalt(12);
         this.password = yield bcryptjs_1.default.hash(this.password, salt);
         next();
     });

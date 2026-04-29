@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import jwt, { Secret, SignOptions } from "jsonwebtoken";
 import { jwtConfig } from "../../config/jwt";
 import { Roles } from "../../common/constants/roles";
@@ -7,6 +8,13 @@ import { authRepository } from "./auth.repository";
 const normalizeEmail = (email: string) => email.toLowerCase().trim();
 const normalizeIdentifier = (identifier: string) => identifier.trim();
 
+type TokenPayload = {
+  id: string;
+  role: string;
+  tokenType: "access" | "refresh";
+  jti?: string;
+};
+
 const assertJwtConfig = () => {
   if (!jwtConfig.accessSecret || !jwtConfig.refreshSecret) {
     throw new AppError("JWT secret not configured", 500);
@@ -14,7 +22,7 @@ const assertJwtConfig = () => {
 };
 
 const signToken = (
-  payload: { id: string; role: string },
+  payload: TokenPayload,
   secret: Secret,
   expiresIn: string
 ) =>
@@ -45,12 +53,17 @@ const publicUser = (user: any) => ({
 
 const buildTokens = (user: any) => ({
   accessToken: signToken(
-    { id: String(user._id), role: user.role },
+    { id: String(user._id), role: user.role, tokenType: "access" },
     jwtConfig.accessSecret,
     jwtConfig.accessExpiresIn
   ),
   refreshToken: signToken(
-    { id: String(user._id), role: user.role },
+    {
+      id: String(user._id),
+      role: user.role,
+      tokenType: "refresh",
+      jti: randomUUID(),
+    },
     jwtConfig.refreshSecret,
     jwtConfig.refreshExpiresIn
   ),
@@ -99,7 +112,9 @@ export const authService = {
     assertJwtConfig();
 
     const decoded = verifyRefreshToken(refreshToken);
-    if (!decoded.id) throw new AppError("Invalid refresh token", 401);
+    if (!decoded.id || decoded.tokenType !== "refresh") {
+      throw new AppError("Invalid refresh token", 401);
+    }
 
     const user = await authRepository.findById(String(decoded.id));
     if (!user) throw new AppError("User not found", 404);

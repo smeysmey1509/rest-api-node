@@ -116,11 +116,8 @@ export const authService = {
       throw new AppError("Invalid refresh token", 401);
     }
 
-    const user = await authRepository.findById(String(decoded.id));
-    if (!user) throw new AppError("User not found", 404);
-    if (user.status && user.status !== "ACTIVE") {
-      throw new AppError("User account is not active", 403);
-    }
+    const user = await authRepository.findActiveById(String(decoded.id));
+    if (!user) throw new AppError("Invalid refresh token", 401);
 
     const tokens = buildTokens(user);
 

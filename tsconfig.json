@@ -4,13 +4,18 @@
     "module": "CommonJS",
     "outDir": "./dist",
     "rootDir": "./src",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "moduleResolution": "node",
-    "typeRoots": ["./node_modules/@types",
+    "typeRoots": [
+      "./node_modules/@types",
       "./src/main/types"
     ]
   },

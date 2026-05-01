@@ -22,9 +22,9 @@ export const userController = {
     res.status(200).json(user);
   },
 
-  async listUsers(_req: AuthenticatedRequest, res: Response) {
-    const users = await userService.listUsers();
-    res.status(200).json(users);
+  async listUsers(req: AuthenticatedRequest, res: Response) {
+    const result = await userService.listUsers(req.query as Record<string, unknown>);
+    res.status(200).json(result);
   },
 
   async getUser(req: AuthenticatedRequest, res: Response) {

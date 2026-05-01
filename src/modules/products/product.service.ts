@@ -2,6 +2,7 @@ import mongoose, { Types } from "mongoose";
 import { AppError } from "../../common/utils/appError";
 import { generateSlug } from "../../common/utils/generateSlug";
 import { normalizeRole, Roles } from "../../common/constants/roles";
+import { getPagination, getPaginationMeta } from "../../common/utils/pagination";
 import { productRepository } from "./product.repository";
 import Product from "./product.model";
 
@@ -93,9 +94,7 @@ const buildFilter = (query: Record<string, unknown>, role?: string) => {
 
 export const productService = {
   async list(query: Record<string, unknown>, role?: string) {
-    const page = Math.max(parseInt(String(query.page || "1"), 10), 1);
-    const limit = Math.min(Math.max(parseInt(String(query.limit || "25"), 10), 1), 100);
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = getPagination(query, { defaultLimit: 25, maxLimit: 100 });
     const filter = buildFilter(query, role);
     const sort = buildSort(query.sort);
 
@@ -104,7 +103,7 @@ export const productService = {
       productRepository.count(filter),
     ]);
 
-    return { products, total, page, perPage: limit, totalPages: Math.ceil(total / limit) };
+    return { products, ...getPaginationMeta(total, page, limit) };
   },
 
   async listRaw(query: Record<string, unknown>, role?: string) {
@@ -214,8 +213,9 @@ export const productService = {
       status: "Published",
       isDeleted: { $ne: true },
     })
+      .select("name slug images primaryImageIndex price priceMin priceMax currency ratingAvg category brand createdAt")
       .limit(8)
-      .lean();
+      .lean({ virtuals: true });
     return { products: related };
   },
 };

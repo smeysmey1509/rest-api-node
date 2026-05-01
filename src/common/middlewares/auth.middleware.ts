@@ -35,7 +35,7 @@ const verifyAccessToken = (token: string): JwtPayload => {
     audience: jwtConfig.audience,
   }) as jwt.JwtPayload;
 
-  if (!decoded.id || !decoded.role) {
+  if (!decoded.id || !decoded.role || decoded.tokenType !== "access") {
     throw new Error("Invalid token payload");
   }
 

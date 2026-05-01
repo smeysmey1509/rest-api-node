@@ -1,9 +1,11 @@
+import "./register-paths";
+
 import http from "http";
 import { Server as SocketIOServer } from "socket.io";
-import { connectRedis } from "./utils/cache";
-import app from "../app";
-import { connectDatabase } from "../config/db";
-import { env } from "../config/env";
+import { connectRedis } from "@/main/utils/cache";
+import app from "@/app";
+import { connectDatabase } from "@/config/db";
+import { env } from "@/config/env";
 
 const server = http.createServer(app);
 export let io: SocketIOServer;

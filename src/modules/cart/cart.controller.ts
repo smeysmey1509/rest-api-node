@@ -16,7 +16,8 @@ export const cartController = {
   },
 
   async remove(req: AuthenticatedRequest, res: Response) {
-    const cart = await cartService.remove(requireUserId(req), req.body.productId || req.params.productId);
+    const productId = req.body?.productId || req.params.productId;
+    const cart = await cartService.remove(requireUserId(req), productId);
     res.status(200).json(cart);
   },
 

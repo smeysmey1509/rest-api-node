@@ -1,14 +1,26 @@
 import Module from "node:module";
 import path from "node:path";
 
+type ResolveFilename = (
+  request: string,
+  parent: NodeJS.Module | null | undefined,
+  isMain: boolean,
+  options?: NodeJS.RequireResolveOptions,
+) => string;
+
+type ModuleWithPrivateResolver = typeof Module & {
+  _resolveFilename: ResolveFilename;
+};
+
 const sourceRoot = __dirname.endsWith(`${path.sep}main`)
   ? path.resolve(__dirname, "..")
   : __dirname;
 
 const aliasPrefix = "@/";
-const originalResolveFilename = Module._resolveFilename;
+const moduleWithResolver = Module as ModuleWithPrivateResolver;
+const originalResolveFilename = moduleWithResolver._resolveFilename;
 
-Module._resolveFilename = function resolveFilename(
+moduleWithResolver._resolveFilename = function resolveFilename(
   request: string,
   parent: NodeJS.Module | null | undefined,
   isMain: boolean,

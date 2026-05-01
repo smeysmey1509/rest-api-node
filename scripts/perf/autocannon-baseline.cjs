@@ -1,3 +1,5 @@
+const http = require("node:http");
+const https = require("node:https");
 const autocannon = require("autocannon");
 
 const BASE_URL = process.env.PERF_BASE_URL || "http://localhost:3000";
@@ -57,6 +59,47 @@ const endpoints = [
   },
 ];
 
+function requestOnce(url) {
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith("https:") ? https : http;
+    const req = client.get(url, { timeout: 5_000 }, (res) => {
+      res.resume();
+      res.on("end", () => {
+        resolve({ statusCode: res.statusCode });
+      });
+    });
+
+    req.on("timeout", () => {
+      req.destroy(new Error(`Preflight request timed out for ${url}`));
+    });
+
+    req.on("error", reject);
+  });
+}
+
+async function preflight() {
+  const url = `${BASE_URL}/debug`;
+
+  try {
+    const result = await requestOnce(url);
+    console.log(`Preflight OK: ${url} returned HTTP ${result.statusCode}`);
+  } catch (error) {
+    console.error("\nAutocannon cannot reach your API server.");
+    console.error(`Tried: ${url}`);
+    console.error(`Error: ${error.code || error.message}`);
+    console.error("\nFix:");
+    console.error("1. Open another terminal");
+    console.error("2. Run: npm run dev");
+    console.error("3. Confirm: curl http://localhost:3000/debug");
+    console.error("4. If your API uses another port, run: PERF_BASE_URL=http://localhost:<PORT> npm run perf:baseline");
+    process.exit(1);
+  }
+}
+
+function getLatencyP95(result) {
+  return result.latency.p95 ?? result.latency.p97_5 ?? result.latency.average ?? 0;
+}
+
 function runAutocannon(endpoint) {
   const url = `${BASE_URL}${endpoint.path}`;
 
@@ -92,12 +135,16 @@ function runAutocannon(endpoint) {
           url,
           requestsPerSecond: result.requests.average,
           latencyAvgMs: result.latency.average,
-          latencyP95Ms: result.latency.p95,
-          latencyP99Ms: result.latency.p99,
+          latencyP95Ms: getLatencyP95(result),
+          latencyP99Ms: result.latency.p99 ?? 0,
           errors: result.errors,
           timeouts: result.timeouts,
           non2xx: result.non2xx,
         };
+
+        if (summary.requestsPerSecond === 0 || summary.errors > 0) {
+          console.log("Warning: this endpoint produced errors. Check server logs and verify the URL manually with curl.");
+        }
 
         console.table(summary);
         resolve(summary);
@@ -112,6 +159,8 @@ async function main() {
   console.log("Autocannon baseline started");
   console.log(`Base URL: ${BASE_URL}`);
 
+  await preflight();
+
   const results = [];
 
   for (const endpoint of endpoints) {
@@ -122,9 +171,12 @@ async function main() {
   console.log("\n======================= BASELINE SUMMARY =======================");
   console.table(results);
 
-  const slowest = [...results].sort((a, b) => b.latencyP95Ms - a.latencyP95Ms)[0];
+  const validResults = results.filter((result) => result.requestsPerSecond > 0 && result.errors === 0);
+  const slowest = [...validResults].sort((a, b) => b.latencyP95Ms - a.latencyP95Ms)[0];
   if (slowest) {
     console.log(`Slowest endpoint by p95 latency: ${slowest.endpoint} (${slowest.latencyP95Ms}ms)`);
+  } else {
+    console.log("No valid baseline results. Fix server connectivity/errors first.");
   }
 }
 

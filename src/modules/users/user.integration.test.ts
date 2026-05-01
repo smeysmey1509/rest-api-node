@@ -178,10 +178,10 @@ describe("Users API", () => {
       .set("Authorization", `Bearer ${admin.accessToken}`);
 
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBeGreaterThanOrEqual(2);
+    expect(Array.isArray(res.body.users)).toBe(true);
+    expect(res.body.users.length).toBeGreaterThanOrEqual(2);
 
-    for (const user of res.body) {
+    for (const user of res.body.users) {
       expect(user.password).toBeUndefined();
     }
   });

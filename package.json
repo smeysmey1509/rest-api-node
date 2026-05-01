@@ -11,9 +11,11 @@
     "test": "vitest run",
     "prestart": "npm run build",
     "seed:phones": "ts-node src/scripts/seed-phone-products.ts",
-    "perf:health": "autocannon -c 50 -d 30 http://localhost:3000/api/health",
-    "perf:products": "autocannon -c 50 -d 30 http://localhost:3000/api/products",
-    "profile": "clinic doctor -- node src/server.js"
+    "perf:baseline": "node scripts/perf/autocannon-baseline.cjs",
+    "perf:debug": "autocannon -c 50 -d 30 http://localhost:3000/debug",
+    "perf:products": "autocannon -c 50 -d 30 'http://localhost:3000/api/v1/products?page=1&limit=25'",
+    "perf:products:search": "autocannon -c 50 -d 30 'http://localhost:3000/api/v1/products?search=iphone&page=1&limit=25'",
+    "profile": "clinic doctor -- node src/main/server.js"
   },
   "keywords": [],
   "author": "",

@@ -37,10 +37,10 @@ exports.userController = {
             res.status(200).json(user);
         });
     },
-    listUsers(_req, res) {
+    listUsers(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
-            const users = yield user_service_1.userService.listUsers();
-            res.status(200).json(users);
+            const result = yield user_service_1.userService.listUsers(req.query);
+            res.status(200).json(result);
         });
     },
     getUser(req, res) {

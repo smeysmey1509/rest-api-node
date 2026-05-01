@@ -27,7 +27,9 @@ exports.cartController = {
     },
     remove(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
-            const cart = yield cart_service_1.cartService.remove(requireUserId(req), req.body.productId || req.params.productId);
+            var _a;
+            const productId = ((_a = req.body) === null || _a === void 0 ? void 0 : _a.productId) || req.params.productId;
+            const cart = yield cart_service_1.cartService.remove(requireUserId(req), productId);
             res.status(200).json(cart);
         });
     },

@@ -56,6 +56,7 @@ const userSchema = new mongoose_1.Schema({
         minlength: 3,
         maxlength: 80,
         trim: true,
+        index: true,
     },
     email: {
         type: String,
@@ -78,11 +79,13 @@ const userSchema = new mongoose_1.Schema({
         enum: [...Object.values(roles_1.Roles), Role_1.Role.USER, Role_1.Role.EDITOR, Role_1.Role.VIEWER],
         default: roles_1.Roles.CUSTOMER,
         set: (value) => (0, roles_1.normalizeRole)(value),
+        index: true,
     },
     status: {
         type: String,
         enum: ["ACTIVE", "INACTIVE", "BLOCKED"],
         default: "ACTIVE",
+        index: true,
     },
     limit: {
         type: Number,
@@ -114,4 +117,6 @@ userSchema.methods.comparePassword = function (candidatePassword) {
         return yield bcryptjs_1.default.compare(candidatePassword, this.password);
     });
 };
+userSchema.index({ createdAt: -1, _id: -1 });
+userSchema.index({ status: 1, role: 1, createdAt: -1 });
 exports.default = mongoose_1.default.model("User", userSchema);

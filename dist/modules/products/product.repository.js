@@ -5,25 +5,58 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.productRepository = void 0;
 const product_model_1 = __importDefault(require("./product.model"));
+const productListSelect = [
+    "name",
+    "slug",
+    "images",
+    "primaryImageIndex",
+    "price",
+    "priceMin",
+    "priceMax",
+    "compareAtPrice",
+    "currency",
+    "stock",
+    "status",
+    "ratingAvg",
+    "ratingCount",
+    "salesCount",
+    "category",
+    "brand",
+    "seller",
+    "createdAt",
+    "updatedAt",
+].join(" ");
+const productDetailSelect = "-dedupeKey";
 exports.productRepository = {
     list(filter, sort, skip, limit) {
         return product_model_1.default.find(filter)
+            .select(productListSelect)
             .populate("brand", "name slug isActive")
             .populate("category", "categoryId categoryName productCount")
             .populate("seller", "name email")
             .sort(sort)
             .skip(skip)
             .limit(limit)
-            .lean();
+            .lean({ virtuals: true });
     },
     count(filter) {
         return product_model_1.default.countDocuments(filter);
     },
     findById(id) {
-        return product_model_1.default.findById(id).populate("category").populate("brand").populate("seller");
+        return product_model_1.default.findById(id)
+            .select(productDetailSelect)
+            .populate("category")
+            .populate("brand")
+            .populate("seller", "name email role status")
+            .lean({ virtuals: true });
     },
     findBySlug(slug) {
-        return product_model_1.default.findOne({ slug }).populate("category").populate("brand").populate("seller");
+        return product_model_1.default.findOne({ slug })
+            .select(productDetailSelect)
+            .populate("category")
+            .populate("brand")
+            .populate("seller", "name email role status")
+            .lean({ virtuals: true });
     },
     create(payload) {
         return product_model_1.default.create(payload);
@@ -32,9 +65,13 @@ exports.productRepository = {
         return product_model_1.default.findByIdAndUpdate(id, payload, {
             new: true,
             runValidators: true,
-        }).populate("category").populate("brand").populate("seller");
+        })
+            .select(productDetailSelect)
+            .populate("category")
+            .populate("brand")
+            .populate("seller", "name email role status");
     },
     softDelete(id) {
-        return product_model_1.default.findByIdAndUpdate(id, { isDeleted: true, deletedAt: new Date() }, { new: true });
+        return product_model_1.default.findByIdAndUpdate(id, { isDeleted: true, deletedAt: new Date() }, { new: true }).select("_id isDeleted deletedAt");
     },
 };

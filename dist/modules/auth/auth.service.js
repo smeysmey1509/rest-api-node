@@ -101,12 +101,9 @@ exports.authService = {
             if (!decoded.id || decoded.tokenType !== "refresh") {
                 throw new appError_1.AppError("Invalid refresh token", 401);
             }
-            const user = yield auth_repository_1.authRepository.findById(String(decoded.id));
+            const user = yield auth_repository_1.authRepository.findActiveById(String(decoded.id));
             if (!user)
-                throw new appError_1.AppError("User not found", 404);
-            if (user.status && user.status !== "ACTIVE") {
-                throw new appError_1.AppError("User account is not active", 403);
-            }
+                throw new appError_1.AppError("Invalid refresh token", 401);
             const tokens = buildTokens(user);
             return Object.assign(Object.assign({}, tokens), { user: publicUser(user) });
         });

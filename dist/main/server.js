@@ -4,12 +4,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.io = void 0;
+require("./register-paths");
 const http_1 = __importDefault(require("http"));
 const socket_io_1 = require("socket.io");
-const cache_1 = require("./utils/cache");
-const app_1 = __importDefault(require("../app"));
-const db_1 = require("../config/db");
-const env_1 = require("../config/env");
+const cache_1 = require("@/main/utils/cache");
+const app_1 = __importDefault(require("@/app"));
+const db_1 = require("@/config/db");
+const env_1 = require("@/config/env");
 const server = http_1.default.createServer(app_1.default);
 (0, cache_1.connectRedis)().catch(console.error);
 exports.io = new socket_io_1.Server(server, {

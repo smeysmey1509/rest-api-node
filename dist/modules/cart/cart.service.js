@@ -71,6 +71,35 @@ const buildCartResponse = (cartDoc) => __awaiter(void 0, void 0, void 0, functio
     };
     const subTotal = subtotalFromCart(cartDoc);
     const discount = cartDoc.discount || 0;
+    const hasItems = Array.isArray(cartDoc.items) && cartDoc.items.length > 0;
+    if (!hasItems || subTotal <= 0) {
+        cartDoc.subTotal = 0;
+        cartDoc.discount = 0;
+        cartDoc.serviceTax = 0;
+        cartDoc.deliveryFee = 0;
+        cartDoc.total = 0;
+        cartDoc.promoCode = null;
+        yield cartDoc.save();
+        return {
+            _id: cartDoc._id,
+            user: cartDoc.user,
+            items: (0, cartSanitizer_1.sanitizeCartItems)(cartDoc.items),
+            promoCode: null,
+            delivery: deliveryDoc,
+            summary: {
+                subTotal: 0,
+                discount: 0,
+                deliveryFee: 0,
+                serviceTax: 0,
+                total: 0,
+                taxRate: 0,
+                promoCode: null,
+                promo: null,
+            },
+            createdAt: cartDoc.createdAt,
+            updatedAt: cartDoc.updatedAt,
+        };
+    }
     const method = String(deliveryDoc.method || "standard").toLowerCase();
     const { serviceTax, deliveryFee, total } = yield (0, cartTotals_1.calculateCartTotals)(subTotal, discount, method);
     const promoSummary = buildPromoSummary(cartDoc.promoCode, discount);

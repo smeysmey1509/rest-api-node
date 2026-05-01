@@ -25,6 +25,7 @@ const userSchema: Schema<IUser> = new Schema(
       minlength: 3,
       maxlength: 80,
       trim: true,
+      index: true,
     },
     email: {
       type: String,
@@ -47,11 +48,13 @@ const userSchema: Schema<IUser> = new Schema(
       enum: [...Object.values(Roles), Role.USER, Role.EDITOR, Role.VIEWER],
       default: Roles.CUSTOMER,
       set: (value: string) => normalizeRole(value),
+      index: true,
     },
     status: {
       type: String,
       enum: ["ACTIVE", "INACTIVE", "BLOCKED"],
       default: "ACTIVE",
+      index: true,
     },
       limit: {
           type: Number,
@@ -84,5 +87,8 @@ userSchema.methods.comparePassword = async function (
 ) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
+
+userSchema.index({ createdAt: -1, _id: -1 });
+userSchema.index({ status: 1, role: 1, createdAt: -1 });
 
 export default mongoose.model<IUser>("User", userSchema);

@@ -1,7 +1,30 @@
 import { AppError } from "../../common/utils/appError";
+import { getPagination, getPaginationMeta } from "../../common/utils/pagination";
 import { userRepository } from "./user.repository";
 
 const profileFields = ["name", "email", "limit"];
+
+const buildUserFilter = (query: Record<string, unknown>) => {
+  const filter: Record<string, unknown> = {};
+  const q = String(query.q || query.search || "").trim();
+
+  if (q) {
+    filter.$or = [
+      { name: { $regex: q, $options: "i" } },
+      { email: { $regex: q, $options: "i" } },
+    ];
+  }
+
+  if (query.role) {
+    filter.role = String(query.role).toUpperCase();
+  }
+
+  if (query.status) {
+    filter.status = String(query.status).toUpperCase();
+  }
+
+  return filter;
+};
 
 export const userService = {
   async getCurrentUser(userId?: string) {
@@ -21,8 +44,16 @@ export const userService = {
     return user;
   },
 
-  listUsers() {
-    return userRepository.list();
+  async listUsers(query: Record<string, unknown>) {
+    const { page, limit, skip } = getPagination(query, { defaultLimit: 25, maxLimit: 100 });
+    const filter = buildUserFilter(query);
+
+    const [users, total] = await Promise.all([
+      userRepository.list(filter, skip, limit),
+      userRepository.count(filter),
+    ]);
+
+    return { users, ...getPaginationMeta(total, page, limit) };
   },
 
   async getUser(id: string) {

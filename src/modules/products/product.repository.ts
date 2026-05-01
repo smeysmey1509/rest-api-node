@@ -1,15 +1,40 @@
 import Product from "./product.model";
 
+const productListSelect = [
+  "name",
+  "slug",
+  "images",
+  "primaryImageIndex",
+  "price",
+  "priceMin",
+  "priceMax",
+  "compareAtPrice",
+  "currency",
+  "stock",
+  "status",
+  "ratingAvg",
+  "ratingCount",
+  "salesCount",
+  "category",
+  "brand",
+  "seller",
+  "createdAt",
+  "updatedAt",
+].join(" ");
+
+const productDetailSelect = "-dedupeKey";
+
 export const productRepository = {
   list(filter: Record<string, unknown>, sort: Record<string, 1 | -1>, skip: number, limit: number) {
     return Product.find(filter)
+      .select(productListSelect)
       .populate("brand", "name slug isActive")
       .populate("category", "categoryId categoryName productCount")
       .populate("seller", "name email")
       .sort(sort)
       .skip(skip)
       .limit(limit)
-      .lean();
+      .lean({ virtuals: true });
   },
 
   count(filter: Record<string, unknown>) {
@@ -17,11 +42,21 @@ export const productRepository = {
   },
 
   findById(id: string) {
-    return Product.findById(id).populate("category").populate("brand").populate("seller");
+    return Product.findById(id)
+      .select(productDetailSelect)
+      .populate("category")
+      .populate("brand")
+      .populate("seller", "name email role status")
+      .lean({ virtuals: true });
   },
 
   findBySlug(slug: string) {
-    return Product.findOne({ slug }).populate("category").populate("brand").populate("seller");
+    return Product.findOne({ slug })
+      .select(productDetailSelect)
+      .populate("category")
+      .populate("brand")
+      .populate("seller", "name email role status")
+      .lean({ virtuals: true });
   },
 
   create(payload: Record<string, unknown>) {
@@ -32,7 +67,11 @@ export const productRepository = {
     return Product.findByIdAndUpdate(id, payload, {
       new: true,
       runValidators: true,
-    }).populate("category").populate("brand").populate("seller");
+    })
+      .select(productDetailSelect)
+      .populate("category")
+      .populate("brand")
+      .populate("seller", "name email role status");
   },
 
   softDelete(id: string) {
@@ -40,6 +79,6 @@ export const productRepository = {
       id,
       { isDeleted: true, deletedAt: new Date() },
       { new: true }
-    );
+    ).select("_id isDeleted deletedAt");
   },
 };

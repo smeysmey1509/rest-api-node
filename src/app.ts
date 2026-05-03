@@ -21,6 +21,27 @@ import deliveryRoute from "./main/routes/delivery";
 import { errorMiddleware, notFoundMiddleware } from "./common/middlewares/error.middleware";
 
 const app = express();
+const startedAt = new Date();
+
+const buildHealthPayload = () => {
+  const memoryUsage = process.memoryUsage();
+
+  return {
+    status: "ok",
+    service: "rest-api-node",
+    environment: env.nodeEnv,
+    pid: process.pid,
+    uptimeSeconds: Math.round(process.uptime()),
+    startedAt: startedAt.toISOString(),
+    timestamp: new Date().toISOString(),
+    memory: {
+      rss: memoryUsage.rss,
+      heapTotal: memoryUsage.heapTotal,
+      heapUsed: memoryUsage.heapUsed,
+      external: memoryUsage.external,
+    },
+  };
+};
 
 app.use(express.json());
 app.use(cookieParser());
@@ -41,6 +62,14 @@ if (env.proxyTarget) {
     })
   );
 }
+
+app.get(["/health", "/api/health", "/api/v1/health"], (_req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Service is healthy",
+    data: buildHealthPayload(),
+  });
+});
 
 app.get("/debug", (_req, res) => {
   res.json({

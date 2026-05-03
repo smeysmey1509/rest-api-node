@@ -11,8 +11,8 @@
     "test": "vitest run",
     "prestart": "npm run build",
     "seed:phones": "ts-node src/scripts/seed-phone-products.ts",
-    "perf:health": "autocannon -c 50 -d 30 http://localhost:3000/api/health",
-    "perf:products": "autocannon -c 50 -d 30 http://localhost:3000/api/products",
+    "perf:health": "autocannon -c 50 -d 30 http://localhost:5002/api/v1/health",
+    "perf:products": "autocannon -c 50 -d 30 http://localhost:5002/api/v1/products",
     "profile": "clinic doctor -- node src/server.js"
   },
   "keywords": [],

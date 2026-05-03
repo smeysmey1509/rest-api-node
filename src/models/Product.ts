@@ -471,6 +471,7 @@ ProductSchema.index(
 
 // Storefront filters / sorts
 ProductSchema.index({ status: 1, category: 1, priceMin: 1, createdAt: -1 }); // use priceMin for sort
+ProductSchema.index({ status: 1, isDeleted: 1, createdAt: -1, _id: -1 });
 ProductSchema.index(
   { seller: 1, slug: 1, name: 1 },
   {
@@ -523,7 +524,6 @@ ProductSchema.virtual("updatedTime").get(function (this: IProduct) {
   if (!this.updatedAt) return null;
   return this.updatedAt.toISOString().split("T")[1].split(".")[0];
 });
-
 
 const Product: Model<IProduct> =
   mongoose.models.Product || mongoose.model<IProduct>("Product", ProductSchema);

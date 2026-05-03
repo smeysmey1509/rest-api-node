@@ -8,4 +8,5 @@ export const env = {
   mongoUri: process.env.MONGO_URI || "",
   corsOrigin: process.env.CORS_ORIGIN || "http://localhost:5173",
   proxyTarget: process.env.PROXY_TARGET,
+  requestLogging: process.env.REQUEST_LOGGING === "true",
 };

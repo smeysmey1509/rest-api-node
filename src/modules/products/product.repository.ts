@@ -24,17 +24,31 @@ const productListSelect = [
 
 const productDetailSelect = "-dedupeKey";
 
+type ProductListOptions = {
+  populate?: boolean;
+};
+
 export const productRepository = {
-  list(filter: Record<string, unknown>, sort: Record<string, 1 | -1>, skip: number, limit: number) {
-    return Product.find(filter)
+  list(
+    filter: Record<string, unknown>,
+    sort: Record<string, 1 | -1>,
+    skip: number,
+    limit: number,
+    options: ProductListOptions = {}
+  ) {
+    const query = Product.find(filter)
       .select(productListSelect)
-      .populate("brand", "name slug isActive")
-      .populate("category", "categoryId categoryName productCount")
-      .populate("seller", "name email")
       .sort(sort)
       .skip(skip)
-      .limit(limit)
-      .lean({ virtuals: true });
+      .limit(limit);
+
+    if (options.populate) {
+      query
+        .populate("brand", "name slug isActive")
+        .populate("category", "categoryId categoryName productCount");
+    }
+
+    return query.lean({ virtuals: true });
   },
 
   count(filter: Record<string, unknown>) {

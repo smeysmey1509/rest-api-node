@@ -47,10 +47,12 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(cors({ origin: env.corsOrigin, credentials: true }));
 
-app.use((req, _res, next) => {
-  console.log(`[${new Date().toISOString()}] PID: ${process.pid}, Path: ${req.path}`);
-  next();
-});
+if (env.requestLogging) {
+  app.use((req, _res, next) => {
+    console.log(`[${new Date().toISOString()}] PID: ${process.pid}, Path: ${req.path}`);
+    next();
+  });
+}
 
 if (env.proxyTarget) {
   app.use(

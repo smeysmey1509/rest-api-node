@@ -11,6 +11,12 @@ const toNumber = (value: unknown, fallback = 0) => {
   return Number.isFinite(num) ? num : fallback;
 };
 
+const toBoolean = (value: unknown, fallback = false) => {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value === "boolean") return value;
+  return ["true", "1", "yes", "y"].includes(String(value).toLowerCase());
+};
+
 const parseJson = <T>(value: unknown, fallback: T): T => {
   if (value === undefined || value === null) return fallback;
   if (typeof value === "object") return value as T;
@@ -97,9 +103,23 @@ export const productService = {
     const { page, limit, skip } = getPagination(query, { defaultLimit: 25, maxLimit: 100 });
     const filter = buildFilter(query, role);
     const sort = buildSort(query.sort);
+    const includeTotal = toBoolean(query.includeTotal, true);
+    const populate = toBoolean(query.populate, true);
+
+    const productsPromise = productRepository.list(filter, sort, skip, limit, { populate });
+
+    if (!includeTotal) {
+      const products = await productsPromise;
+      return {
+        products,
+        page,
+        perPage: limit,
+        hasMore: products.length === limit,
+      };
+    }
 
     const [products, total] = await Promise.all([
-      productRepository.list(filter, sort, skip, limit),
+      productsPromise,
       productRepository.count(filter),
     ]);
 

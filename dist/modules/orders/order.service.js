@@ -10,9 +10,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.orderService = void 0;
-const appError_1 = require("../../common/utils/appError");
-const orderStatus_1 = require("../../common/constants/orderStatus");
-const paymentStatus_1 = require("../../common/constants/paymentStatus");
+const app_error_1 = require("../../shared/errors/app-error");
+const orderStatus_1 = require("../../shared/constants/orderStatus");
+const paymentStatus_1 = require("../../shared/constants/paymentStatus");
 const payment_service_1 = require("../payments/payment.service");
 const order_repository_1 = require("./order.repository");
 const cancellableStatuses = [orderStatus_1.OrderStatus.PENDING_PAYMENT, "pending"];
@@ -27,11 +27,11 @@ exports.orderService = {
         return __awaiter(this, void 0, void 0, function* () {
             const order = yield order_repository_1.orderRepository.findById(orderId);
             if (!order)
-                throw new appError_1.AppError("Order not found", 404);
+                throw new app_error_1.AppError("Order not found", 404);
             if (String(order.user) !== String(userId))
-                throw new appError_1.AppError("Forbidden", 403);
+                throw new app_error_1.AppError("Forbidden", 403);
             if (!cancellableStatuses.includes(order.status)) {
-                throw new appError_1.AppError("Order cannot be cancelled at this stage.", 400);
+                throw new app_error_1.AppError("Order cannot be cancelled at this stage.", 400);
             }
             order.status = orderStatus_1.OrderStatus.CANCELLED;
             order.statusHistory = [
@@ -48,11 +48,11 @@ exports.orderService = {
         return __awaiter(this, void 0, void 0, function* () {
             const normalized = (0, orderStatus_1.normalizeOrderStatus)(status);
             if (normalized === orderStatus_1.OrderStatus.PAID) {
-                throw new appError_1.AppError("Use payment confirmation to mark an order as paid.", 400);
+                throw new app_error_1.AppError("Use payment confirmation to mark an order as paid.", 400);
             }
             const order = yield order_repository_1.orderRepository.findById(orderId);
             if (!order)
-                throw new appError_1.AppError("Order not found", 404);
+                throw new app_error_1.AppError("Order not found", 404);
             order.status = normalized;
             order.statusHistory = [
                 ...(order.statusHistory || []),

@@ -1,0 +1,17 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_middleware_1 = require("../../shared/middlewares/auth.middleware");
+const async_handler_middleware_1 = require("../../shared/middlewares/async-handler.middleware");
+const role_middleware_1 = require("../../shared/middlewares/role.middleware");
+const validate_middleware_1 = require("../../shared/middlewares/validate.middleware");
+const order_controller_1 = require("./order.controller");
+const order_validation_1 = require("./order.validation");
+const router = (0, express_1.Router)();
+router.get("/orders", auth_middleware_1.authenticateToken, (0, async_handler_middleware_1.asyncHandler)(order_controller_1.orderController.mine));
+router.patch("/orders/:id/cancel", auth_middleware_1.authenticateToken, (0, async_handler_middleware_1.asyncHandler)(order_controller_1.orderController.cancel));
+router.get("/admin/orders", auth_middleware_1.authenticateToken, role_middleware_1.requireAdmin, (0, async_handler_middleware_1.asyncHandler)(order_controller_1.orderController.all));
+router.get("/orders/admin", auth_middleware_1.authenticateToken, role_middleware_1.requireAdmin, (0, async_handler_middleware_1.asyncHandler)(order_controller_1.orderController.all));
+router.patch("/admin/orders/:id/status", auth_middleware_1.authenticateToken, role_middleware_1.requireAdmin, (0, validate_middleware_1.validate)(order_validation_1.updateOrderStatusValidation), (0, async_handler_middleware_1.asyncHandler)(order_controller_1.orderController.updateStatus));
+router.patch("/orders/:id/status", auth_middleware_1.authenticateToken, role_middleware_1.requireAdmin, (0, validate_middleware_1.validate)(order_validation_1.updateOrderStatusValidation), (0, async_handler_middleware_1.asyncHandler)(order_controller_1.orderController.updateStatus));
+exports.default = router;

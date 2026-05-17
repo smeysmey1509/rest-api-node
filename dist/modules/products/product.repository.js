@@ -28,16 +28,18 @@ const productListSelect = [
 ].join(" ");
 const productDetailSelect = "-dedupeKey";
 exports.productRepository = {
-    list(filter, sort, skip, limit) {
-        return product_model_1.default.find(filter)
+    list(filter, sort, skip, limit, options = {}) {
+        const query = product_model_1.default.find(filter)
             .select(productListSelect)
-            .populate("brand", "name slug isActive")
-            .populate("category", "categoryId categoryName productCount")
-            .populate("seller", "name email")
             .sort(sort)
             .skip(skip)
-            .limit(limit)
-            .lean({ virtuals: true });
+            .limit(limit);
+        if (options.populate) {
+            query
+                .populate("brand", "name slug isActive")
+                .populate("category", "categoryId categoryName productCount");
+        }
+        return query.lean({ virtuals: true });
     },
     count(filter) {
         return product_model_1.default.countDocuments(filter);

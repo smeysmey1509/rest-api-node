@@ -14,8 +14,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.categoryService = void 0;
 const product_model_1 = __importDefault(require("../products/product.model"));
-const appError_1 = require("../../common/utils/appError");
-const generateSlug_1 = require("../../common/utils/generateSlug");
+const app_error_1 = require("../../shared/errors/app-error");
+const generateSlug_1 = require("../../shared/utils/generateSlug");
 const category_repository_1 = require("./category.repository");
 const parseSort = (input) => {
     const sort = {};
@@ -73,7 +73,7 @@ exports.categoryService = {
         return __awaiter(this, void 0, void 0, function* () {
             const category = yield category_repository_1.categoryRepository.findById(id);
             if (!category)
-                throw new appError_1.AppError("Category not found.", 404);
+                throw new app_error_1.AppError("Category not found.", 404);
             return category;
         });
     },
@@ -81,14 +81,14 @@ exports.categoryService = {
         return __awaiter(this, void 0, void 0, function* () {
             const normalized = normalizePayload(payload);
             if (!normalized.categoryId || !normalized.categoryName) {
-                throw new appError_1.AppError("categoryId and categoryName are required", 400);
+                throw new app_error_1.AppError("categoryId and categoryName are required", 400);
             }
             try {
                 return yield category_repository_1.categoryRepository.create(normalized);
             }
             catch (err) {
                 if ((err === null || err === void 0 ? void 0 : err.code) === 11000)
-                    throw new appError_1.AppError("Duplicate category", 409, undefined, err.keyValue);
+                    throw new app_error_1.AppError("Duplicate category", 409, undefined, err.keyValue);
                 throw err;
             }
         });
@@ -114,7 +114,7 @@ exports.categoryService = {
                 updates.totalSales = Number(payload.totalSales) || 0;
             const category = yield category_repository_1.categoryRepository.update(id, updates);
             if (!category)
-                throw new appError_1.AppError("Category not found.", 404);
+                throw new app_error_1.AppError("Category not found.", 404);
             return category;
         });
     },
@@ -122,11 +122,11 @@ exports.categoryService = {
         return __awaiter(this, void 0, void 0, function* () {
             const usedByProduct = yield product_model_1.default.exists({ category: id });
             if (usedByProduct) {
-                throw new appError_1.AppError("Category is used by products and cannot be deleted.", 400);
+                throw new app_error_1.AppError("Category is used by products and cannot be deleted.", 400);
             }
             const category = yield category_repository_1.categoryRepository.delete(id);
             if (!category)
-                throw new appError_1.AppError("Category not found.", 404);
+                throw new app_error_1.AppError("Category not found.", 404);
             return { msg: "Category deleted successfully." };
         });
     },

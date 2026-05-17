@@ -19,9 +19,9 @@ import User from "../../users/user.model";
 import Category from "../../categories/category.model";
 import Product from "../../products/product.model";
 import Cart from "../cart.model";
-import PromoCode from "../../../models/PromoCode";
-import PromoUsage from "../../../models/PromoUsage";
-import DeliverySetting from "../../../models/DeliverySetting";
+import PromoCode from "../../coupons/coupon.model";
+import PromoUsage from "../../coupons/coupon-usage.model";
+import DeliverySetting from "../../inventory/delivery-setting.model";
 
 let mongo: MongoMemoryServer;
 

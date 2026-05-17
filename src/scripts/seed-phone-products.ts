@@ -1,9 +1,9 @@
 import "dotenv/config";
 import mongoose from "mongoose";
-import Product from "../models/Product";
-import Category from "../models/Category";
-import Brand from "../models/Brand";
-import User from "../models/User";
+import Product from "../modules/products/product.model";
+import Category from "../modules/categories/category.model";
+import Brand from "../modules/brands/brand.model";
+import User from "../modules/users/user.model";
 
 type CliOptions = {
   sellerId: string;

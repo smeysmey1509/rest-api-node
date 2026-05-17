@@ -35,7 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PaymentMethod = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
-const paymentStatus_1 = require("../../common/constants/paymentStatus");
+const paymentStatus_1 = require("../../shared/constants/paymentStatus");
 exports.PaymentMethod = {
     NORMAL_PAYMENT: "NORMAL_PAYMENT",
     VISA_MASTER: "VISA_MASTER",

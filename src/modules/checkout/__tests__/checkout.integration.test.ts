@@ -21,9 +21,9 @@ import Product from "../../products/product.model";
 import Cart from "../../cart/cart.model";
 import Order from "../../orders/order.model";
 import Payment from "../../payments/payment.model";
-import PromoCode from "../../../models/PromoCode";
-import PromoUsage from "../../../models/PromoUsage";
-import DeliverySetting from "../../../models/DeliverySetting";
+import PromoCode from "../../coupons/coupon.model";
+import PromoUsage from "../../coupons/coupon-usage.model";
+import DeliverySetting from "../../inventory/delivery-setting.model";
 
 let mongo: MongoMemoryServer;
 

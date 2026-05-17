@@ -1,6 +1,6 @@
 // one-off script or admin endpoint
-import Review from "../models/Review";
-import Product from "../models/Product";
+import Review from "../modules/reviews/review.model";
+import Product from "../modules/products/product.model";
 import mongoose from "mongoose";
 
 export async function recomputeAllRatings(productId: string) {

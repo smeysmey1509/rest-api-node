@@ -10,8 +10,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.userService = void 0;
-const appError_1 = require("../../common/utils/appError");
-const pagination_1 = require("../../common/utils/pagination");
+const app_error_1 = require("../../shared/errors/app-error");
+const pagination_1 = require("../../shared/utils/pagination");
 const user_repository_1 = require("./user.repository");
 const profileFields = ["name", "email", "limit"];
 const buildUserFilter = (query) => {
@@ -35,21 +35,21 @@ exports.userService = {
     getCurrentUser(userId) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!userId)
-                throw new appError_1.AppError("Unauthorized", 401);
+                throw new app_error_1.AppError("Unauthorized", 401);
             const user = yield user_repository_1.userRepository.findById(userId);
             if (!user)
-                throw new appError_1.AppError("User not found", 404);
+                throw new app_error_1.AppError("User not found", 404);
             return user;
         });
     },
     updateCurrentUser(userId, payload) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!userId)
-                throw new appError_1.AppError("Unauthorized", 401);
+                throw new app_error_1.AppError("Unauthorized", 401);
             const updates = Object.fromEntries(Object.entries(payload).filter(([key]) => profileFields.includes(key)));
             const user = yield user_repository_1.userRepository.updateProfile(userId, updates);
             if (!user)
-                throw new appError_1.AppError("User not found", 404);
+                throw new app_error_1.AppError("User not found", 404);
             return user;
         });
     },
@@ -68,7 +68,7 @@ exports.userService = {
         return __awaiter(this, void 0, void 0, function* () {
             const user = yield user_repository_1.userRepository.findById(id);
             if (!user)
-                throw new appError_1.AppError("User not found.", 404);
+                throw new app_error_1.AppError("User not found.", 404);
             return user;
         });
     },
@@ -76,11 +76,11 @@ exports.userService = {
         return __awaiter(this, void 0, void 0, function* () {
             const normalized = String(status || "").toUpperCase();
             if (!["ACTIVE", "INACTIVE", "BLOCKED"].includes(normalized)) {
-                throw new appError_1.AppError("Invalid user status", 400);
+                throw new app_error_1.AppError("Invalid user status", 400);
             }
             const user = yield user_repository_1.userRepository.updateStatus(id, normalized);
             if (!user)
-                throw new appError_1.AppError("User not found", 404);
+                throw new app_error_1.AppError("User not found", 404);
             return user;
         });
     },

@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Product from "../products/product.model";
 import Order from "../orders/order.model";
 import Review from "./review.model";
-import { AppError } from "../../common/utils/appError";
+import { AppError } from "../../shared/errors/app-error";
 import { reviewRepository } from "./review.repository";
 
 const paidStatuses = [

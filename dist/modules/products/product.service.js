@@ -47,15 +47,23 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.productService = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
-const appError_1 = require("../../common/utils/appError");
-const generateSlug_1 = require("../../common/utils/generateSlug");
-const roles_1 = require("../../common/constants/roles");
-const pagination_1 = require("../../common/utils/pagination");
+const app_error_1 = require("../../shared/errors/app-error");
+const generateSlug_1 = require("../../shared/utils/generateSlug");
+const roles_1 = require("../../shared/constants/roles");
+const pagination_1 = require("../../shared/utils/pagination");
 const product_repository_1 = require("./product.repository");
 const product_model_1 = __importDefault(require("./product.model"));
+const activity_log_publisher_1 = require("../activity-logs/activity-log.publisher");
 const toNumber = (value, fallback = 0) => {
     const num = Number(value);
     return Number.isFinite(num) ? num : fallback;
+};
+const toBoolean = (value, fallback = false) => {
+    if (value === undefined || value === null || value === "")
+        return fallback;
+    if (typeof value === "boolean")
+        return value;
+    return ["true", "1", "yes", "y"].includes(String(value).toLowerCase());
 };
 const parseJson = (value, fallback) => {
     if (value === undefined || value === null)
@@ -91,7 +99,7 @@ const normalizeStatus = (value) => {
 };
 const ensureObjectId = (id, field) => {
     if (!id || !mongoose_1.default.isValidObjectId(id)) {
-        throw new appError_1.AppError(`Invalid ${field} id`, 400);
+        throw new app_error_1.AppError(`Invalid ${field} id`, 400);
     }
     return new mongoose_1.Types.ObjectId(String(id));
 };
@@ -142,8 +150,20 @@ exports.productService = {
             const { page, limit, skip } = (0, pagination_1.getPagination)(query, { defaultLimit: 25, maxLimit: 100 });
             const filter = buildFilter(query, role);
             const sort = buildSort(query.sort);
+            const includeTotal = toBoolean(query.includeTotal, true);
+            const populate = toBoolean(query.populate, true);
+            const productsPromise = product_repository_1.productRepository.list(filter, sort, skip, limit, { populate });
+            if (!includeTotal) {
+                const products = yield productsPromise;
+                return {
+                    products,
+                    page,
+                    perPage: limit,
+                    hasMore: products.length === limit,
+                };
+            }
             const [products, total] = yield Promise.all([
-                product_repository_1.productRepository.list(filter, sort, skip, limit),
+                productsPromise,
                 product_repository_1.productRepository.count(filter),
             ]);
             return Object.assign({ products }, (0, pagination_1.getPaginationMeta)(total, page, limit));
@@ -166,19 +186,19 @@ exports.productService = {
                 ? yield product_repository_1.productRepository.findById(idOrSlug)
                 : yield product_repository_1.productRepository.findBySlug(idOrSlug);
             if (!product)
-                throw new appError_1.AppError("Product not found", 404);
+                throw new app_error_1.AppError("Product not found", 404);
             return product;
         });
     },
     create(payload, files, userId) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!payload.name)
-                throw new appError_1.AppError("name is required", 400);
+                throw new app_error_1.AppError("name is required", 400);
             if (!payload.category)
-                throw new appError_1.AppError("category is required", 400);
+                throw new app_error_1.AppError("category is required", 400);
             const seller = payload.seller || userId;
             if (!seller)
-                throw new appError_1.AppError("seller is required", 400);
+                throw new app_error_1.AppError("seller is required", 400);
             const uploaded = (files === null || files === void 0 ? void 0 : files.map((file) => `/uploads/${file.filename}`)) || [];
             const images = [...toStringArray(payload.images), ...uploaded];
             const variants = parseJson(payload.variants, []);
@@ -212,10 +232,15 @@ exports.productService = {
                     String(payload.category),
                 ].join("|"),
             });
+            void (0, activity_log_publisher_1.publishProductActivity)({
+                action: "PRODUCT_CREATED",
+                productId: String(product._id),
+                userId,
+            }).catch(console.error);
             return product;
         });
     },
-    update(id, payload, files) {
+    update(id, payload, files, userId) {
         return __awaiter(this, void 0, void 0, function* () {
             const updates = Object.assign({}, payload);
             if (payload.name !== undefined && payload.slug === undefined) {
@@ -247,21 +272,36 @@ exports.productService = {
             }
             const product = yield product_repository_1.productRepository.update(id, updates);
             if (!product)
-                throw new appError_1.AppError("Product not found.", 404);
+                throw new app_error_1.AppError("Product not found.", 404);
+            void (0, activity_log_publisher_1.publishProductActivity)({
+                action: "PRODUCT_UPDATED",
+                productId: String(product._id || id),
+                userId,
+            }).catch(console.error);
             return product;
         });
     },
-    remove(id) {
+    remove(id, userId) {
         return __awaiter(this, void 0, void 0, function* () {
             const product = yield product_repository_1.productRepository.softDelete(id);
             if (!product)
-                throw new appError_1.AppError("Product not found.", 404);
+                throw new app_error_1.AppError("Product not found.", 404);
+            void (0, activity_log_publisher_1.publishProductActivity)({
+                action: "PRODUCT_DELETED",
+                productId: String(product._id || id),
+                userId,
+            }).catch(console.error);
             return { msg: "Product deleted successfully." };
         });
     },
-    removeMany(ids) {
+    removeMany(ids, userId) {
         return __awaiter(this, void 0, void 0, function* () {
             yield product_model_1.default.updateMany({ _id: { $in: ids } }, { isDeleted: true, deletedAt: new Date() });
+            void (0, activity_log_publisher_1.publishProductActivity)({
+                action: "PRODUCT_DELETED",
+                productIds: ids.map(String),
+                userId,
+            }).catch(console.error);
             return { msg: "Products deleted successfully." };
         });
     },

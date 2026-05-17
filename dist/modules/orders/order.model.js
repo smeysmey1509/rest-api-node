@@ -10,14 +10,182 @@ var __createBinding = (this && this.__createBinding) || (Object.create ? (functi
     if (k2 === undefined) k2 = k;
     o[k2] = m[k];
 }));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = void 0;
-var Order_1 = require("../../models/Order");
-Object.defineProperty(exports, "default", { enumerable: true, get: function () { return __importDefault(Order_1).default; } });
-__exportStar(require("../../models/Order"), exports);
+const mongoose_1 = __importStar(require("mongoose"));
+const OrderItemSchema = new mongoose_1.Schema({
+    product: { type: mongoose_1.Schema.Types.ObjectId, ref: "Product", required: true },
+    name: { type: String, required: true },
+    slug: { type: String },
+    image: { type: String },
+    price: { type: Number, required: true, min: 0 },
+    quantity: { type: Number, required: true, min: 1 },
+}, { _id: false });
+const ShippingAddressSchema = new mongoose_1.Schema({
+    fullName: { type: String },
+    phone: { type: String },
+    email: { type: String },
+    line1: { type: String, required: true },
+    line2: { type: String },
+    city: { type: String },
+    state: { type: String },
+    postalCode: { type: String },
+    country: { type: String, required: true },
+    type: { type: String },
+    isDefault: { type: Boolean, default: false },
+}, { _id: false });
+const PaymentSchema = new mongoose_1.Schema({
+    method: { type: String },
+    status: {
+        type: String,
+        enum: [
+            "PENDING",
+            "SUCCESS",
+            "FAILED",
+            "CANCELLED",
+            "REFUNDED",
+            "pending",
+            "authorized",
+            "paid",
+            "failed",
+            "cancelled",
+            "refunded",
+        ],
+        default: "PENDING",
+    },
+    transactionId: { type: String },
+    currency: { type: String },
+    paidAt: { type: Date, default: null },
+}, { _id: false });
+const DeliverySummarySchema = new mongoose_1.Schema({
+    setting: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: "DeliverySetting",
+        default: null,
+    },
+    method: { type: String, required: true },
+    baseFee: { type: Number },
+    estimatedDays: { type: Number },
+    code: { type: String },
+    carrier: { type: String },
+    trackingNumber: { type: String },
+    trackingUrl: { type: String },
+    estimatedDeliveryDate: { type: Date, default: null },
+}, { _id: false });
+const ContactSchema = new mongoose_1.Schema({
+    fullName: { type: String },
+    email: { type: String },
+    phone: { type: String },
+}, { _id: false });
+const PromoSummarySchema = new mongoose_1.Schema({
+    code: { type: String, required: true },
+    type: { type: String },
+    value: { type: Number },
+    amount: { type: Number },
+    maxUsesPerUser: { type: Number },
+    expiresAt: { type: Date },
+}, { _id: false });
+const OrderSummarySchema = new mongoose_1.Schema({
+    subTotal: { type: Number, required: true, min: 0 },
+    discount: { type: Number, required: true, min: 0 },
+    deliveryFee: { type: Number, required: true, min: 0 },
+    serviceTax: { type: Number, required: true, min: 0 },
+    total: { type: Number, required: true, min: 0 },
+    taxRate: { type: Number, required: true, min: 0 },
+    promoCode: { type: String, default: null },
+    promo: { type: PromoSummarySchema, default: null },
+}, { _id: false });
+const StatusHistorySchema = new mongoose_1.Schema({
+    status: {
+        type: String,
+        enum: [
+            "PENDING_PAYMENT",
+            "PAID",
+            "PROCESSING",
+            "SHIPPED",
+            "DELIVERED",
+            "CANCELLED",
+            "REFUNDED",
+            "FAILED",
+            "pending",
+            "processing",
+            "paid",
+            "shipped",
+            "delivered",
+            "cancelled",
+            "refunded",
+            "failed",
+        ],
+        required: true,
+    },
+    message: { type: String },
+    updatedAt: { type: Date, required: false },
+}, { _id: false });
+const OrderMetaSchema = new mongoose_1.Schema({
+    ip: { type: String, default: null },
+    device: { type: String, default: null },
+    userAgent: { type: String, default: null },
+    location: { type: String, default: null },
+}, { _id: false });
+const OrderSchema = new mongoose_1.Schema({
+    user: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true },
+    items: { type: [OrderItemSchema], required: true },
+    subTotal: { type: Number, required: true, min: 0 },
+    discount: { type: Number, default: 0, min: 0 },
+    deliveryFee: { type: Number, default: 0, min: 0 },
+    serviceTax: { type: Number, default: 0, min: 0 },
+    total: { type: Number, required: true, min: 0 },
+    status: {
+        type: String,
+        enum: [
+            "PENDING_PAYMENT",
+            "PAID",
+            "PROCESSING",
+            "SHIPPED",
+            "DELIVERED",
+            "CANCELLED",
+            "REFUNDED",
+            "FAILED",
+            "pending",
+            "processing",
+            "paid",
+            "shipped",
+            "delivered",
+            "cancelled",
+            "refunded",
+            "failed",
+        ],
+        default: "PENDING_PAYMENT",
+    },
+    statusHistory: { type: [StatusHistorySchema], default: [] },
+    meta: { type: OrderMetaSchema, default: () => ({}) },
+    payment: { type: PaymentSchema, default: () => ({ status: "PENDING" }) },
+    shippingAddress: { type: ShippingAddressSchema, required: false },
+    delivery: { type: DeliverySummarySchema, required: false },
+    promoCode: { type: mongoose_1.Schema.Types.ObjectId, ref: "PromoCode", default: null },
+    notes: { type: String },
+    contact: { type: ContactSchema, required: false },
+    summary: { type: OrderSummarySchema, required: true },
+}, { timestamps: true });
+exports.default = mongoose_1.default.model("Order", OrderSchema);

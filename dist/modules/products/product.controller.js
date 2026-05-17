@@ -49,21 +49,23 @@ exports.productController = {
     },
     update(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
-            const product = yield product_service_1.productService.update(req.params.id, req.body || {}, getFiles(req));
+            var _a;
+            const product = yield product_service_1.productService.update(req.params.id, req.body || {}, getFiles(req), (_a = req.user) === null || _a === void 0 ? void 0 : _a.id);
             res.status(200).json(product);
         });
     },
     remove(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
-            const result = yield product_service_1.productService.remove(req.params.id);
+            var _a;
+            const result = yield product_service_1.productService.remove(req.params.id, (_a = req.user) === null || _a === void 0 ? void 0 : _a.id);
             res.status(200).json(result);
         });
     },
     removeMany(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a;
+            var _a, _b;
             const ids = Array.isArray((_a = req.body) === null || _a === void 0 ? void 0 : _a.ids) ? req.body.ids : [];
-            const result = yield product_service_1.productService.removeMany(ids);
+            const result = yield product_service_1.productService.removeMany(ids, (_b = req.user) === null || _b === void 0 ? void 0 : _b.id);
             res.status(200).json(result);
         });
     },

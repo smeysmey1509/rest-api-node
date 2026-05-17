@@ -2,7 +2,7 @@ import mongoose, { Document, Schema, Types } from "mongoose";
 import {
   PaymentStatus,
   PaymentStatusValue,
-} from "../../common/constants/paymentStatus";
+} from "../../shared/constants/paymentStatus";
 
 export const PaymentMethod = {
   NORMAL_PAYMENT: "NORMAL_PAYMENT",

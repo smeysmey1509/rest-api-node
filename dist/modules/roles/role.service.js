@@ -10,7 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.roleService = void 0;
-const roles_1 = require("../../common/constants/roles");
+const roles_1 = require("../../shared/constants/roles");
 const role_repository_1 = require("./role.repository");
 exports.roleService = {
     listRoles() {

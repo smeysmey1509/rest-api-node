@@ -1,8 +1,8 @@
 import { randomUUID } from "crypto";
 import jwt, { Secret, SignOptions } from "jsonwebtoken";
 import { jwtConfig } from "../../config/jwt";
-import { Roles } from "../../common/constants/roles";
-import { AppError } from "../../common/utils/appError";
+import { Roles } from "../../shared/constants/roles";
+import { AppError } from "../../shared/errors/app-error";
 import { authRepository } from "./auth.repository";
 
 const normalizeEmail = (email: string) => email.toLowerCase().trim();

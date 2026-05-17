@@ -14,7 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 require("dotenv/config");
 const mongoose_1 = __importDefault(require("mongoose"));
-const Product_1 = __importDefault(require("../models/Product"));
+const product_model_1 = __importDefault(require("../modules/products/product.model"));
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         const uri = process.env.MONGO_URI;
@@ -22,7 +22,7 @@ function run() {
             throw new Error("MONGO_URI is missing. Set it in your .env or pass it inline.");
         }
         yield mongoose_1.default.connect(uri);
-        yield Product_1.default.updateMany({ image: { $exists: true } }, [
+        yield product_model_1.default.updateMany({ image: { $exists: true } }, [
             {
                 $set: {
                     images: {

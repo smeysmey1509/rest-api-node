@@ -51,9 +51,9 @@ const order_model_1 = __importDefault(require("../orders/order.model"));
 const product_model_1 = __importDefault(require("../products/product.model"));
 const payment_model_1 = __importStar(require("./payment.model"));
 const payment_repository_1 = require("./payment.repository");
-const paymentStatus_1 = require("../../common/constants/paymentStatus");
-const orderStatus_1 = require("../../common/constants/orderStatus");
-const appError_1 = require("../../common/utils/appError");
+const paymentStatus_1 = require("../../shared/constants/paymentStatus");
+const orderStatus_1 = require("../../shared/constants/orderStatus");
+const app_error_1 = require("../../shared/errors/app-error");
 const normal_gateway_1 = require("./gateways/normal.gateway");
 const card_gateway_1 = require("./gateways/card.gateway");
 const bankTransfer_gateway_1 = require("./gateways/bankTransfer.gateway");
@@ -63,7 +63,7 @@ const normalizePaymentMethod = (method) => {
     if (Object.values(payment_model_1.PaymentMethod).includes(normalized)) {
         return normalized;
     }
-    throw new appError_1.AppError("Unsupported payment method", 400);
+    throw new app_error_1.AppError("Unsupported payment method", 400);
 };
 const createTransactionId = () => {
     const timestamp = Date.now().toString().slice(-10);
@@ -127,7 +127,7 @@ exports.paymentService = {
         return __awaiter(this, void 0, void 0, function* () {
             const payment = yield payment_repository_1.paymentRepository.findById(id);
             if (!payment)
-                throw new appError_1.AppError("Payment not found", 404);
+                throw new app_error_1.AppError("Payment not found", 404);
             return payment;
         });
     },
@@ -135,7 +135,7 @@ exports.paymentService = {
         return __awaiter(this, void 0, void 0, function* () {
             const payment = yield payment_repository_1.paymentRepository.findById(id);
             if (!payment)
-                throw new appError_1.AppError("Payment not found", 404);
+                throw new app_error_1.AppError("Payment not found", 404);
             const result = yield getGateway(payment.method).verify(payment.transactionId);
             if (result.success) {
                 return this.markSuccess(payment, result.raw, result.paidAt || new Date());
@@ -150,7 +150,7 @@ exports.paymentService = {
         return __awaiter(this, void 0, void 0, function* () {
             const payment = yield payment_repository_1.paymentRepository.findById(id);
             if (!payment)
-                throw new appError_1.AppError("Payment not found", 404);
+                throw new app_error_1.AppError("Payment not found", 404);
             return this.markSuccess(payment, { manual: true }, new Date());
         });
     },
@@ -163,18 +163,18 @@ exports.paymentService = {
             try {
                 const freshPayment = yield payment_model_1.default.findById(payment._id).session(session);
                 if (!freshPayment)
-                    throw new appError_1.AppError("Payment not found", 404);
+                    throw new app_error_1.AppError("Payment not found", 404);
                 if (freshPayment.status === paymentStatus_1.PaymentStatus.SUCCESS) {
                     yield session.commitTransaction();
                     return freshPayment;
                 }
                 const order = yield order_model_1.default.findById(freshPayment.order).session(session);
                 if (!order)
-                    throw new appError_1.AppError("Order not found", 404);
+                    throw new app_error_1.AppError("Order not found", 404);
                 for (const item of order.items) {
                     const result = yield product_model_1.default.updateOne({ _id: item.product, stock: { $gte: item.quantity } }, { $inc: { stock: -item.quantity, salesCount: item.quantity } }, { session });
                     if (result.modifiedCount !== 1) {
-                        throw new appError_1.AppError(`Not enough stock for ${item.name}.`, 400);
+                        throw new app_error_1.AppError(`Not enough stock for ${item.name}.`, 400);
                     }
                 }
                 freshPayment.status = paymentStatus_1.PaymentStatus.SUCCESS;

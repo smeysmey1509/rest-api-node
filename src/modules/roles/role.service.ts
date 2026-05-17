@@ -1,4 +1,4 @@
-import { Roles } from "../../common/constants/roles";
+import { Roles } from "../../shared/constants/roles";
 import { roleRepository } from "./role.repository";
 
 export const roleService = {

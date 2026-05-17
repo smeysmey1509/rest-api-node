@@ -1,6 +1,6 @@
-import { AppError } from "../../common/utils/appError";
-import { normalizeOrderStatus, OrderStatus } from "../../common/constants/orderStatus";
-import { PaymentStatus } from "../../common/constants/paymentStatus";
+import { AppError } from "../../shared/errors/app-error";
+import { normalizeOrderStatus, OrderStatus } from "../../shared/constants/orderStatus";
+import { PaymentStatus } from "../../shared/constants/paymentStatus";
 import { paymentService } from "../payments/payment.service";
 import { orderRepository } from "./order.repository";
 

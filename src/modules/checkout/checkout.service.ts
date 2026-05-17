@@ -5,14 +5,14 @@ import Order, {
   IDeliverySummary,
   IShippingAddress,
 } from "../orders/order.model";
-import DeliverySetting from "../../models/DeliverySetting";
-import PromoCode from "../../models/PromoCode";
-import PromoUsage from "../../models/PromoUsage";
-import { calculateCartTotals } from "../../main/utils/cartTotals";
-import { invalidateCart, setCachedCart } from "../../main/utils/cache";
-import { AppError } from "../../common/utils/appError";
-import { OrderStatus } from "../../common/constants/orderStatus";
-import { PaymentStatus } from "../../common/constants/paymentStatus";
+import DeliverySetting from "../inventory/delivery-setting.model";
+import PromoCode from "../coupons/coupon.model";
+import PromoUsage from "../coupons/coupon-usage.model";
+import { calculateCartTotals } from "../../shared/helpers/cart-totals";
+import { invalidateCart, setCachedCart } from "../../infrastructure/redis/cache";
+import { AppError } from "../../shared/errors/app-error";
+import { OrderStatus } from "../../shared/constants/orderStatus";
+import { PaymentStatus } from "../../shared/constants/paymentStatus";
 import { paymentService } from "../payments/payment.service";
 
 type CheckoutBody = Record<string, any>;

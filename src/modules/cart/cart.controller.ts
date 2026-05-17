@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "../../common/middlewares/auth.middleware";
+import { AuthenticatedRequest } from "../../shared/middlewares/auth.middleware";
 import { cartService } from "./cart.service";
 
 const requireUserId = (req: AuthenticatedRequest) => String(req.user?.id || "");

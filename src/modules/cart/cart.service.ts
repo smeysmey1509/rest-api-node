@@ -1,11 +1,11 @@
 import Product from "../products/product.model";
-import PromoCode from "../../models/PromoCode";
-import PromoUsage from "../../models/PromoUsage";
-import DeliverySetting from "../../models/DeliverySetting";
-import { calculateCartTotals } from "../../main/utils/cartTotals";
-import { invalidateCart, setCachedCart } from "../../main/utils/cache";
-import { sanitizeCartItems } from "../../main/utils/cartSanitizer";
-import { AppError } from "../../common/utils/appError";
+import PromoCode from "../coupons/coupon.model";
+import PromoUsage from "../coupons/coupon-usage.model";
+import DeliverySetting from "../inventory/delivery-setting.model";
+import { calculateCartTotals } from "../../shared/helpers/cart-totals";
+import { invalidateCart, setCachedCart } from "../../infrastructure/redis/cache";
+import { sanitizeCartItems } from "../../shared/helpers/cart-sanitizer";
+import { AppError } from "../../shared/errors/app-error";
 import { cartRepository } from "./cart.repository";
 
 const subtotalFromCart = (cart: any): number =>

@@ -14,13 +14,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.cartService = exports.buildCartResponse = void 0;
 const product_model_1 = __importDefault(require("../products/product.model"));
-const PromoCode_1 = __importDefault(require("../../models/PromoCode"));
-const PromoUsage_1 = __importDefault(require("../../models/PromoUsage"));
-const DeliverySetting_1 = __importDefault(require("../../models/DeliverySetting"));
-const cartTotals_1 = require("../../main/utils/cartTotals");
-const cache_1 = require("../../main/utils/cache");
-const cartSanitizer_1 = require("../../main/utils/cartSanitizer");
-const appError_1 = require("../../common/utils/appError");
+const coupon_model_1 = __importDefault(require("../coupons/coupon.model"));
+const coupon_usage_model_1 = __importDefault(require("../coupons/coupon-usage.model"));
+const delivery_setting_model_1 = __importDefault(require("../inventory/delivery-setting.model"));
+const cart_totals_1 = require("../../shared/helpers/cart-totals");
+const cache_1 = require("../../infrastructure/redis/cache");
+const cart_sanitizer_1 = require("../../shared/helpers/cart-sanitizer");
+const app_error_1 = require("../../shared/errors/app-error");
 const cart_repository_1 = require("./cart.repository");
 const subtotalFromCart = (cart) => (cart.items || []).reduce((acc, item) => {
     var _a;
@@ -54,7 +54,7 @@ const resolveDeliveryMethod = (cart) => __awaiter(void 0, void 0, void 0, functi
     const chosen = cart === null || cart === void 0 ? void 0 : cart.delivery;
     if (chosen === null || chosen === void 0 ? void 0 : chosen.method)
         return String(chosen.method).toLowerCase();
-    const active = yield DeliverySetting_1.default.findOne({ isActive: true }).lean();
+    const active = yield delivery_setting_model_1.default.findOne({ isActive: true }).lean();
     return String((active === null || active === void 0 ? void 0 : active.method) || "standard").toLowerCase();
 });
 const buildCartResponse = (cartDoc) => __awaiter(void 0, void 0, void 0, function* () {
@@ -63,7 +63,7 @@ const buildCartResponse = (cartDoc) => __awaiter(void 0, void 0, void 0, functio
     yield cartDoc.populate("promoCode");
     yield cartDoc.populate("delivery");
     const deliveryDoc = cartDoc.delivery ||
-        (yield DeliverySetting_1.default.findOne({ isActive: true }).lean()) || {
+        (yield delivery_setting_model_1.default.findOne({ isActive: true }).lean()) || {
         _id: null,
         method: "standard",
         baseFee: 0,
@@ -83,7 +83,7 @@ const buildCartResponse = (cartDoc) => __awaiter(void 0, void 0, void 0, functio
         return {
             _id: cartDoc._id,
             user: cartDoc.user,
-            items: (0, cartSanitizer_1.sanitizeCartItems)(cartDoc.items),
+            items: (0, cart_sanitizer_1.sanitizeCartItems)(cartDoc.items),
             promoCode: null,
             delivery: deliveryDoc,
             summary: {
@@ -101,7 +101,7 @@ const buildCartResponse = (cartDoc) => __awaiter(void 0, void 0, void 0, functio
         };
     }
     const method = String(deliveryDoc.method || "standard").toLowerCase();
-    const { serviceTax, deliveryFee, total } = yield (0, cartTotals_1.calculateCartTotals)(subTotal, discount, method);
+    const { serviceTax, deliveryFee, total } = yield (0, cart_totals_1.calculateCartTotals)(subTotal, discount, method);
     const promoSummary = buildPromoSummary(cartDoc.promoCode, discount);
     const taxRate = computeTaxRate(subTotal, discount, serviceTax);
     cartDoc.subTotal = subTotal;
@@ -112,7 +112,7 @@ const buildCartResponse = (cartDoc) => __awaiter(void 0, void 0, void 0, functio
     return {
         _id: cartDoc._id,
         user: cartDoc.user,
-        items: (0, cartSanitizer_1.sanitizeCartItems)(cartDoc.items),
+        items: (0, cart_sanitizer_1.sanitizeCartItems)(cartDoc.items),
         promoCode: cartDoc.promoCode,
         delivery: deliveryDoc,
         summary: {
@@ -160,7 +160,7 @@ exports.cartService = {
         return __awaiter(this, arguments, void 0, function* (userId, productId, quantity = 1) {
             const product = yield product_model_1.default.findById(productId);
             if (!product)
-                throw new appError_1.AppError("Product not found.", 404);
+                throw new app_error_1.AppError("Product not found.", 404);
             let cart = yield cart_repository_1.cartRepository.findByUser(userId);
             if (!cart)
                 cart = cart_repository_1.cartRepository.createForUser(userId);
@@ -180,7 +180,7 @@ exports.cartService = {
         return __awaiter(this, void 0, void 0, function* () {
             const cart = yield cart_repository_1.cartRepository.findByUser(userId);
             if (!cart)
-                throw new appError_1.AppError("Cart not found.", 404);
+                throw new app_error_1.AppError("Cart not found.", 404);
             cart.items = cart.items.filter((item) => String(item.product) !== String(productId));
             yield cart.save();
             const response = yield (0, exports.buildCartResponse)(cart);
@@ -191,13 +191,13 @@ exports.cartService = {
     updateQuantity(userId, productId, quantity) {
         return __awaiter(this, void 0, void 0, function* () {
             if (quantity < 1)
-                throw new appError_1.AppError("Quantity must be at least 1.", 400);
+                throw new app_error_1.AppError("Quantity must be at least 1.", 400);
             const cart = yield cart_repository_1.cartRepository.findByUser(userId);
             if (!cart)
-                throw new appError_1.AppError("Cart not found.", 404);
+                throw new app_error_1.AppError("Cart not found.", 404);
             const item = cart.items.find((cartItem) => String(cartItem.product) === String(productId));
             if (!item)
-                throw new appError_1.AppError("Product not found in cart.", 404);
+                throw new app_error_1.AppError("Product not found in cart.", 404);
             item.quantity = quantity;
             yield cart.save();
             yield (0, cache_1.invalidateCart)(userId);
@@ -208,7 +208,7 @@ exports.cartService = {
         return __awaiter(this, void 0, void 0, function* () {
             const cart = yield cart_repository_1.cartRepository.findByUser(userId);
             if (!cart)
-                throw new appError_1.AppError("Cart not found.", 404);
+                throw new app_error_1.AppError("Cart not found.", 404);
             cart.items = [];
             cart.discount = 0;
             cart.promoCode = null;
@@ -225,25 +225,25 @@ exports.cartService = {
         return __awaiter(this, void 0, void 0, function* () {
             var _a;
             if (!code)
-                throw new appError_1.AppError("Promo code is required.", 400);
-            const promo = yield PromoCode_1.default.findOne({ code: code.toUpperCase(), isActive: true });
+                throw new app_error_1.AppError("Promo code is required.", 400);
+            const promo = yield coupon_model_1.default.findOne({ code: code.toUpperCase(), isActive: true });
             if (!promo)
-                throw new appError_1.AppError("Promo code not found or inactive.", 404);
+                throw new app_error_1.AppError("Promo code not found or inactive.", 404);
             if (promo.expiresAt < new Date())
-                throw new appError_1.AppError("Promo code has expired.", 400);
-            const usage = yield PromoUsage_1.default.findOne({ user: userId, promoCode: promo._id });
+                throw new app_error_1.AppError("Promo code has expired.", 400);
+            const usage = yield coupon_usage_model_1.default.findOne({ user: userId, promoCode: promo._id });
             if (usage && usage.usageCount >= promo.maxUsesPerUser) {
-                throw new appError_1.AppError(`Promo code usage limit reached (${promo.maxUsesPerUser} times).`, 400);
+                throw new app_error_1.AppError(`Promo code usage limit reached (${promo.maxUsesPerUser} times).`, 400);
             }
             const cart = yield cart_repository_1.cartRepository.findPopulatedByUser(userId);
             if (!cart)
-                throw new appError_1.AppError("Cart not found.", 404);
+                throw new app_error_1.AppError("Cart not found.", 404);
             const subtotal = subtotalFromCart(cart);
             const discountAmount = promo.discountType === "percentage"
                 ? subtotal * (promo.discountValue / 100)
                 : promo.discountValue;
             const method = yield resolveDeliveryMethod(cart);
-            const { serviceTax, deliveryFee, total } = yield (0, cartTotals_1.calculateCartTotals)(subtotal, discountAmount, method);
+            const { serviceTax, deliveryFee, total } = yield (0, cart_totals_1.calculateCartTotals)(subtotal, discountAmount, method);
             cart.promoCode = promo._id;
             cart.discount = discountAmount;
             cart.subTotal = subtotal;
@@ -271,7 +271,7 @@ exports.cartService = {
         return __awaiter(this, void 0, void 0, function* () {
             const cart = yield cart_repository_1.cartRepository.findPopulatedByUser(userId);
             if (!cart)
-                throw new appError_1.AppError("Cart not found.", 404);
+                throw new app_error_1.AppError("Cart not found.", 404);
             cart.promoCode = null;
             cart.discount = 0;
             yield cart.save();
@@ -282,13 +282,13 @@ exports.cartService = {
     selectDelivery(userId, method) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!method)
-                throw new appError_1.AppError("Delivery method is required.", 400);
-            const delivery = yield DeliverySetting_1.default.findOne({ method, isActive: true });
+                throw new app_error_1.AppError("Delivery method is required.", 400);
+            const delivery = yield delivery_setting_model_1.default.findOne({ method, isActive: true });
             if (!delivery)
-                throw new appError_1.AppError("Delivery method not found.", 404);
+                throw new app_error_1.AppError("Delivery method not found.", 404);
             const cart = yield cart_repository_1.cartRepository.findByUser(userId);
             if (!cart)
-                throw new appError_1.AppError("Cart not found.", 404);
+                throw new app_error_1.AppError("Cart not found.", 404);
             cart.delivery = delivery._id;
             yield cart.save();
             yield (0, cache_1.invalidateCart)(userId);

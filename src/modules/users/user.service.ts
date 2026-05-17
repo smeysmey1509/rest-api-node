@@ -1,5 +1,5 @@
-import { AppError } from "../../common/utils/appError";
-import { getPagination, getPaginationMeta } from "../../common/utils/pagination";
+import { AppError } from "../../shared/errors/app-error";
+import { getPagination, getPaginationMeta } from "../../shared/utils/pagination";
 import { userRepository } from "./user.repository";
 
 const profileFields = ["name", "email", "limit"];

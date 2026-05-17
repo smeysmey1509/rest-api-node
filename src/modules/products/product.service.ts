@@ -1,10 +1,11 @@
 import mongoose, { Types } from "mongoose";
-import { AppError } from "../../common/utils/appError";
-import { generateSlug } from "../../common/utils/generateSlug";
-import { normalizeRole, Roles } from "../../common/constants/roles";
-import { getPagination, getPaginationMeta } from "../../common/utils/pagination";
+import { AppError } from "../../shared/errors/app-error";
+import { generateSlug } from "../../shared/utils/generateSlug";
+import { normalizeRole, Roles } from "../../shared/constants/roles";
+import { getPagination, getPaginationMeta } from "../../shared/utils/pagination";
 import { productRepository } from "./product.repository";
 import Product from "./product.model";
+import { publishProductActivity } from "../activity-logs/activity-log.publisher";
 
 const toNumber = (value: unknown, fallback = 0) => {
   const num = Number(value);
@@ -185,10 +186,16 @@ export const productService = {
       ].join("|"),
     });
 
+    void publishProductActivity({
+      action: "PRODUCT_CREATED",
+      productId: String(product._id),
+      userId,
+    }).catch(console.error);
+
     return product;
   },
 
-  async update(id: string, payload: Record<string, unknown>, files: Express.Multer.File[] | undefined) {
+  async update(id: string, payload: Record<string, unknown>, files: Express.Multer.File[] | undefined, userId?: string) {
     const updates: Record<string, unknown> = { ...payload };
     if (payload.name !== undefined && payload.slug === undefined) {
       updates.slug = generateSlug(String(payload.name));
@@ -211,17 +218,32 @@ export const productService = {
 
     const product = await productRepository.update(id, updates);
     if (!product) throw new AppError("Product not found.", 404);
+    void publishProductActivity({
+      action: "PRODUCT_UPDATED",
+      productId: String((product as any)._id || id),
+      userId,
+    }).catch(console.error);
     return product;
   },
 
-  async remove(id: string) {
+  async remove(id: string, userId?: string) {
     const product = await productRepository.softDelete(id);
     if (!product) throw new AppError("Product not found.", 404);
+    void publishProductActivity({
+      action: "PRODUCT_DELETED",
+      productId: String((product as any)._id || id),
+      userId,
+    }).catch(console.error);
     return { msg: "Product deleted successfully." };
   },
 
-  async removeMany(ids: string[]) {
+  async removeMany(ids: string[], userId?: string) {
     await Product.updateMany({ _id: { $in: ids } }, { isDeleted: true, deletedAt: new Date() });
+    void publishProductActivity({
+      action: "PRODUCT_DELETED",
+      productIds: ids.map(String),
+      userId,
+    }).catch(console.error);
     return { msg: "Products deleted successfully." };
   },
 

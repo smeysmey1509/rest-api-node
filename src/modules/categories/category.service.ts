@@ -1,6 +1,6 @@
 import Product from "../products/product.model";
-import { AppError } from "../../common/utils/appError";
-import { generateSlug } from "../../common/utils/generateSlug";
+import { AppError } from "../../shared/errors/app-error";
+import { generateSlug } from "../../shared/utils/generateSlug";
 import { categoryRepository } from "./category.repository";
 
 const parseSort = (input?: string): Record<string, 1 | -1> => {

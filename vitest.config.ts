@@ -6,6 +6,7 @@ export default defineConfig({
     // They can take more than Vitest's default 5s/10s on local machines.
     testTimeout: 30_000,
     hookTimeout: 60_000,
+    exclude: ["node_modules", "dist"],
 
     // The tests share Mongoose's global connection, so running test files in
     // parallel can cause connection teardown/setup races and slow hooks.

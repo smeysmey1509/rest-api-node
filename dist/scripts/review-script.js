@@ -14,12 +14,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.recomputeAllRatings = recomputeAllRatings;
 // one-off script or admin endpoint
-const Review_1 = __importDefault(require("../models/Review"));
-const Product_1 = __importDefault(require("../models/Product"));
+const review_model_1 = __importDefault(require("../modules/reviews/review.model"));
+const product_model_1 = __importDefault(require("../modules/products/product.model"));
 const mongoose_1 = __importDefault(require("mongoose"));
 function recomputeAllRatings(productId) {
     return __awaiter(this, void 0, void 0, function* () {
-        const agg = yield Review_1.default.aggregate([
+        const agg = yield review_model_1.default.aggregate([
             { $match: { product: new mongoose_1.default.Types.ObjectId(productId) } },
             {
                 $group: {
@@ -32,6 +32,6 @@ function recomputeAllRatings(productId) {
         const row = agg[0];
         const avg = row ? Number(row.avg.toFixed(2)) : 0;
         const cnt = row ? row.cnt : 0;
-        yield Product_1.default.updateOne({ _id: productId }, { $set: { ratingAvg: avg, ratingCount: cnt } });
+        yield product_model_1.default.updateOne({ _id: productId }, { $set: { ratingAvg: avg, ratingCount: cnt } });
     });
 }

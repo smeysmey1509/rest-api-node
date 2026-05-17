@@ -16,14 +16,14 @@ exports.checkoutService = void 0;
 const mongoose_1 = require("mongoose");
 const cart_model_1 = __importDefault(require("../cart/cart.model"));
 const order_model_1 = __importDefault(require("../orders/order.model"));
-const DeliverySetting_1 = __importDefault(require("../../models/DeliverySetting"));
-const PromoCode_1 = __importDefault(require("../../models/PromoCode"));
-const PromoUsage_1 = __importDefault(require("../../models/PromoUsage"));
-const cartTotals_1 = require("../../main/utils/cartTotals");
-const cache_1 = require("../../main/utils/cache");
-const appError_1 = require("../../common/utils/appError");
-const orderStatus_1 = require("../../common/constants/orderStatus");
-const paymentStatus_1 = require("../../common/constants/paymentStatus");
+const delivery_setting_model_1 = __importDefault(require("../inventory/delivery-setting.model"));
+const coupon_model_1 = __importDefault(require("../coupons/coupon.model"));
+const coupon_usage_model_1 = __importDefault(require("../coupons/coupon-usage.model"));
+const cart_totals_1 = require("../../shared/helpers/cart-totals");
+const cache_1 = require("../../infrastructure/redis/cache");
+const app_error_1 = require("../../shared/errors/app-error");
+const orderStatus_1 = require("../../shared/constants/orderStatus");
+const paymentStatus_1 = require("../../shared/constants/paymentStatus");
 const payment_service_1 = require("../payments/payment.service");
 const toTrimmedString = (value) => {
     if (value === undefined || value === null)
@@ -59,7 +59,7 @@ const normalizeAddress = (payload, fallbackContact) => {
     const line1 = coalesceString(payload, ["line1", "address1", "addressLine1", "street", "address"]);
     const country = coalesceString(payload, ["country", "countryCode", "countryName"]);
     if (!line1 || !country)
-        throw new appError_1.AppError("Shipping address requires line1 and country.", 400);
+        throw new app_error_1.AppError("Shipping address requires line1 and country.", 400);
     return {
         fullName: coalesceString(payload, ["fullName", "name", "recipientName"]) || (fallbackContact === null || fallbackContact === void 0 ? void 0 : fallbackContact.fullName),
         phone: coalesceString(payload, ["phone", "contactNumber", "contactPhone", "mobile"]) || (fallbackContact === null || fallbackContact === void 0 ? void 0 : fallbackContact.phone),
@@ -96,10 +96,10 @@ const resolveDelivery = (cart, body) => __awaiter(void 0, void 0, void 0, functi
     const selection = body.deliverySelection || body.delivery || {};
     const methodId = toTrimmedString(body.deliveryMethodId) || toTrimmedString(selection.id) || toTrimmedString(selection._id) || toTrimmedString(selection.setting);
     const method = toTrimmedString(body.deliveryMethod) || toTrimmedString(selection.method);
-    const doc = (methodId ? yield DeliverySetting_1.default.findById(methodId).lean() : null) ||
-        (method ? yield DeliverySetting_1.default.findOne({ method, isActive: true }).lean() : null) ||
+    const doc = (methodId ? yield delivery_setting_model_1.default.findById(methodId).lean() : null) ||
+        (method ? yield delivery_setting_model_1.default.findOne({ method, isActive: true }).lean() : null) ||
         (((_a = cart.delivery) === null || _a === void 0 ? void 0 : _a.method) ? cart.delivery : null) ||
-        (yield DeliverySetting_1.default.findOne({ isActive: true }).lean());
+        (yield delivery_setting_model_1.default.findOne({ isActive: true }).lean());
     if (!doc)
         return undefined;
     const rawId = doc._id || doc.id || null;
@@ -116,7 +116,7 @@ const resolveDelivery = (cart, body) => __awaiter(void 0, void 0, void 0, functi
     };
 });
 const incrementPromoUsage = (userId, promoCodeId, maxUsesPerUser) => __awaiter(void 0, void 0, void 0, function* () {
-    return PromoUsage_1.default.findOneAndUpdate({
+    return coupon_usage_model_1.default.findOneAndUpdate({
         user: userId,
         promoCode: promoCodeId,
         $or: [{ usageCount: { $lt: maxUsesPerUser } }, { usageCount: { $exists: false } }],
@@ -134,21 +134,21 @@ exports.checkoutService = {
                 .populate("promoCode")
                 .populate("delivery");
             if (!cart || cart.items.length === 0)
-                throw new appError_1.AppError("Cart is empty.", 400);
+                throw new app_error_1.AppError("Cart is empty.", 400);
             const delivery = yield resolveDelivery(cart, body);
             if (!delivery)
-                throw new appError_1.AppError("No delivery methods are currently available.", 400);
+                throw new app_error_1.AppError("No delivery methods are currently available.", 400);
             for (const item of cart.items) {
                 const product = item.product;
                 if (!product || product.isDeleted)
-                    throw new appError_1.AppError("One of the products is unavailable.", 400);
+                    throw new app_error_1.AppError("One of the products is unavailable.", 400);
                 if (typeof product.stock === "number" && product.stock < item.quantity) {
-                    throw new appError_1.AppError(`Not enough stock for ${product.name}.`, 400);
+                    throw new app_error_1.AppError(`Not enough stock for ${product.name}.`, 400);
                 }
             }
             const subTotal = cart.items.reduce((acc, item) => { var _a; return acc + (((_a = item.product) === null || _a === void 0 ? void 0 : _a.price) || 0) * item.quantity; }, 0);
             const discount = cart.discount || 0;
-            const { serviceTax, deliveryFee, total } = yield (0, cartTotals_1.calculateCartTotals)(subTotal, discount, delivery.method || "standard");
+            const { serviceTax, deliveryFee, total } = yield (0, cart_totals_1.calculateCartTotals)(subTotal, discount, delivery.method || "standard");
             const taxableBase = Math.max(subTotal - discount, 0);
             const taxRate = taxableBase > 0 ? Number((serviceTax / taxableBase).toFixed(4)) : 0;
             const promoSummary = buildPromoSummary(cart.promoCode, discount);
@@ -156,16 +156,16 @@ exports.checkoutService = {
             if (cart.promoCode) {
                 const promoRecord = typeof cart.promoCode.toObject === "function"
                     ? cart.promoCode
-                    : yield PromoCode_1.default.findById(cart.promoCode);
+                    : yield coupon_model_1.default.findById(cart.promoCode);
                 if (!promoRecord)
-                    throw new appError_1.AppError("Promo code not found.", 400);
+                    throw new app_error_1.AppError("Promo code not found.", 400);
                 if (!promoRecord.isActive)
-                    throw new appError_1.AppError("Promo code is inactive.", 400);
+                    throw new app_error_1.AppError("Promo code is inactive.", 400);
                 if (promoRecord.expiresAt < new Date())
-                    throw new appError_1.AppError("Promo code has expired.", 400);
-                const usage = yield PromoUsage_1.default.findOne({ user: userId, promoCode: promoRecord._id });
+                    throw new app_error_1.AppError("Promo code has expired.", 400);
+                const usage = yield coupon_usage_model_1.default.findOne({ user: userId, promoCode: promoRecord._id });
                 if (usage && usage.usageCount >= promoRecord.maxUsesPerUser) {
-                    throw new appError_1.AppError(`Promo code usage limit reached (${promoRecord.maxUsesPerUser} times).`, 400);
+                    throw new app_error_1.AppError(`Promo code usage limit reached (${promoRecord.maxUsesPerUser} times).`, 400);
                 }
                 promoToConsume = { id: promoRecord._id, maxUsesPerUser: promoRecord.maxUsesPerUser };
             }
@@ -229,7 +229,7 @@ exports.checkoutService = {
                 const updated = yield incrementPromoUsage(userId, promoToConsume.id, promoToConsume.maxUsesPerUser);
                 if (!updated) {
                     yield order_model_1.default.findByIdAndDelete(order._id);
-                    throw new appError_1.AppError(`Promo code usage limit reached (${promoToConsume.maxUsesPerUser} times).`, 400);
+                    throw new app_error_1.AppError(`Promo code usage limit reached (${promoToConsume.maxUsesPerUser} times).`, 400);
                 }
             }
             const payment = yield payment_service_1.paymentService.createForOrder(order, paymentMethod);

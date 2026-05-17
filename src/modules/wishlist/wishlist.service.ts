@@ -1,5 +1,5 @@
 import Product from "../products/product.model";
-import { AppError } from "../../common/utils/appError";
+import { AppError } from "../../shared/errors/app-error";
 import { wishlistRepository } from "./wishlist.repository";
 import { cartService } from "../cart/cart.service";
 

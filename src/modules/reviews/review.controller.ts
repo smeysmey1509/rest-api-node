@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "../../common/middlewares/auth.middleware";
+import { AuthenticatedRequest } from "../../shared/middlewares/auth.middleware";
 import { reviewService } from "./review.service";
 
 export const reviewController = {

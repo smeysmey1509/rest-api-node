@@ -31,9 +31,9 @@ const user_model_1 = __importDefault(require("../../users/user.model"));
 const category_model_1 = __importDefault(require("../../categories/category.model"));
 const product_model_1 = __importDefault(require("../../products/product.model"));
 const cart_model_1 = __importDefault(require("../cart.model"));
-const PromoCode_1 = __importDefault(require("../../../models/PromoCode"));
-const PromoUsage_1 = __importDefault(require("../../../models/PromoUsage"));
-const DeliverySetting_1 = __importDefault(require("../../../models/DeliverySetting"));
+const coupon_model_1 = __importDefault(require("../../coupons/coupon.model"));
+const coupon_usage_model_1 = __importDefault(require("../../coupons/coupon-usage.model"));
+const delivery_setting_model_1 = __importDefault(require("../../inventory/delivery-setting.model"));
 let mongo;
 const getId = (doc) => String(doc._id);
 const uniqueEmail = (prefix) => {
@@ -114,7 +114,7 @@ const createProduct = (...args_1) => __awaiter(void 0, [...args_1], void 0, func
 });
 const createPromo = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (overrides = {}) {
     var _a, _b, _c;
-    return PromoCode_1.default.create({
+    return coupon_model_1.default.create({
         code: overrides.code || uniqueCode("PROMO"),
         discountType: overrides.discountType || "percentage",
         discountValue: (_a = overrides.discountValue) !== null && _a !== void 0 ? _a : 10,
@@ -125,7 +125,7 @@ const createPromo = (...args_1) => __awaiter(void 0, [...args_1], void 0, functi
 });
 const createDeliverySetting = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (overrides = {}) {
     var _a, _b, _c, _d;
-    return DeliverySetting_1.default.create({
+    return delivery_setting_model_1.default.create({
         method: overrides.method || uniqueName("standard"),
         baseFee: (_a = overrides.baseFee) !== null && _a !== void 0 ? _a : 0,
         freeThreshold: overrides.freeThreshold,
@@ -155,9 +155,9 @@ const addProductToCart = (accessToken_1, productId_1, ...args_1) => __awaiter(vo
 }));
 (0, vitest_1.afterEach)(() => __awaiter(void 0, void 0, void 0, function* () {
     yield cart_model_1.default.deleteMany({});
-    yield PromoUsage_1.default.deleteMany({});
-    yield PromoCode_1.default.deleteMany({});
-    yield DeliverySetting_1.default.deleteMany({});
+    yield coupon_usage_model_1.default.deleteMany({});
+    yield coupon_model_1.default.deleteMany({});
+    yield delivery_setting_model_1.default.deleteMany({});
     yield product_model_1.default.deleteMany({}).setOptions({ withDeleted: true });
     yield category_model_1.default.deleteMany({});
     yield user_model_1.default.deleteMany({});

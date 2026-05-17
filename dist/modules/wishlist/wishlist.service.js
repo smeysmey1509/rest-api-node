@@ -14,7 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.wishlistService = void 0;
 const product_model_1 = __importDefault(require("../products/product.model"));
-const appError_1 = require("../../common/utils/appError");
+const app_error_1 = require("../../shared/errors/app-error");
 const wishlist_repository_1 = require("./wishlist.repository");
 const cart_service_1 = require("../cart/cart.service");
 exports.wishlistService = {
@@ -41,16 +41,16 @@ exports.wishlistService = {
     add(userId, productId) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!productId)
-                throw new appError_1.AppError("Product ID is required.", 400);
+                throw new app_error_1.AppError("Product ID is required.", 400);
             const product = yield product_model_1.default.findById(productId);
             if (!product)
-                throw new appError_1.AppError("Product not found.", 404);
+                throw new app_error_1.AppError("Product not found.", 404);
             let wishlist = yield wishlist_repository_1.wishlistRepository.findByUser(userId);
             if (!wishlist)
                 wishlist = wishlist_repository_1.wishlistRepository.createForUser(userId);
             const alreadySaved = wishlist.items.some((item) => String(item.product) === String(productId));
             if (alreadySaved) {
-                throw new appError_1.AppError("Product already exists in wishlist.", 409, "DUPLICATE_WISHLIST_ITEM");
+                throw new app_error_1.AppError("Product already exists in wishlist.", 409, "DUPLICATE_WISHLIST_ITEM");
             }
             wishlist.items.push({ product: productId });
             yield wishlist.save();
@@ -62,10 +62,10 @@ exports.wishlistService = {
         return __awaiter(this, void 0, void 0, function* () {
             const wishlist = yield wishlist_repository_1.wishlistRepository.findByUser(userId);
             if (!wishlist)
-                throw new appError_1.AppError("Wishlist not found.", 404);
+                throw new app_error_1.AppError("Wishlist not found.", 404);
             const hadProduct = wishlist.items.some((item) => String(item.product) === String(productId));
             if (!hadProduct)
-                throw new appError_1.AppError("Product not found in wishlist.", 404);
+                throw new app_error_1.AppError("Product not found in wishlist.", 404);
             wishlist.items = wishlist.items.filter((item) => String(item.product) !== String(productId));
             yield wishlist.save();
             yield wishlist_repository_1.wishlistRepository.populateProducts(wishlist);

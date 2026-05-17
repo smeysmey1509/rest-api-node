@@ -10,9 +10,9 @@ import { paymentRepository } from "./payment.repository";
 import {
   PaymentStatus,
   PaymentStatusValue,
-} from "../../common/constants/paymentStatus";
-import { OrderStatus } from "../../common/constants/orderStatus";
-import { AppError } from "../../common/utils/appError";
+} from "../../shared/constants/paymentStatus";
+import { OrderStatus } from "../../shared/constants/orderStatus";
+import { AppError } from "../../shared/errors/app-error";
 import { normalGateway } from "./gateways/normal.gateway";
 import { cardGateway } from "./gateways/card.gateway";
 import { bankTransferGateway } from "./gateways/bankTransfer.gateway";

@@ -10,8 +10,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.brandService = void 0;
-const appError_1 = require("../../common/utils/appError");
-const generateSlug_1 = require("../../common/utils/generateSlug");
+const app_error_1 = require("../../shared/errors/app-error");
+const generateSlug_1 = require("../../shared/utils/generateSlug");
 const brand_repository_1 = require("./brand.repository");
 const parseSort = (input) => {
     const sort = {};
@@ -53,10 +53,10 @@ exports.brandService = {
         return __awaiter(this, void 0, void 0, function* () {
             const name = String(payload.name || "").trim();
             if (!name)
-                throw new appError_1.AppError("name is required", 400);
+                throw new app_error_1.AppError("name is required", 400);
             const slug = String(payload.slug || (0, generateSlug_1.generateSlug)(name)).trim();
             if (!slug)
-                throw new appError_1.AppError("slug could not be derived from name", 400);
+                throw new app_error_1.AppError("slug could not be derived from name", 400);
             try {
                 return yield brand_repository_1.brandRepository.create({
                     name,
@@ -66,7 +66,7 @@ exports.brandService = {
             }
             catch (err) {
                 if ((err === null || err === void 0 ? void 0 : err.code) === 11000)
-                    throw new appError_1.AppError("Brand already exists.", 409);
+                    throw new app_error_1.AppError("Brand already exists.", 409);
                 throw err;
             }
         });
@@ -82,7 +82,7 @@ exports.brandService = {
                 updates.isActive = Boolean(payload.isActive);
             const brand = yield brand_repository_1.brandRepository.update(id, updates);
             if (!brand)
-                throw new appError_1.AppError("Brand not found", 404);
+                throw new app_error_1.AppError("Brand not found", 404);
             return brand;
         });
     },
@@ -90,7 +90,7 @@ exports.brandService = {
         return __awaiter(this, void 0, void 0, function* () {
             const brand = yield brand_repository_1.brandRepository.delete(id);
             if (!brand)
-                throw new appError_1.AppError("Brand not found", 404);
+                throw new app_error_1.AppError("Brand not found", 404);
             return { msg: "Brand deleted successfully." };
         });
     },

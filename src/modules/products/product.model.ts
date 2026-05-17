@@ -1,6 +1,30 @@
 import mongoose, { Schema, Model, Types, Document } from "mongoose";
 
-export type PublishStatus = "Published" | "Unpublished";
+export type PublishStatus =
+  | "Published"
+  | "Unpublished"
+  | "DRAFT"
+  | "ACTIVE"
+  | "INACTIVE"
+  | "ARCHIVED";
+
+export type ProductType =
+  | "PHONE"
+  | "LAPTOP"
+  | "COMPUTER"
+  | "TABLET"
+  | "ACCESSORY"
+  | "ELECTRONIC"
+  | "OTHER";
+
+export type ProductTrackingType = "SERIAL" | "BATCH" | "NONE";
+
+export interface IProductImage {
+  url: string;
+  alt?: string;
+  isPrimary?: boolean;
+  sortOrder?: number;
+}
 
 export interface IDimensions {
   length: number;
@@ -27,10 +51,12 @@ export interface IProductVariant {
 export interface IProduct extends Document {
   // core
   productId: string;
+  productCode?: string;
   name: string;
   slug: string;
   description?: string;
   feature?: string;
+  features?: string[];
 
   // merchandising (LEGACY top-level, used when no variants exist)
   brand?: Types.ObjectId;
@@ -44,16 +70,20 @@ export interface IProduct extends Document {
   // relations
   category: Types.ObjectId;
   seller: Types.ObjectId;
+  brandId?: Types.ObjectId;
+  categoryId?: Types.ObjectId;
+  createdBy?: Types.ObjectId;
   productCollectionId?: Types.ObjectId;
   groupId?: string;
 
   // status & tags
   status: PublishStatus;
   tag: string[];
+  tags?: string[];
   isFeatured?: boolean;
 
   // media
-  images: string[];
+  images: Array<string | IProductImage>;
   primaryImageIndex: number;
 
   // analytics (denormalized for speed)
@@ -89,7 +119,8 @@ export interface IProduct extends Document {
   primaryImage?: string | null;
   discountPercent?: number;
   availableTotal?: number;
-  productType?: string;
+  productType?: ProductType | string;
+  trackingType?: ProductTrackingType;
 
   //price
   actualPrice?: number;
@@ -144,6 +175,16 @@ const VariantSchema = new Schema<IProductVariant>(
   { _id: true, timestamps: true }
 );
 
+const ImageSchema = new Schema<IProductImage>(
+  {
+    url: { type: String, required: true, trim: true },
+    alt: { type: String, trim: true, default: "" },
+    isPrimary: { type: Boolean, default: false },
+    sortOrder: { type: Number, default: 0 },
+  },
+  { _id: false }
+);
+
 const ProductSchema = new Schema<IProduct>(
   {
     // core
@@ -161,6 +202,19 @@ const ProductSchema = new Schema<IProduct>(
           "productId must be 3–32 chars, A–Z, 0–9, dot, underscore or dash (no spaces).",
       },
     },
+    productCode: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      validate: {
+        validator(v: string) {
+          if (!v) return true;
+          return CUSTOM_ID_RE.test(v);
+        },
+        message:
+          "productCode must be 3–32 chars, A–Z, 0–9, dot, underscore or dash (no spaces).",
+      },
+    },
     name: {
       type: String,
       required: true,
@@ -169,12 +223,14 @@ const ProductSchema = new Schema<IProduct>(
       maxlength: 200,
       index: true,
     },
-    slug: { type: String, required: false, index: true },
+    slug: { type: String, required: false },
     description: { type: String, default: "", maxlength: 256 },
     feature: { type: String, default: "", maxlength: 10000 },
+    features: { type: [String], default: [] },
 
     // merchandising (legacy top-level)
     brand: { type: Schema.Types.ObjectId, ref: "Brand", index: true },
+    brandId: { type: Schema.Types.ObjectId, ref: "Brand", index: true },
     price: {
       type: Number,
       min: 0,
@@ -222,10 +278,22 @@ const ProductSchema = new Schema<IProduct>(
       required: true,
       index: true,
     },
+    categoryId: {
+      type: Schema.Types.ObjectId,
+      ref: "Category",
+      required: false,
+      index: true,
+    },
     seller: {
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
+    },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: false,
       index: true,
     },
     productCollectionId: {
@@ -239,7 +307,7 @@ const ProductSchema = new Schema<IProduct>(
     // status & tags
     status: {
       type: String,
-      enum: ["Published", "Unpublished"],
+      enum: ["Published", "Unpublished", "DRAFT", "ACTIVE", "INACTIVE", "ARCHIVED"],
       default: "Published",
       index: true,
     },
@@ -252,10 +320,19 @@ const ProductSchema = new Schema<IProduct>(
         ),
       index: true,
     },
+    tags: {
+      type: [String],
+      default: [],
+      set: (arr: string[]) =>
+        Array.from(
+          new Set((arr || []).map((t) => String(t).trim()).filter(Boolean))
+        ),
+      index: true,
+    },
     isFeatured: { type: Boolean, default: false, index: true },
 
     // media
-    images: { type: [String], default: [] },
+    images: { type: [Schema.Types.Mixed], default: [] },
     primaryImageIndex: { type: Number, default: 0, min: 0 },
 
     // analytics
@@ -305,7 +382,18 @@ const ProductSchema = new Schema<IProduct>(
     priceMax: { type: Number, min: 0, index: true },
     cost: { type: Number, min: 0, index: true },
 
-    productType: { type: String, default: "" },
+    productType: {
+      type: String,
+      enum: ["PHONE", "LAPTOP", "COMPUTER", "TABLET", "ACCESSORY", "ELECTRONIC", "OTHER", ""],
+      default: "OTHER",
+      index: true,
+    },
+    trackingType: {
+      type: String,
+      enum: ["SERIAL", "BATCH", "NONE"],
+      default: "NONE",
+      index: true,
+    },
 
     //price
     actualPrice: { type: Number, min: 0, index: true },
@@ -357,6 +445,20 @@ function recomputePriceSummaries(doc: any) {
   }
 }
 
+function normalizeProductStatus(value: string | undefined) {
+  if (!value) return value;
+  const normalized = String(value).toUpperCase();
+  if (normalized === "PUBLISHED") return "Published";
+  if (normalized === "UNPUBLISHED") return "Unpublished";
+  return normalized;
+}
+
+function getImageUrl(image: string | IProductImage | undefined): string | null {
+  if (!image) return null;
+  if (typeof image === "string") return image;
+  return image.url || null;
+}
+
 // ---- Hooks ----
 
 // Normalize slug & productId and compute price summaries early
@@ -365,6 +467,7 @@ ProductSchema.pre("validate", function (next) {
   if (this.slug) this.slug = slugify(this.slug);
 
   if (this.productId) this.productId = normalizeCustomId(this.productId)!;
+  if (this.productCode) this.productCode = normalizeCustomId(this.productCode)!;
   if (!this.productId) {
     const prefix = this.brand
       ? String(this.brand)
@@ -373,6 +476,22 @@ ProductSchema.pre("validate", function (next) {
           .toUpperCase()
       : "PRD";
     this.productId = generateCustomId(prefix);
+  }
+  if (!this.productCode) this.productCode = this.productId;
+  if (!this.brandId && this.brand) this.brandId = this.brand;
+  if (!this.brand && this.brandId) this.brand = this.brandId;
+  if (!this.categoryId && this.category) this.categoryId = this.category;
+  if (!this.category && this.categoryId) this.category = this.categoryId;
+  if (!this.createdBy && this.seller) this.createdBy = this.seller;
+  if (!this.seller && this.createdBy) this.seller = this.createdBy;
+
+  if (this.productType) this.productType = String(this.productType).toUpperCase();
+  if (this.trackingType) this.trackingType = String(this.trackingType).toUpperCase() as ProductTrackingType;
+  if (this.status) {
+    const status = normalizeProductStatus(String(this.status));
+    if (["Published", "Unpublished", "DRAFT", "ACTIVE", "INACTIVE", "ARCHIVED"].includes(String(status))) {
+      this.status = status as PublishStatus;
+    }
   }
 
   // derive price summaries whenever variants/price changed (or on new doc)
@@ -420,10 +539,33 @@ ProductSchema.path("variants").validate(function (variants: IProductVariant[]) {
 
 // Virtuals
 ProductSchema.virtual("primaryImage").get(function (this: IProduct) {
-  if (this.images?.length)
-    return this.images[this.primaryImageIndex] ?? this.images[0] ?? null;
+  if (this.images?.length) {
+    return getImageUrl(this.images[this.primaryImageIndex]) ?? getImageUrl(this.images[0]) ?? null;
+  }
   const v0 = this.variants?.find((v) => v.images?.length);
   return v0 ? v0.images[0] : null;
+});
+
+ProductSchema.virtual("flags").get(function (this: IProduct) {
+  return {
+    isFeatured: Boolean(this.isFeatured),
+    isTrending: Boolean(this.isTrending),
+    isAdult: Boolean(this.isAdult),
+    isHazardous: Boolean(this.isHazardous),
+    isDeleted: Boolean(this.isDeleted),
+  };
+});
+
+ProductSchema.virtual("rating").get(function (this: IProduct) {
+  return {
+    avg: this.ratingAvg || 0,
+    count: this.ratingCount || 0,
+    sum: this.ratingSum || 0,
+  };
+});
+
+ProductSchema.virtual("sales").get(function (this: IProduct) {
+  return { totalSold: this.salesCount || 0 };
 });
 
 ProductSchema.virtual("discountPercent").get(function (this: IProduct) {
@@ -480,6 +622,9 @@ ProductSchema.index(
   }
 );
 ProductSchema.index({ isTrending: 1, salesCount: -1, ratingAvg: -1 });
+ProductSchema.index({ productCode: 1 }, { unique: true, sparse: true });
+ProductSchema.index({ slug: 1 }, { unique: true, sparse: true });
+ProductSchema.index({ productType: 1, trackingType: 1, status: 1 });
 
 // Unique productId per seller (ignores soft-deleted)
 ProductSchema.index(

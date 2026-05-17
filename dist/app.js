@@ -62,6 +62,7 @@ app.get("/debug", (_req, res) => {
     });
 });
 app.use("/api/v1", routes_1.default);
+app.use("/api", routes_1.default);
 app.use("/uploads", express_1.default.static("uploads"));
 app.use(error_middleware_1.notFoundMiddleware);
 app.use(error_middleware_1.errorMiddleware);

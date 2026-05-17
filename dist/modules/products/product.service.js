@@ -93,9 +93,21 @@ const toStringArray = (value) => {
 };
 const normalizeStatus = (value) => {
     const normalized = String(value || "").toUpperCase();
-    if (["UNPUBLISHED", "INACTIVE", "DRAFT"].includes(normalized))
+    if (["DRAFT", "ACTIVE", "INACTIVE", "ARCHIVED"].includes(normalized))
+        return normalized;
+    if (["UNPUBLISHED"].includes(normalized))
         return "Unpublished";
     return "Published";
+};
+const normalizeProductType = (value) => {
+    const normalized = String(value || "OTHER").toUpperCase();
+    return ["PHONE", "LAPTOP", "COMPUTER", "TABLET", "ACCESSORY", "ELECTRONIC", "OTHER"].includes(normalized)
+        ? normalized
+        : "OTHER";
+};
+const normalizeTrackingType = (value) => {
+    const normalized = String(value || "NONE").toUpperCase();
+    return ["SERIAL", "BATCH", "NONE"].includes(normalized) ? normalized : "NONE";
 };
 const ensureObjectId = (id, field) => {
     if (!id || !mongoose_1.default.isValidObjectId(id)) {
@@ -120,18 +132,34 @@ const buildFilter = (query, role) => {
     const filter = { isDeleted: { $ne: true } };
     const isAdmin = role && (0, roles_1.normalizeRole)(role) === roles_1.Roles.ADMIN;
     if (!(isAdmin && String(query.status || "").toLowerCase() === "all")) {
-        filter.status = "Published";
+        filter.status = { $in: ["Published", "ACTIVE"] };
     }
     const search = String(query.search || query.q || query.query || "").trim();
     if (search)
         filter.$text = { $search: search };
-    const category = query.category || query.categories;
+    const category = query.category || query.categoryId || query.categories;
     if (category && mongoose_1.default.isValidObjectId(String(category))) {
-        filter.category = new mongoose_1.Types.ObjectId(String(category));
+        filter.$and = [
+            ...(filter.$and || []),
+            {
+                $or: [
+                    { category: new mongoose_1.Types.ObjectId(String(category)) },
+                    { categoryId: new mongoose_1.Types.ObjectId(String(category)) },
+                ],
+            },
+        ];
     }
-    const brand = query.brand;
+    const brand = query.brand || query.brandId;
     if (brand && mongoose_1.default.isValidObjectId(String(brand))) {
-        filter.brand = new mongoose_1.Types.ObjectId(String(brand));
+        filter.$and = [
+            ...(filter.$and || []),
+            {
+                $or: [
+                    { brand: new mongoose_1.Types.ObjectId(String(brand)) },
+                    { brandId: new mongoose_1.Types.ObjectId(String(brand)) },
+                ],
+            },
+        ];
     }
     const minPrice = Number(query.priceMin || query.minPrice || query.min_price);
     const maxPrice = Number(query.priceMax || query.maxPrice || query.max_price);
@@ -194,31 +222,42 @@ exports.productService = {
         return __awaiter(this, void 0, void 0, function* () {
             if (!payload.name)
                 throw new app_error_1.AppError("name is required", 400);
-            if (!payload.category)
+            const categoryInput = payload.category || payload.categoryId;
+            if (!categoryInput)
                 throw new app_error_1.AppError("category is required", 400);
-            const seller = payload.seller || userId;
+            const seller = payload.seller || payload.createdBy || userId;
             if (!seller)
                 throw new app_error_1.AppError("seller is required", 400);
             const uploaded = (files === null || files === void 0 ? void 0 : files.map((file) => `/uploads/${file.filename}`)) || [];
             const images = [...toStringArray(payload.images), ...uploaded];
             const variants = parseJson(payload.variants, []);
             const hasVariants = Array.isArray(variants) && variants.length > 0;
+            const brand = payload.brand || payload.brandId;
+            const category = ensureObjectId(categoryInput, "category");
+            const creator = ensureObjectId(seller, "seller");
             const product = yield product_repository_1.productRepository.create({
+                productCode: payload.productCode || payload.productId,
                 name: String(payload.name).trim(),
                 slug: (0, generateSlug_1.generateSlug)(String(payload.slug || payload.name)),
                 description: String(payload.description || ""),
                 feature: String(payload.feature || ""),
-                brand: payload.brand ? ensureObjectId(payload.brand, "brand") : undefined,
-                category: ensureObjectId(payload.category, "category"),
-                seller: ensureObjectId(seller, "seller"),
+                features: toStringArray(payload.features),
+                brand: brand ? ensureObjectId(brand, "brand") : undefined,
+                brandId: brand ? ensureObjectId(brand, "brand") : undefined,
+                category,
+                categoryId: category,
+                seller: creator,
+                createdBy: creator,
                 price: hasVariants ? undefined : toNumber(payload.price, 0),
                 compareAtPrice: payload.compareAtPrice ? toNumber(payload.compareAtPrice) : undefined,
                 currency: String(payload.currency || "USD").toUpperCase(),
                 stock: hasVariants ? undefined : Math.max(0, toNumber(payload.stock, 0)),
                 status: normalizeStatus(payload.status),
                 tag: toStringArray(payload.tag),
+                tags: toStringArray(payload.tags || payload.tag),
                 images,
-                productType: String(payload.productType || ""),
+                productType: normalizeProductType(payload.productType),
+                trackingType: normalizeTrackingType(payload.trackingType),
                 actualPrice: payload.actualPrice ? toNumber(payload.actualPrice) : undefined,
                 dealerPrice: payload.dealerPrice ? toNumber(payload.dealerPrice) : undefined,
                 attributes: parseJson(payload.attributes, {}),
@@ -250,22 +289,38 @@ exports.productService = {
                 updates.slug = (0, generateSlug_1.generateSlug)(String(payload.slug));
             if (payload.status !== undefined)
                 updates.status = normalizeStatus(payload.status);
-            if (payload.brand)
-                updates.brand = ensureObjectId(payload.brand, "brand");
-            if (payload.category)
-                updates.category = ensureObjectId(payload.category, "category");
-            if (payload.seller)
-                updates.seller = ensureObjectId(payload.seller, "seller");
+            if (payload.brand || payload.brandId) {
+                updates.brand = ensureObjectId(payload.brand || payload.brandId, "brand");
+                updates.brandId = updates.brand;
+            }
+            if (payload.category || payload.categoryId) {
+                updates.category = ensureObjectId(payload.category || payload.categoryId, "category");
+                updates.categoryId = updates.category;
+            }
+            if (payload.seller || payload.createdBy) {
+                updates.seller = ensureObjectId(payload.seller || payload.createdBy, "seller");
+                updates.createdBy = updates.seller;
+            }
             if (payload.price !== undefined)
                 updates.price = toNumber(payload.price);
             if (payload.stock !== undefined)
                 updates.stock = Math.max(0, toNumber(payload.stock));
             if (payload.tag !== undefined)
                 updates.tag = toStringArray(payload.tag);
+            if (payload.tags !== undefined)
+                updates.tags = toStringArray(payload.tags);
+            if (payload.features !== undefined)
+                updates.features = toStringArray(payload.features);
             if (payload.attributes !== undefined)
                 updates.attributes = parseJson(payload.attributes, {});
             if (payload.variants !== undefined)
                 updates.variants = parseJson(payload.variants, []);
+            if (payload.productType !== undefined)
+                updates.productType = normalizeProductType(payload.productType);
+            if (payload.trackingType !== undefined)
+                updates.trackingType = normalizeTrackingType(payload.trackingType);
+            if (payload.productCode !== undefined)
+                updates.productCode = String(payload.productCode);
             const uploaded = (files === null || files === void 0 ? void 0 : files.map((file) => `/uploads/${file.filename}`)) || [];
             if (uploaded.length || payload.images !== undefined) {
                 updates.images = [...toStringArray(payload.images), ...uploaded];

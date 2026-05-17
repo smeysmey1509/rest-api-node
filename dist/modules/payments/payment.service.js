@@ -49,6 +49,8 @@ exports.paymentService = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
 const order_model_1 = __importDefault(require("../orders/order.model"));
 const product_model_1 = __importDefault(require("../products/product.model"));
+const product_variant_model_1 = __importDefault(require("../product-variants/product-variant.model"));
+const inventory_unit_service_1 = require("../inventory-units/inventory-unit.service");
 const payment_model_1 = __importStar(require("./payment.model"));
 const payment_repository_1 = require("./payment.repository");
 const paymentStatus_1 = require("../../shared/constants/paymentStatus");
@@ -156,6 +158,7 @@ exports.paymentService = {
     },
     markSuccess(payment, raw, paidAt) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             if (payment.status === paymentStatus_1.PaymentStatus.SUCCESS)
                 return payment;
             const session = yield mongoose_1.default.startSession();
@@ -172,6 +175,37 @@ exports.paymentService = {
                 if (!order)
                     throw new app_error_1.AppError("Order not found", 404);
                 for (const item of order.items) {
+                    const inventoryUnitIds = Array.isArray(item.inventoryUnitIds) ? item.inventoryUnitIds : [];
+                    if (inventoryUnitIds.length) {
+                        if (Number(item.quantity) !== inventoryUnitIds.length) {
+                            throw new app_error_1.AppError(`Quantity must match selected serial units for ${item.name}.`, 400);
+                        }
+                        yield inventory_unit_service_1.inventoryUnitService.sell({
+                            inventoryUnitIds,
+                            orderId: order._id,
+                            soldPrice: (_a = item.unitPrice) !== null && _a !== void 0 ? _a : item.price,
+                        }, String(order.user), session);
+                        yield product_model_1.default.updateOne({ _id: item.product }, { $inc: { salesCount: item.quantity } }, { session });
+                        continue;
+                    }
+                    if (item.variantId) {
+                        const variantResult = yield product_variant_model_1.default.updateOne({
+                            _id: item.variantId,
+                            "stockSummary.available": { $gte: item.quantity },
+                            "stockSummary.onHand": { $gte: item.quantity },
+                        }, {
+                            $inc: {
+                                "stockSummary.available": -item.quantity,
+                                "stockSummary.onHand": -item.quantity,
+                                "stockSummary.sold": item.quantity,
+                            },
+                        }, { session });
+                        if (variantResult.modifiedCount !== 1) {
+                            throw new app_error_1.AppError(`Not enough stock for ${item.name}.`, 400);
+                        }
+                        yield product_model_1.default.updateOne({ _id: item.product }, { $inc: { salesCount: item.quantity } }, { session });
+                        continue;
+                    }
                     const result = yield product_model_1.default.updateOne({ _id: item.product, stock: { $gte: item.quantity } }, { $inc: { stock: -item.quantity, salesCount: item.quantity } }, { session });
                     if (result.modifiedCount !== 1) {
                         throw new app_error_1.AppError(`Not enough stock for ${item.name}.`, 400);

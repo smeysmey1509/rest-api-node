@@ -69,6 +69,7 @@ app.get("/debug", (_req, res) => {
 });
 
 app.use("/api/v1", apiRoutes);
+app.use("/api", apiRoutes);
 app.use("/uploads", express.static("uploads"));
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);

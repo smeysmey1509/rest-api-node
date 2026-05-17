@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_middleware_1 = require("../../shared/middlewares/auth.middleware");
+const async_handler_middleware_1 = require("../../shared/middlewares/async-handler.middleware");
+const inventory_movement_controller_1 = require("./inventory-movement.controller");
+const router = (0, express_1.Router)();
+router.get("/inventory-movements", auth_middleware_1.authenticateToken, (0, async_handler_middleware_1.asyncHandler)(inventory_movement_controller_1.inventoryMovementController.list));
+router.get("/inventory-movements/by-unit/:inventoryUnitId", auth_middleware_1.authenticateToken, (0, async_handler_middleware_1.asyncHandler)(inventory_movement_controller_1.inventoryMovementController.byUnit));
+router.get("/inventory-movements/by-variant/:variantId", auth_middleware_1.authenticateToken, (0, async_handler_middleware_1.asyncHandler)(inventory_movement_controller_1.inventoryMovementController.byVariant));
+exports.default = router;

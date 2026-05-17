@@ -2,6 +2,7 @@ import Product from "./product.model";
 
 const productListSelect = [
   "name",
+  "productCode",
   "slug",
   "images",
   "primaryImageIndex",
@@ -16,8 +17,13 @@ const productListSelect = [
   "ratingCount",
   "salesCount",
   "category",
+  "categoryId",
   "brand",
+  "brandId",
   "seller",
+  "createdBy",
+  "productType",
+  "trackingType",
   "createdAt",
   "updatedAt",
 ].join(" ");
@@ -45,7 +51,9 @@ export const productRepository = {
     if (options.populate) {
       query
         .populate("brand", "name slug isActive")
+        .populate("brandId", "name slug isActive")
         .populate("category", "categoryId categoryName productCount");
+      query.populate("categoryId", "categoryId categoryName productCount");
     }
 
     return query.lean({ virtuals: true });
@@ -59,8 +67,11 @@ export const productRepository = {
     return Product.findById(id)
       .select(productDetailSelect)
       .populate("category")
+      .populate("categoryId")
       .populate("brand")
+      .populate("brandId")
       .populate("seller", "name email role status")
+      .populate("createdBy", "name email role status")
       .lean({ virtuals: true });
   },
 
@@ -68,8 +79,11 @@ export const productRepository = {
     return Product.findOne({ slug })
       .select(productDetailSelect)
       .populate("category")
+      .populate("categoryId")
       .populate("brand")
+      .populate("brandId")
       .populate("seller", "name email role status")
+      .populate("createdBy", "name email role status")
       .lean({ virtuals: true });
   },
 
@@ -84,7 +98,9 @@ export const productRepository = {
     })
       .select(productDetailSelect)
       .populate("category")
+      .populate("categoryId")
       .populate("brand")
+      .populate("brandId")
       .populate("seller", "name email role status");
   },
 

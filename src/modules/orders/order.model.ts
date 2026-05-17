@@ -33,10 +33,19 @@ export type PaymentStatus =
 
 export interface IOrderItem {
   product: Types.ObjectId;
+  productId?: Types.ObjectId;
+  variantId?: Types.ObjectId;
+  inventoryUnitIds?: Types.ObjectId[];
   name: string;
   slug?: string;
+  sku?: string;
+  selectedOptions?: Record<string, unknown>;
+  serialNumbers?: string[];
+  imeiNumbers?: string[];
   image?: string;
   price: number;
+  unitPrice?: number;
+  totalPrice?: number;
   quantity: number;
 }
 
@@ -143,10 +152,19 @@ export interface IOrder extends Document {
 const OrderItemSchema = new Schema<IOrderItem>(
   {
     product: { type: Schema.Types.ObjectId, ref: "Product", required: true },
+    productId: { type: Schema.Types.ObjectId, ref: "Product" },
+    variantId: { type: Schema.Types.ObjectId, ref: "ProductVariant" },
+    inventoryUnitIds: [{ type: Schema.Types.ObjectId, ref: "InventoryUnit" }],
     name: { type: String, required: true },
     slug: { type: String },
+    sku: { type: String },
+    selectedOptions: { type: Map, of: Schema.Types.Mixed, default: {} },
+    serialNumbers: { type: [String], default: [] },
+    imeiNumbers: { type: [String], default: [] },
     image: { type: String },
     price: { type: Number, required: true, min: 0 },
+    unitPrice: { type: Number, min: 0 },
+    totalPrice: { type: Number, min: 0 },
     quantity: { type: Number, required: true, min: 1 },
   },
   { _id: false }

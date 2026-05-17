@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_middleware_1 = require("../../shared/middlewares/auth.middleware");
+const async_handler_middleware_1 = require("../../shared/middlewares/async-handler.middleware");
+const role_middleware_1 = require("../../shared/middlewares/role.middleware");
+const validate_middleware_1 = require("../../shared/middlewares/validate.middleware");
+const product_variant_controller_1 = require("./product-variant.controller");
+const product_variant_validation_1 = require("./product-variant.validation");
+const router = (0, express_1.Router)();
+router.get("/products/:productId/variants", auth_middleware_1.optionalAuth, (0, async_handler_middleware_1.asyncHandler)(product_variant_controller_1.productVariantController.listByProduct));
+router.post("/products/:productId/variants", auth_middleware_1.authenticateToken, role_middleware_1.requireAdmin, (0, validate_middleware_1.validate)(product_variant_validation_1.productVariantCreateValidation), (0, async_handler_middleware_1.asyncHandler)(product_variant_controller_1.productVariantController.create));
+router.patch("/product-variants/:variantId", auth_middleware_1.authenticateToken, role_middleware_1.requireAdmin, (0, async_handler_middleware_1.asyncHandler)(product_variant_controller_1.productVariantController.update));
+router.delete("/product-variants/:variantId", auth_middleware_1.authenticateToken, role_middleware_1.requireAdmin, (0, async_handler_middleware_1.asyncHandler)(product_variant_controller_1.productVariantController.remove));
+exports.default = router;

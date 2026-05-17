@@ -1,0 +1,16 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_middleware_1 = require("../../shared/middlewares/auth.middleware");
+const async_handler_middleware_1 = require("../../shared/middlewares/async-handler.middleware");
+const role_middleware_1 = require("../../shared/middlewares/role.middleware");
+const validate_middleware_1 = require("../../shared/middlewares/validate.middleware");
+const supplier_controller_1 = require("./supplier.controller");
+const supplier_validation_1 = require("./supplier.validation");
+const router = (0, express_1.Router)();
+router.get("/suppliers", auth_middleware_1.authenticateToken, (0, async_handler_middleware_1.asyncHandler)(supplier_controller_1.supplierController.list));
+router.get("/suppliers/:id", auth_middleware_1.authenticateToken, (0, async_handler_middleware_1.asyncHandler)(supplier_controller_1.supplierController.get));
+router.post("/suppliers", auth_middleware_1.authenticateToken, role_middleware_1.requireAdmin, (0, validate_middleware_1.validate)(supplier_validation_1.supplierValidation), (0, async_handler_middleware_1.asyncHandler)(supplier_controller_1.supplierController.create));
+router.patch("/suppliers/:id", auth_middleware_1.authenticateToken, role_middleware_1.requireAdmin, (0, async_handler_middleware_1.asyncHandler)(supplier_controller_1.supplierController.update));
+router.delete("/suppliers/:id", auth_middleware_1.authenticateToken, role_middleware_1.requireAdmin, (0, async_handler_middleware_1.asyncHandler)(supplier_controller_1.supplierController.remove));
+exports.default = router;

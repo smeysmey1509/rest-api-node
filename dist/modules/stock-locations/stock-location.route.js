@@ -1,0 +1,16 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_middleware_1 = require("../../shared/middlewares/auth.middleware");
+const async_handler_middleware_1 = require("../../shared/middlewares/async-handler.middleware");
+const role_middleware_1 = require("../../shared/middlewares/role.middleware");
+const validate_middleware_1 = require("../../shared/middlewares/validate.middleware");
+const stock_location_controller_1 = require("./stock-location.controller");
+const stock_location_validation_1 = require("./stock-location.validation");
+const router = (0, express_1.Router)();
+router.get("/stock-locations", auth_middleware_1.authenticateToken, (0, async_handler_middleware_1.asyncHandler)(stock_location_controller_1.stockLocationController.list));
+router.get("/stock-locations/:id", auth_middleware_1.authenticateToken, (0, async_handler_middleware_1.asyncHandler)(stock_location_controller_1.stockLocationController.get));
+router.post("/stock-locations", auth_middleware_1.authenticateToken, role_middleware_1.requireAdmin, (0, validate_middleware_1.validate)(stock_location_validation_1.stockLocationValidation), (0, async_handler_middleware_1.asyncHandler)(stock_location_controller_1.stockLocationController.create));
+router.patch("/stock-locations/:id", auth_middleware_1.authenticateToken, role_middleware_1.requireAdmin, (0, async_handler_middleware_1.asyncHandler)(stock_location_controller_1.stockLocationController.update));
+router.delete("/stock-locations/:id", auth_middleware_1.authenticateToken, role_middleware_1.requireAdmin, (0, async_handler_middleware_1.asyncHandler)(stock_location_controller_1.stockLocationController.remove));
+exports.default = router;

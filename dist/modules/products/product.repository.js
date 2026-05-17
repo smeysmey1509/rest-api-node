@@ -7,6 +7,7 @@ exports.productRepository = void 0;
 const product_model_1 = __importDefault(require("./product.model"));
 const productListSelect = [
     "name",
+    "productCode",
     "slug",
     "images",
     "primaryImageIndex",
@@ -21,8 +22,13 @@ const productListSelect = [
     "ratingCount",
     "salesCount",
     "category",
+    "categoryId",
     "brand",
+    "brandId",
     "seller",
+    "createdBy",
+    "productType",
+    "trackingType",
     "createdAt",
     "updatedAt",
 ].join(" ");
@@ -37,7 +43,9 @@ exports.productRepository = {
         if (options.populate) {
             query
                 .populate("brand", "name slug isActive")
+                .populate("brandId", "name slug isActive")
                 .populate("category", "categoryId categoryName productCount");
+            query.populate("categoryId", "categoryId categoryName productCount");
         }
         return query.lean({ virtuals: true });
     },
@@ -48,16 +56,22 @@ exports.productRepository = {
         return product_model_1.default.findById(id)
             .select(productDetailSelect)
             .populate("category")
+            .populate("categoryId")
             .populate("brand")
+            .populate("brandId")
             .populate("seller", "name email role status")
+            .populate("createdBy", "name email role status")
             .lean({ virtuals: true });
     },
     findBySlug(slug) {
         return product_model_1.default.findOne({ slug })
             .select(productDetailSelect)
             .populate("category")
+            .populate("categoryId")
             .populate("brand")
+            .populate("brandId")
             .populate("seller", "name email role status")
+            .populate("createdBy", "name email role status")
             .lean({ virtuals: true });
     },
     create(payload) {
@@ -70,7 +84,9 @@ exports.productRepository = {
         })
             .select(productDetailSelect)
             .populate("category")
+            .populate("categoryId")
             .populate("brand")
+            .populate("brandId")
             .populate("seller", "name email role status");
     },
     softDelete(id) {

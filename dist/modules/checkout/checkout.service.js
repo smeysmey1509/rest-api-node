@@ -91,6 +91,12 @@ const buildPromoSummary = (promo, discountAmount) => {
         expiresAt: promoDoc.expiresAt,
     };
 };
+const firstImageUrl = (images) => {
+    const first = Array.isArray(images) ? images[0] : undefined;
+    if (!first)
+        return undefined;
+    return typeof first === "string" ? first : first.url;
+};
 const resolveDelivery = (cart, body) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     const selection = body.deliverySelection || body.delivery || {};
@@ -180,10 +186,13 @@ exports.checkoutService = {
                 user: userId,
                 items: cart.items.map((item) => ({
                     product: item.product._id,
+                    productId: item.product._id,
                     name: item.product.name,
                     slug: item.product.slug,
-                    image: Array.isArray(item.product.images) ? item.product.images[0] : undefined,
+                    image: firstImageUrl(item.product.images),
                     price: item.product.price,
+                    unitPrice: item.product.price,
+                    totalPrice: (item.product.price || 0) * item.quantity,
                     quantity: item.quantity,
                 })),
                 subTotal,

@@ -36,10 +36,19 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
 const OrderItemSchema = new mongoose_1.Schema({
     product: { type: mongoose_1.Schema.Types.ObjectId, ref: "Product", required: true },
+    productId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Product" },
+    variantId: { type: mongoose_1.Schema.Types.ObjectId, ref: "ProductVariant" },
+    inventoryUnitIds: [{ type: mongoose_1.Schema.Types.ObjectId, ref: "InventoryUnit" }],
     name: { type: String, required: true },
     slug: { type: String },
+    sku: { type: String },
+    selectedOptions: { type: Map, of: mongoose_1.Schema.Types.Mixed, default: {} },
+    serialNumbers: { type: [String], default: [] },
+    imeiNumbers: { type: [String], default: [] },
     image: { type: String },
     price: { type: Number, required: true, min: 0 },
+    unitPrice: { type: Number, min: 0 },
+    totalPrice: { type: Number, min: 0 },
     quantity: { type: Number, required: true, min: 1 },
 }, { _id: false });
 const ShippingAddressSchema = new mongoose_1.Schema({

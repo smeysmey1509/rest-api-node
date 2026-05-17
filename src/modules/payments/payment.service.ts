@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import Order from "../orders/order.model";
 import Product from "../products/product.model";
+import ProductVariant from "../product-variants/product-variant.model";
+import { inventoryUnitService } from "../inventory-units/inventory-unit.service";
 import Payment, {
   IPayment,
   PaymentMethod,
@@ -138,7 +140,48 @@ export const paymentService = {
       const order = await Order.findById(freshPayment.order).session(session);
       if (!order) throw new AppError("Order not found", 404);
 
-      for (const item of order.items) {
+      for (const item of order.items as any[]) {
+        const inventoryUnitIds = Array.isArray(item.inventoryUnitIds) ? item.inventoryUnitIds : [];
+        if (inventoryUnitIds.length) {
+          if (Number(item.quantity) !== inventoryUnitIds.length) {
+            throw new AppError(`Quantity must match selected serial units for ${item.name}.`, 400);
+          }
+          await inventoryUnitService.sell(
+            {
+              inventoryUnitIds,
+              orderId: order._id,
+              soldPrice: item.unitPrice ?? item.price,
+            },
+            String(order.user),
+            session
+          );
+          await Product.updateOne({ _id: item.product }, { $inc: { salesCount: item.quantity } }, { session });
+          continue;
+        }
+
+        if (item.variantId) {
+          const variantResult = await ProductVariant.updateOne(
+            {
+              _id: item.variantId,
+              "stockSummary.available": { $gte: item.quantity },
+              "stockSummary.onHand": { $gte: item.quantity },
+            },
+            {
+              $inc: {
+                "stockSummary.available": -item.quantity,
+                "stockSummary.onHand": -item.quantity,
+                "stockSummary.sold": item.quantity,
+              },
+            },
+            { session }
+          );
+          if (variantResult.modifiedCount !== 1) {
+            throw new AppError(`Not enough stock for ${item.name}.`, 400);
+          }
+          await Product.updateOne({ _id: item.product }, { $inc: { salesCount: item.quantity } }, { session });
+          continue;
+        }
+
         const result = await Product.updateOne(
           { _id: item.product, stock: { $gte: item.quantity } },
           { $inc: { stock: -item.quantity, salesCount: item.quantity } },

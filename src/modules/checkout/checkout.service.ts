@@ -81,6 +81,12 @@ const buildPromoSummary = (promo: any, discountAmount: number) => {
   };
 };
 
+const firstImageUrl = (images: any[]) => {
+  const first = Array.isArray(images) ? images[0] : undefined;
+  if (!first) return undefined;
+  return typeof first === "string" ? first : first.url;
+};
+
 const resolveDelivery = async (cart: any, body: CheckoutBody): Promise<IDeliverySummary | undefined> => {
   const selection = body.deliverySelection || body.delivery || {};
   const methodId = toTrimmedString(body.deliveryMethodId) || toTrimmedString(selection.id) || toTrimmedString(selection._id) || toTrimmedString(selection.setting);
@@ -178,10 +184,13 @@ export const checkoutService = {
       user: userId,
       items: (cart.items as any[]).map((item) => ({
         product: item.product._id,
+        productId: item.product._id,
         name: item.product.name,
         slug: item.product.slug,
-        image: Array.isArray(item.product.images) ? item.product.images[0] : undefined,
+        image: firstImageUrl(item.product.images),
         price: item.product.price,
+        unitPrice: item.product.price,
+        totalPrice: (item.product.price || 0) * item.quantity,
         quantity: item.quantity,
       })),
       subTotal,

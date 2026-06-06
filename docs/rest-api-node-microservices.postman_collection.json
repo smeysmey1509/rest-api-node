@@ -1,0 +1,1996 @@
+{
+  "info": {
+    "_postman_id": "87a7e928-0cf4-4965-b752-9efbe21ecfa2",
+    "name": "REST API Node Microservices",
+    "description": "Gateway-based Postman collection for the Docker microservices refactor. Import with docs/rest-api-node-local.postman_environment.json. Clients should call the gateway at {{baseUrl}}.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('Response is JSON when body exists', function () {",
+          "  if (pm.response.text()) {",
+          "    pm.response.to.have.header('Content-Type');",
+          "  }",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Gateway aggregate health",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/health"
+          }
+        },
+        {
+          "name": "Gateway direct health",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Complete API URL Index",
+      "description": "Every gateway URL currently mounted by the migrated service routers. Use this folder as the source of truth for Postman paths; replace variables such as {{productId}} with real IDs.",
+      "item": [
+        {
+          "name": "Health URLs",
+          "item": [
+            {
+              "name": "GET /api/v1/health",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/health"
+              }
+            },
+            {
+              "name": "GET /api/health",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/health"
+              }
+            },
+            {
+              "name": "GET /api/v1/health",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/health"
+              }
+            },
+            {
+              "name": "GET /api/v1/uploads/{{uploadFileName}}",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/uploads/{{uploadFileName}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Auth Service URLs",
+          "item": [
+            {
+              "name": "POST /api/v1/register",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/register",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/login",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/login",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/refresh",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/refresh",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/logout",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/logout",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/auth/register",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/auth/register",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/auth/login",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/auth/login",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/auth/refresh",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/auth/refresh",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/auth/logout",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/auth/logout",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/v1/roles",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/roles"
+              }
+            },
+            {
+              "name": "GET /api/v1/auth/roles",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/auth/roles"
+              }
+            }
+          ]
+        },
+        {
+          "name": "User Service URLs",
+          "item": [
+            {
+              "name": "GET /api/v1/me",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/me"
+              }
+            },
+            {
+              "name": "PATCH /api/v1/me",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/me",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/v1/profile",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/profile"
+              }
+            },
+            {
+              "name": "PATCH /api/v1/profile",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/profile",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/v1/users",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/users"
+              }
+            },
+            {
+              "name": "GET /api/v1/users/{{userId}}",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/users/{{userId}}"
+              }
+            },
+            {
+              "name": "PATCH /api/v1/users/{{userId}}/status",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/users/{{userId}}/status",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catalog Service URLs",
+          "item": [
+            {
+              "name": "GET /api/v1/brands",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/brands"
+              }
+            },
+            {
+              "name": "POST /api/v1/brands",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/brands",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/v1/brands/{{brandId}}",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/brands/{{brandId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PUT /api/v1/brands/{{brandId}}",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/v1/brands/{{brandId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/v1/brands/{{brandId}}",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/brands/{{brandId}}"
+              }
+            },
+            {
+              "name": "GET /api/v1/categories",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/categories"
+              }
+            },
+            {
+              "name": "GET /api/v1/category",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/category"
+              }
+            },
+            {
+              "name": "GET /api/v1/categories/{{categoryId}}",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/categories/{{categoryId}}"
+              }
+            },
+            {
+              "name": "POST /api/v1/categories",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/categories",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/category",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/category",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/v1/categories/{{categoryId}}",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/categories/{{categoryId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PUT /api/v1/category/{{categoryId}}",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/v1/category/{{categoryId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/v1/categories/{{categoryId}}",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/categories/{{categoryId}}"
+              }
+            },
+            {
+              "name": "DELETE /api/v1/category/{{categoryId}}",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/category/{{categoryId}}"
+              }
+            },
+            {
+              "name": "GET /api/v1/products/search?q={{searchQuery}}",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/products/search?q={{searchQuery}}"
+              }
+            },
+            {
+              "name": "GET /api/v1/products/{{productId}}",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/products/{{productId}}"
+              }
+            },
+            {
+              "name": "GET /api/v1/products",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/products"
+              }
+            },
+            {
+              "name": "GET /api/v1/product",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/product"
+              }
+            },
+            {
+              "name": "GET /api/v1/product/{{productId}}/recommendations",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/product/{{productId}}/recommendations"
+              }
+            },
+            {
+              "name": "GET /api/v1/product/{{productId}}",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/product/{{productId}}"
+              }
+            },
+            {
+              "name": "POST /api/v1/product",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/product",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/products",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/products",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/v1/product/{{productId}}",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/product/{{productId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/v1/products/{{productId}}",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/products/{{productId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/v1/product/delete/{{productId}}",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/product/delete/{{productId}}"
+              }
+            },
+            {
+              "name": "DELETE /api/v1/products/{{productId}}",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/products/{{productId}}"
+              }
+            },
+            {
+              "name": "POST /api/v1/product/delete",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/product/delete",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/v1/products/{{productId}}/variants",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/products/{{productId}}/variants"
+              }
+            },
+            {
+              "name": "POST /api/v1/products/{{productId}}/variants",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/products/{{productId}}/variants",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/v1/product-variants/{{variantId}}",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/product-variants/{{variantId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/v1/product-variants/{{variantId}}",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/product-variants/{{variantId}}"
+              }
+            },
+            {
+              "name": "GET /api/v1/products/{{productId}}/reviews",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/products/{{productId}}/reviews"
+              }
+            },
+            {
+              "name": "GET /api/v1/product/{{productId}}/reviews",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/product/{{productId}}/reviews"
+              }
+            },
+            {
+              "name": "POST /api/v1/reviews",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/reviews",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/v1/reviews/{{reviewId}}/approve",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/reviews/{{reviewId}}/approve",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/v1/reviews/{{reviewId}}",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/reviews/{{reviewId}}"
+              }
+            },
+            {
+              "name": "GET /api/v1/wishlist",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/wishlist"
+              }
+            },
+            {
+              "name": "POST /api/v1/wishlist/move-to-cart",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/wishlist/move-to-cart",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/wishlist/{{productId}}",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/wishlist/{{productId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/wishlist",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/wishlist",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/v1/wishlist/{{productId}}",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/wishlist/{{productId}}"
+              }
+            },
+            {
+              "name": "POST /api/v1/sidebar-items",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/sidebar-items",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/v1/sidebar-tree",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/sidebar-tree"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Inventory Service URLs",
+          "item": [
+            {
+              "name": "GET /api/v1/inventory-units/search?q={{searchQuery}}",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/inventory-units/search?q={{searchQuery}}"
+              }
+            },
+            {
+              "name": "GET /api/v1/inventory-units",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/inventory-units"
+              }
+            },
+            {
+              "name": "GET /api/v1/inventory-units/{{inventoryUnitId}}",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/inventory-units/{{inventoryUnitId}}"
+              }
+            },
+            {
+              "name": "POST /api/v1/inventory-units/stock-in",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/inventory-units/stock-in",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/inventory-units/reserve",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/inventory-units/reserve",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/inventory-units/release",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/inventory-units/release",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/inventory-units/sell",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/inventory-units/sell",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/inventory-units/return",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/inventory-units/return",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/v1/inventory-movements",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/inventory-movements"
+              }
+            },
+            {
+              "name": "GET /api/v1/inventory-movements/by-unit/{{inventoryUnitId}}",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/inventory-movements/by-unit/{{inventoryUnitId}}"
+              }
+            },
+            {
+              "name": "GET /api/v1/inventory-movements/by-variant/{{variantId}}",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/inventory-movements/by-variant/{{variantId}}"
+              }
+            },
+            {
+              "name": "GET /api/v1/stock-locations",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/stock-locations"
+              }
+            },
+            {
+              "name": "GET /api/v1/stock-locations/{{stockLocationId}}",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/stock-locations/{{stockLocationId}}"
+              }
+            },
+            {
+              "name": "POST /api/v1/stock-locations",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/stock-locations",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/v1/stock-locations/{{stockLocationId}}",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/stock-locations/{{stockLocationId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/v1/stock-locations/{{stockLocationId}}",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/stock-locations/{{stockLocationId}}"
+              }
+            },
+            {
+              "name": "GET /api/v1/suppliers",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/suppliers"
+              }
+            },
+            {
+              "name": "GET /api/v1/suppliers/{{supplierId}}",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/suppliers/{{supplierId}}"
+              }
+            },
+            {
+              "name": "POST /api/v1/suppliers",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/suppliers",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/v1/suppliers/{{supplierId}}",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/suppliers/{{supplierId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/v1/suppliers/{{supplierId}}",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/suppliers/{{supplierId}}"
+              }
+            },
+            {
+              "name": "GET /api/v1/delivery",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/delivery"
+              }
+            },
+            {
+              "name": "POST /api/v1/delivery",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/delivery",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PUT /api/v1/delivery/edit/{{deliveryId}}",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/v1/delivery/edit/{{deliveryId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/v1/delivery/remove/{{deliveryId}}",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/delivery/remove/{{deliveryId}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Order Service URLs",
+          "item": [
+            {
+              "name": "GET /api/v1/cart",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/cart"
+              }
+            },
+            {
+              "name": "POST /api/v1/cart/add",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/cart/add",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/cart/remove",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/cart/remove",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/v1/cart/{{productId}}",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/cart/{{productId}}"
+              }
+            },
+            {
+              "name": "PUT /api/v1/cart/update/{{productId}}",
+              "request": {
+                "method": "PUT",
+                "url": "{{baseUrl}}/api/v1/cart/update/{{productId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/v1/cart/{{productId}}",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/cart/{{productId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/cart/clear",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/cart/clear",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "DELETE /api/v1/cart",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/cart"
+              }
+            },
+            {
+              "name": "POST /api/v1/cart/apply-promo",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/cart/apply-promo",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/cart/remove-promocode",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/cart/remove-promocode",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/cart/select-delivery",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/cart/select-delivery",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/checkout",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/checkout",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/v1/orders",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/orders"
+              }
+            },
+            {
+              "name": "PATCH /api/v1/orders/{{orderId}}/cancel",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/cancel",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/v1/admin/orders",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/orders"
+              }
+            },
+            {
+              "name": "GET /api/v1/orders/admin",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/orders/admin"
+              }
+            },
+            {
+              "name": "PATCH /api/v1/admin/orders/{{orderId}}/status",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/status",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "PATCH /api/v1/orders/{{orderId}}/status",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/status",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "GET /api/v1/promocode",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/promocode"
+              }
+            },
+            {
+              "name": "POST /api/v1/promocode/create",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/promocode/create",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payment Service URLs",
+          "item": [
+            {
+              "name": "GET /api/v1/payments/{{paymentId}}",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/payments/{{paymentId}}"
+              }
+            },
+            {
+              "name": "POST /api/v1/payments/{{paymentId}}/verify",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/payments/{{paymentId}}/verify",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/payments/{{paymentId}}/confirm-manual",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/payments/{{paymentId}}/confirm-manual",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \n}"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth Service",
+      "item": [
+        {
+          "name": "Register customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.accessToken) pm.environment.set('accessToken', json.accessToken);",
+                  "if (json.user && json.user.id) pm.environment.set('userId', json.user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman User\",\n  \"email\": \"postman.user@example.com\",\n  \"password\": \"Password123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/register"
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.accessToken) pm.environment.set('accessToken', json.accessToken);",
+                  "if (json.user && json.user.id) pm.environment.set('userId', json.user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"postman.user@example.com\",\n  \"password\": \"Password123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/login"
+          }
+        },
+        {
+          "name": "Refresh token",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/refresh"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/logout"
+          }
+        },
+        {
+          "name": "List roles",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/roles"
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Service",
+      "item": [
+        {
+          "name": "Get current user",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/me"
+          }
+        },
+        {
+          "name": "Update current user",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman User Updated\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/me"
+          }
+        },
+        {
+          "name": "Admin list users",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/users?page=1&limit=20"
+          }
+        },
+        {
+          "name": "Admin get user by id",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/users/{{userId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catalog Service",
+      "item": [
+        {
+          "name": "List brands",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/brands"
+          }
+        },
+        {
+          "name": "Create brand",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Brand\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/brands"
+          }
+        },
+        {
+          "name": "List categories",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/categories"
+          }
+        },
+        {
+          "name": "Create category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Category\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/categories"
+          }
+        },
+        {
+          "name": "List products",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/products?page=1&limit=20"
+          }
+        },
+        {
+          "name": "Search products",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/products/search?q=phone"
+          }
+        },
+        {
+          "name": "Get product by id or slug",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/products/{{productId}}"
+          }
+        },
+        {
+          "name": "Create product",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Product\",\n  \"category\": \"{{categoryId}}\",\n  \"brand\": \"{{brandId}}\",\n  \"price\": 99.99,\n  \"stock\": 10,\n  \"trackingType\": \"NONE\",\n  \"productType\": \"OTHER\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/products"
+          }
+        },
+        {
+          "name": "List variants by product",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/products/{{productId}}/variants"
+          }
+        },
+        {
+          "name": "List product reviews",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/products/{{productId}}/reviews"
+          }
+        },
+        {
+          "name": "Create review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"rating\": 5,\n  \"comment\": \"Tested from Postman.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/reviews"
+          }
+        },
+        {
+          "name": "Get wishlist",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/wishlist"
+          }
+        },
+        {
+          "name": "Add wishlist item",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/wishlist/{{productId}}"
+          }
+        },
+        {
+          "name": "Sidebar tree",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/sidebar-tree"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inventory Service",
+      "item": [
+        {
+          "name": "List stock locations",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/stock-locations"
+          }
+        },
+        {
+          "name": "Create stock location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Main Warehouse\",\n  \"code\": \"WH-001\",\n  \"type\": \"WAREHOUSE\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/stock-locations"
+          }
+        },
+        {
+          "name": "List suppliers",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/suppliers"
+          }
+        },
+        {
+          "name": "Create supplier",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Supplier\",\n  \"email\": \"supplier@example.com\",\n  \"phone\": \"+10000000000\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/suppliers"
+          }
+        },
+        {
+          "name": "List inventory units",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/inventory-units"
+          }
+        },
+        {
+          "name": "Search inventory units",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/inventory-units/search?q={{productId}}"
+          }
+        },
+        {
+          "name": "List inventory movements",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/inventory-movements"
+          }
+        },
+        {
+          "name": "List delivery settings",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/delivery"
+          }
+        },
+        {
+          "name": "Create delivery setting",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"standard\",\n  \"baseFee\": 5,\n  \"estimatedDays\": \"3-5\",\n  \"isActive\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/delivery"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Order Service",
+      "item": [
+        {
+          "name": "Get cart",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/cart"
+          }
+        },
+        {
+          "name": "Add product to cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 1\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/cart/add"
+          }
+        },
+        {
+          "name": "Update cart quantity",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 2\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/cart/{{productId}}"
+          }
+        },
+        {
+          "name": "Apply promo code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"POSTMAN10\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/cart/apply-promo"
+          }
+        },
+        {
+          "name": "Checkout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentMethod\": \"CASH_ON_DELIVERY\",\n  \"contact\": {\n    \"fullName\": \"Postman User\",\n    \"email\": \"postman.user@example.com\",\n    \"phone\": \"+10000000000\"\n  },\n  \"shippingAddress\": {\n    \"line1\": \"123 API Street\",\n    \"city\": \"Phnom Penh\",\n    \"country\": \"KH\"\n  }\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/checkout"
+          }
+        },
+        {
+          "name": "My orders",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/orders"
+          }
+        },
+        {
+          "name": "Cancel order",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/cancel"
+          }
+        },
+        {
+          "name": "Admin list orders",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/orders"
+          }
+        },
+        {
+          "name": "Admin update order status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"PROCESSING\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/status"
+          }
+        },
+        {
+          "name": "List promo codes",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/promocode"
+          }
+        },
+        {
+          "name": "Create promo code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"POSTMAN10\",\n  \"discountType\": \"percentage\",\n  \"discountValue\": 10,\n  \"expiresAt\": \"2030-01-01T00:00:00.000Z\",\n  \"maxUsesPerUser\": 1\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/promocode/create"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payment Service",
+      "item": [
+        {
+          "name": "Get payment",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/payments/{{paymentId}}"
+          }
+        },
+        {
+          "name": "Verify payment",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/payments/{{paymentId}}/verify"
+          }
+        },
+        {
+          "name": "Admin confirm manual payment",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/payments/{{paymentId}}/confirm-manual"
+          }
+        }
+      ]
+    }
+  ]
+}

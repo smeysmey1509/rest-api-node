@@ -1,9 +1,10 @@
 import "dotenv/config";
 import mongoose from "mongoose";
-import Product from "../modules/products/product.model";
-import Category from "../modules/categories/category.model";
-import Brand from "../modules/brands/brand.model";
-import User from "../modules/users/user.model";
+import "../../packages/shared/src/register-paths";
+import Product from "@services/catalog-service/src/modules/products/product.model";
+import Category from "@services/catalog-service/src/modules/categories/category.model";
+import Brand from "@services/catalog-service/src/modules/brands/brand.model";
+import User from "@services/user-service/src/modules/users/user.model";
 
 type CliOptions = {
   sellerId: string;

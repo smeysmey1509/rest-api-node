@@ -1,7 +1,8 @@
 // one-off script or admin endpoint
-import Review from "../modules/reviews/review.model";
-import Product from "../modules/products/product.model";
 import mongoose from "mongoose";
+import "../../packages/shared/src/register-paths";
+import Review from "@services/catalog-service/src/modules/reviews/review.model";
+import Product from "@services/catalog-service/src/modules/products/product.model";
 
 export async function recomputeAllRatings(productId: string) {
   const agg = await Review.aggregate([

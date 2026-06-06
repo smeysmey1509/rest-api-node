@@ -1,0 +1,231 @@
+x-service-env: &service-env
+  NODE_ENV: development
+  MONGO_URI: mongodb://mongo:27017/rest-api-node
+  AUTH_MONGO_URI: mongodb://mongo:27017/rest-api-node
+  USER_MONGO_URI: mongodb://mongo:27017/rest-api-node
+  CATALOG_MONGO_URI: mongodb://mongo:27017/rest-api-node
+  INVENTORY_MONGO_URI: mongodb://mongo:27017/rest-api-node
+  ORDER_MONGO_URI: mongodb://mongo:27017/rest-api-node
+  PAYMENT_MONGO_URI: mongodb://mongo:27017/rest-api-node
+  REDIS_URL: redis://redis:6379
+  RABBITMQ_URL: amqp://rabbitmq:5672
+  PRODUCT_ACTIVITY_QUEUE: product.activity
+  CORS_ORIGIN: http://localhost:5173
+  JWT_SECRET: ${JWT_SECRET}
+  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+  JWT_ACCESS_EXPIRES_IN: 1d
+  JWT_REFRESH_EXPIRES_IN: 7d
+
+services:
+  mongo:
+    image: mongo:7
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    environment:
+      <<: *service-env
+      SERVICE_NAME: api-gateway
+      PORT: 5002
+      AUTH_SERVICE_URL: http://auth-service:5101
+      USER_SERVICE_URL: http://user-service:5102
+      CATALOG_SERVICE_URL: http://catalog-service:5103
+      INVENTORY_SERVICE_URL: http://inventory-service:5104
+      ORDER_SERVICE_URL: http://order-service:5105
+      PAYMENT_SERVICE_URL: http://payment-service:5106
+    ports:
+      - "5002:5002"
+    volumes:
+      - uploads-data:/app/uploads
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5002/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    environment:
+      <<: *service-env
+      SERVICE_NAME: auth-service
+      PORT: 5101
+    expose:
+      - "5101"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5101/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    environment:
+      <<: *service-env
+      SERVICE_NAME: user-service
+      PORT: 5102
+    expose:
+      - "5102"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5102/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  catalog-service:
+    build:
+      context: .
+      dockerfile: services/catalog-service/Dockerfile
+    environment:
+      <<: *service-env
+      SERVICE_NAME: catalog-service
+      PORT: 5103
+    expose:
+      - "5103"
+    volumes:
+      - uploads-data:/app/uploads
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5103/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: services/inventory-service/Dockerfile
+    environment:
+      <<: *service-env
+      SERVICE_NAME: inventory-service
+      PORT: 5104
+    expose:
+      - "5104"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5104/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  order-service:
+    build:
+      context: .
+      dockerfile: services/order-service/Dockerfile
+    environment:
+      <<: *service-env
+      SERVICE_NAME: order-service
+      PORT: 5105
+    expose:
+      - "5105"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5105/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: services/payment-service/Dockerfile
+    environment:
+      <<: *service-env
+      SERVICE_NAME: payment-service
+      PORT: 5106
+    expose:
+      - "5106"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5106/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mongo-data:
+  redis-data:
+  rabbitmq-data:
+  uploads-data:

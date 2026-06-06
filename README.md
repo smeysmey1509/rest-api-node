@@ -1,302 +1,195 @@
-erDiagram
-  USER ||--|| CART : "has"
-  CART ||--o{ CART_ITEM : "contains"
-  PRODUCT ||--o{ CART_ITEM : "in carts"
-  USER ||--o{ ORDER : "places"
-  ORDER ||--|{ ORDER_ITEM : "includes"
-  PRODUCT ||--o{ ORDER_ITEM : "purchased as"
-  ORDER ||--|| PAYMENT : "has"
-  ORDER ||--|| DELIVERY : "ships via"
-  DELIVERY }o--|| DELIVERY_METHOD : "uses"
-  USER ||--o{ REVIEW : "writes"
-  PRODUCT ||--o{ REVIEW : "receives"
-  USER ||--o{ WISHLIST : "owns"
-  PRODUCT ||--o{ WISHLIST : "is wished"
-  PRODUCT }o--|| CATEGORY : "belongs to"
-  CATEGORY ||--o{ CATEGORY : "parent of"
-  SELLER ||--o{ PRODUCT : "lists"
-  PRODUCT ||--o{ SKU : "has variants"
-  SKU ||--o{ STOCK_MOVEMENT : "tracked by"
-  PROMO_CODE ||--o{ PROMO_USAGE : "has usages"
-  USER ||--o{ PROMO_USAGE : "applies"
-  ORDER ||--o{ PROMO_USAGE : "records"
-  PROMO_CODE }o--o{ PRODUCT : "targets"
-  PROMO_CODE }o--o{ CATEGORY : "targets"
+# REST API Node Microservices
 
-  %% Entity attributes (key fields first)
-  USER {
-    string id PK
-    string email
-    string name
-    datetime createdAt
-  }
-
-  SELLER {
-    string id PK
-    string name
-    string contactEmail
-  }
-
-  CATEGORY {
-    string id PK
-    string name
-    string parentId FK
-  }
-
-  PRODUCT {
-    string id PK
-    string name
-    string slug
-    string brand
-    decimal price
-    decimal compareAtPrice
-    string currency
-    int stock
-    string status
-    float ratingAvg
-    int ratingCount
-    int salesCount
-    datetime createdAt
-    datetime updatedAt
-    string sellerId FK
-    string categoryId FK
-  }
-
-  SKU {
-    string id PK
-    string productId FK
-    string code
-    json attributes
-    decimal priceOverride
-    int stock
-  }
-
-  STOCK_MOVEMENT {
-    string id PK
-    string skuId FK
-    string type  "purchase|sale|refund|adjust"
-    int qty
-    string reason
-    datetime occurredAt
-  }
-
-  CART {
-    string id PK
-    string userId FK
-    string promoCodeId FK
-    string deliveryMethodId FK
-    datetime updatedAt
-  }
-
-  CART_ITEM {
-    string id PK
-    string cartId FK
-    string productId FK
-    string skuId FK
-    int quantity
-    decimal priceAtAdd
-  }
-
-  ORDER {
-    string id PK
-    string userId FK
-    string status  "pending|paid|shipped|delivered|refunded|cancelled"
-    decimal subtotal
-    decimal discountTotal
-    decimal shippingTotal
-    decimal taxTotal
-    decimal grandTotal
-    datetime placedAt
-  }
-
-  ORDER_ITEM {
-    string id PK
-    string orderId FK
-    string productId FK
-    string skuId FK
-    int quantity
-    decimal priceAtPurchase
-  }
-
-  PAYMENT {
-    string id PK
-    string orderId FK
-    string provider
-    string providerRef
-    string status  "authorized|captured|failed|refunded"
-    decimal amount
-    datetime paidAt
-  }
-
-  DELIVERY {
-    string id PK
-    string orderId FK
-    string deliveryMethodId FK
-    string carrier
-    string trackingNumber
-    string status  "pending|in_transit|delivered|failed"
-    datetime shippedAt
-    datetime deliveredAt
-  }
-
-  DELIVERY_METHOD {
-    string id PK
-    string code    "standard|express"
-    string name
-    boolean isActive
-    decimal baseCost
-    json rules
-  }
-
-  REVIEW {
-    string id PK
-    string userId FK
-    string productId FK
-    int rating
-    string comment
-    datetime createdAt
-  }
-
-  WISHLIST {
-    string id PK
-    string userId FK
-    string productId FK
-    datetime createdAt
-  }
-
-  PROMO_CODE {
-    string id PK
-    string code
-    string discountType "percent|fixed|bogo"
-    decimal value
-    datetime startsAt
-    datetime expiresAt
-    boolean isActive
-    int maxRedemptions
-  }
-
-  PROMO_USAGE {
-    string id PK
-    string promoCodeId FK
-    string userId FK
-    string orderId FK
-    datetime appliedAt
-    decimal discountAmount
-  }
-
-## Architecture planning
-
-- See `docs/architecture-restructure-plan.md` for a recommended scalable folder architecture and migration plan.
-
-## Clean API Architecture
-
-This project now uses a modular Express architecture without changing frameworks:
+This repository is now organized as a Docker-based TypeScript Express microservice system. External clients keep using the same API shape through the gateway:
 
 ```text
-Route -> Controller -> Service -> Repository/Model -> Database
+http://localhost:5002/api/v1/...
 ```
 
-The Express app is assembled in `src/app.ts`. Runtime startup stays in
-`src/main/server.ts`, which connects MongoDB, Redis, HTTP, and Socket.IO.
+## Architecture
 
-### Folder Layout
+```mermaid
+flowchart LR
+  Client["Client / Postman"] --> Gateway["api-gateway :5002"]
+  Gateway --> Auth["auth-service :5101"]
+  Gateway --> User["user-service :5102"]
+  Gateway --> Catalog["catalog-service :5103"]
+  Gateway --> Inventory["inventory-service :5104"]
+  Gateway --> Order["order-service :5105"]
+  Gateway --> Payment["payment-service :5106"]
+
+  Auth --> Mongo[(MongoDB)]
+  User --> Mongo
+  Catalog --> Mongo
+  Inventory --> Mongo
+  Order --> Mongo
+  Payment --> Mongo
+
+  Auth --> Rabbit[(RabbitMQ)]
+  Order --> Rabbit
+  Payment --> Rabbit
+  Order --> Redis[(Redis)]
+```
+
+## Services
+
+| Service | Port | Owned modules |
+| --- | ---: | --- |
+| `api-gateway` | `5002` | Downstream proxy, aggregate health checks |
+| `auth-service` | `5101` | `auth`, `roles` |
+| `user-service` | `5102` | `users` |
+| `catalog-service` | `5103` | `brands`, `categories`, `products`, `product-variants`, `reviews`, `wishlist`, `reports` |
+| `inventory-service` | `5104` | `inventory-units`, `inventory-movements`, `stock-locations`, `suppliers`, `inventory/delivery`, `activity-logs` |
+| `order-service` | `5105` | `cart`, `checkout`, `orders`, `coupons` |
+| `payment-service` | `5106` | `payments` |
+
+Shared middleware, config, utilities, types, logger, and RabbitMQ event helpers live in `packages/shared/src`.
+
+## Routing
+
+Clients call the gateway only:
 
 ```text
-src/
-  config/                 # environment, database, JWT, payment config
-  common/
-    constants/            # roles, order statuses, payment statuses
-    middlewares/          # auth, role, validation, async, global error handling
-    utils/                # AppError, API response helper, slug helper
-  modules/
-    auth/
-    users/
-    roles/
-    brands/
-    categories/
-    products/
-    reviews/
-    wishlist/
-    cart/
-    checkout/
-    orders/
-    payments/
-  app.ts
+Postman base URL: http://localhost:5002
+API base path:    http://localhost:5002/api/v1
 ```
 
-Each module follows the same pattern:
+The gateway preserves existing route paths, including `/api/v1/register`, `/api/v1/login`, `/api/v1/products`, `/api/v1/cart`, `/api/v1/checkout`, `/api/v1/orders`, and `/api/v1/payments`. It also supports `/api/...` for the legacy alias used by the previous Express app.
+
+Every service exposes:
 
 ```text
-module.routes.ts
-module.controller.ts
-module.service.ts
-module.repository.ts
-module.model.ts
-module.validation.ts
+GET /health
+GET /api/health
+GET /api/v1/health
 ```
 
-Controllers only handle `req`, `res`, and `next` behavior. Services contain
-business rules. Repositories contain database queries. Models define schemas.
+The gateway health endpoint calls all downstream service health endpoints and returns an aggregate status.
 
-### Route Compatibility
+## Postman
 
-The API still uses `/api/v1`. Existing route names such as `/register`,
-`/login`, `/refresh`, `/logout`, `/product`, `/product/:id`, `/cart/add`,
-`/wishlist/:productId`, `/reviews`, and `/checkout` are kept as aliases where
-possible.
-
-Read-only storefront endpoints for brands, categories, products, product
-details, and approved reviews are public. User and admin mutations require JWT
-authentication. Admin actions use role middleware; an admin is a normal user
-with the `ADMIN` role.
-
-### Order And Payment Rules
-
-Order statuses:
+Import these two files into Postman:
 
 ```text
-PENDING_PAYMENT
-PAID
-PROCESSING
-SHIPPED
-DELIVERED
-CANCELLED
-REFUNDED
-FAILED
+docs/rest-api-node-microservices.postman_collection.json
+docs/rest-api-node-local.postman_environment.json
 ```
 
-Payment statuses:
+Select the `REST API Node Local Gateway` environment, start the Docker Compose stack, then run `Health / Gateway aggregate health`. The `Auth Service / Login` request stores `accessToken` automatically for protected requests.
+The collection also includes `Complete API URL Index`, which lists every gateway URL mounted from the migrated route files.
+
+## Run With Docker Compose
+
+```bash
+docker compose up --build
+```
+
+Only the gateway is published to the host:
 
 ```text
-PENDING
-SUCCESS
-FAILED
-CANCELLED
-REFUNDED
+http://localhost:5002
 ```
 
-Checkout validates the cart, checks stock, calculates totals, creates an order
-with `PENDING_PAYMENT`, and creates a payment transaction with `PENDING`.
-Checkout does not reduce product stock.
+MongoDB, Redis, RabbitMQ, and internal services are reachable only on the Compose network.
 
-Stock is reduced only after the backend confirms payment success. Manual
-methods must be confirmed by the backend before marking the payment `SUCCESS`
-and the order `PAID`.
+## Local Development
 
-Supported payment methods:
+Install dependencies from the repository root:
+
+```bash
+npm install
+```
+
+Run the gateway:
+
+```bash
+npm run dev
+```
+
+Run individual services:
+
+```bash
+npm run dev:auth
+npm run dev:user
+npm run dev:catalog
+npm run dev:inventory
+npm run dev:order
+npm run dev:payment
+```
+
+Each service folder also supports the same scripts:
+
+```bash
+cd services/catalog-service
+npm run dev
+npm run build
+npm run start
+```
+
+Build and typecheck the whole workspace:
+
+```bash
+npm run build
+npm run typecheck
+```
+
+## Environment
+
+Copy `.env.example` and set project-specific values.
+
+Core variables:
 
 ```text
-NORMAL_PAYMENT
-VISA_MASTER
-BANK_TRANSFER
-CASH_ON_DELIVERY
+NODE_ENV=development
+PORT=5002
+MONGO_URI=mongodb://localhost:27017/rest-api-node
+REDIS_URL=redis://localhost:6379
+RABBITMQ_URL=amqp://localhost:5672
+CORS_ORIGIN=http://localhost:5173
+JWT_SECRET=replace-with-access-token-secret
+JWT_REFRESH_SECRET=replace-with-refresh-token-secret
 ```
 
-Do not send or store card numbers or CVV values. Card payments must go through a
-PCI-compliant hosted provider flow.
+Per-service Mongo variables currently point at the same MongoDB instance and database. They are present so each service can move to its own database later:
 
-### Environment
+```text
+AUTH_MONGO_URI=
+USER_MONGO_URI=
+CATALOG_MONGO_URI=
+INVENTORY_MONGO_URI=
+ORDER_MONGO_URI=
+PAYMENT_MONGO_URI=
+```
 
-Copy `.env.example` and fill in project-specific values. Provider secrets must
-stay on the backend. The frontend may receive hosted payment links or manual
-payment instructions, but it must never decide whether a payment succeeded.
+Gateway downstream targets for non-Docker local runs:
+
+```text
+AUTH_SERVICE_URL=http://localhost:5101
+USER_SERVICE_URL=http://localhost:5102
+CATALOG_SERVICE_URL=http://localhost:5103
+INVENTORY_SERVICE_URL=http://localhost:5104
+ORDER_SERVICE_URL=http://localhost:5105
+PAYMENT_SERVICE_URL=http://localhost:5106
+```
+
+## Events
+
+RabbitMQ is used for cross-service domain events. Shared event names and publishing helpers are in `packages/shared/src/events`.
+
+Current event names:
+
+```text
+user.created
+order.created
+payment.completed
+```
+
+If `RABBITMQ_URL` is not configured or RabbitMQ is unavailable, event publishing is skipped without failing the HTTP request.
+
+## Migration Notes
+
+- Business logic was moved, not rewritten. Controllers, services, repositories, models, validators, and route definitions were kept intact where possible.
+- API paths are preserved behind the gateway. Clients should call `http://localhost:5002/api/v1/...`.
+- The first database phase uses one MongoDB instance and connection string. Existing collection names remain service-owned by their Mongoose models.
+- Some service code still imports models or services across service folders to preserve current behavior during the split. These direct imports are temporary bridge points for future HTTP/event-based service-to-service contracts.
+- Reports/sidebar routes are hosted by `catalog-service` because the original router exposed them but no dedicated service was specified.

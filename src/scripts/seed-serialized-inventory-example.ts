@@ -17,13 +17,13 @@ const ensureUser = async () => {
     if (existing) return existing;
   }
 
-  const existing = await User.findOne({ email: "inventory-admin@example.com" });
+  const existing = await User.findOne({ email: "admin@example.com" });
   if (existing) return existing;
 
   return User.create({
-    name: "Inventory Admin",
-    email: "inventory-admin@example.com",
-    password: "ChangeMe123!",
+    name: "admin",
+    email: "admin@example.com",
+    password: "123",
     role: "ADMIN",
     status: "ACTIVE",
   });

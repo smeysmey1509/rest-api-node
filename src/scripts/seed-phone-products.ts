@@ -1,17 +1,23 @@
-import "dotenv/config";
-import mongoose from "mongoose";
 import "../../packages/shared/src/register-paths";
+import mongoose from "mongoose";
+import { env } from "@shared/config/env";
 import Product from "@services/catalog-service/src/modules/products/product.model";
 import Category from "@services/catalog-service/src/modules/categories/category.model";
 import Brand from "@services/catalog-service/src/modules/brands/brand.model";
 import User from "@services/user-service/src/modules/users/user.model";
 
 type CliOptions = {
-  sellerId: string;
+  sellerId?: string;
   categoryId: string;
   categoryName: string;
+  count: number;
+  replace: boolean;
   dryRun: boolean;
 };
+
+const DEFAULT_PRODUCT_COUNT = 1000;
+const SEED_GROUP_ID = "seed-phone-products";
+const SEED_SELLER_EMAIL = "seed.seller@example.com";
 
 function parseArgs(): Partial<CliOptions> {
   const args = process.argv.slice(2);
@@ -32,10 +38,19 @@ function parseArgs(): Partial<CliOptions> {
   if (typeof options.sellerId === "string") result.sellerId = options.sellerId;
   if (typeof options.categoryId === "string") result.categoryId = options.categoryId;
   if (typeof options.categoryName === "string") result.categoryName = options.categoryName;
+  if (typeof options.count === "string") result.count = Number(options.count);
+  if (typeof options.replace === "boolean") result.replace = options.replace;
+  if (typeof options.replace === "string") result.replace = options.replace === "true";
   if (typeof options.dryRun === "boolean") result.dryRun = options.dryRun;
   if (typeof options.dryRun === "string") result.dryRun = options.dryRun === "true";
 
   return result;
+}
+
+function toPositiveInteger(value: unknown, fallback: number) {
+  const parsed = Number(value);
+
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function slugify(s: string): string {
@@ -55,13 +70,19 @@ function buildOptions(): CliOptions {
   const parsed = parseArgs();
 
   return {
-    sellerId:
-      parsed.sellerId ??
-      process.env.SEED_SELLER_ID ??
-      "685ab59e33f273e409dc3eac",
+    sellerId: parsed.sellerId ?? process.env.SEED_SELLER_ID,
     categoryId: parsed.categoryId ?? process.env.SEED_CATEGORY_ID ?? "phones",
     categoryName:
       parsed.categoryName ?? process.env.SEED_CATEGORY_NAME ?? "Smartphones",
+    count: toPositiveInteger(
+      parsed.count ?? process.env.SEED_PRODUCT_COUNT,
+      DEFAULT_PRODUCT_COUNT
+    ),
+    replace:
+      parsed.replace ??
+      (typeof process.env.SEED_REPLACE_PRODUCTS === "string"
+        ? process.env.SEED_REPLACE_PRODUCTS !== "false"
+        : true),
     dryRun:
       parsed.dryRun ??
       (typeof process.env.SEED_DRY_RUN === "string"
@@ -97,6 +118,25 @@ async function ensureBrand(brandName: string, slug: string) {
 
   console.log(`Creating brand ${brandName} (${slug})`);
   return Brand.create({ name: brandName, slug, isActive: true });
+}
+
+async function ensureSeller(sellerId?: string) {
+  if (sellerId && mongoose.isValidObjectId(sellerId)) {
+    const existing = await User.findById(sellerId).select("_id");
+    if (existing) return existing;
+  }
+
+  const existingSeedSeller = await User.findOne({ email: SEED_SELLER_EMAIL }).select("_id");
+  if (existingSeedSeller) return existingSeedSeller;
+
+  console.log(`Creating seed seller ${SEED_SELLER_EMAIL}`);
+  return User.create({
+    name: "Seed Seller",
+    email: SEED_SELLER_EMAIL,
+    password: "Password123",
+    role: "ADMIN",
+    status: "ACTIVE",
+  });
 }
 
 type CategoryDescriptor = {
@@ -551,6 +591,15 @@ function buildProductPayload({
     status: "Published",
     tag: [
       "phone",
+      "seed",
+      profile.brand.toLowerCase(),
+      profile.slugSegment,
+      `${storage}gb`,
+      modelVariant.replace(/\s+/g, "-").toLowerCase(),
+    ],
+    tags: [
+      "phone",
+      "seed",
       profile.brand.toLowerCase(),
       profile.slugSegment,
       `${storage}gb`,
@@ -583,7 +632,8 @@ function buildProductPayload({
     },
     isAdult: false,
     isHazardous: false,
-    productType: profile.productType,
+    groupId: SEED_GROUP_ID,
+    productType: "PHONE",
     actualPrice: price,
     dealerPrice: Math.round(price * 0.84),
     dedupeKey: `${sellerId.toHexString()}:${slug}`,
@@ -595,6 +645,22 @@ function buildProductPayload({
 }
 
 type AllocationRuntime = BrandAllocation & { brandId: mongoose.Types.ObjectId };
+
+function distributeProductCount(count: number, allocations: BrandAllocation[]) {
+  const totalWeight = allocations.reduce((sum, allocation) => sum + allocation.quantity, 0);
+  let assigned = 0;
+
+  return allocations.map((allocation, index) => {
+    const isLast = index === allocations.length - 1;
+    const quantity = isLast
+      ? count - assigned
+      : Math.floor((count * allocation.quantity) / totalWeight);
+
+    assigned += quantity;
+
+    return { ...allocation, quantity };
+  });
+}
 
 function buildAllProducts(
   sellerId: mongoose.Types.ObjectId,
@@ -652,10 +718,10 @@ async function prepareCategoryCache(
   return cache;
 }
 
-async function prepareAllocations(): Promise<AllocationRuntime[]> {
+async function prepareAllocations(allocationsToPrepare: BrandAllocation[]): Promise<AllocationRuntime[]> {
   const allocations: AllocationRuntime[] = [];
 
-  for (const allocation of BRAND_ALLOCATIONS) {
+  for (const allocation of allocationsToPrepare) {
     const brand = await ensureBrand(allocation.profile.brandRecordName, allocation.profile.brandSlug);
     allocations.push({
       ...allocation,
@@ -668,35 +734,31 @@ async function prepareAllocations(): Promise<AllocationRuntime[]> {
 
 async function run() {
   const options = buildOptions();
-  const mongoUri = process.env.MONGO_URI;
-  if (!mongoUri) throw new Error("MONGO_URI environment variable is required");
+  const mongoUri = env.catalogMongoUri || env.mongoUri;
+  if (!mongoUri) throw new Error("CATALOG_MONGO_URI or MONGO_URI environment variable is required");
 
-  console.log(`Connecting to MongoDB...`);
+  console.log("Connecting to catalog MongoDB...");
   await mongoose.connect(mongoUri);
   console.log(`Connected. Preparing seed data...`);
 
-  const seller = await User.findById(options.sellerId).select("_id");
-  if (!seller) {
-    throw new Error(
-      `Seller with id ${options.sellerId} was not found. Please create it before seeding.`
-    );
-  }
+  const seller = await ensureSeller(options.sellerId);
   const sellerId = seller._id as mongoose.Types.ObjectId;
   const fallbackCategory: CategoryDescriptor = {
     id: options.categoryId,
     name: options.categoryName,
   };
+  const productAllocations = distributeProductCount(options.count, BRAND_ALLOCATIONS);
   const categoryCache = await prepareCategoryCache(
-    BRAND_ALLOCATIONS.map((allocation) => allocation.profile),
+    productAllocations.map((allocation) => allocation.profile),
     fallbackCategory
   );
-  const allocations = await prepareAllocations();
+  const allocations = await prepareAllocations(productAllocations);
 
   const products = buildAllProducts(sellerId, allocations, categoryCache, fallbackCategory.id);
 
   const total = products.length;
   console.log("Prepared product distribution:");
-  for (const allocation of BRAND_ALLOCATIONS) {
+  for (const allocation of productAllocations) {
     console.log(`- ${allocation.profile.brand}: ${allocation.quantity}`);
   }
   console.log(`Total products: ${total}`);
@@ -706,6 +768,14 @@ async function run() {
     console.log(products[0]);
     await mongoose.disconnect();
     return;
+  }
+
+  if (options.replace) {
+    const slugs = products.map((product) => String(product.slug));
+    const removed = await Product.deleteMany({
+      $or: [{ groupId: SEED_GROUP_ID }, { slug: { $in: slugs } }],
+    });
+    console.log(`Removed ${removed.deletedCount} existing generated products.`);
   }
 
   const inserted = await Product.insertMany(products, { ordered: false });

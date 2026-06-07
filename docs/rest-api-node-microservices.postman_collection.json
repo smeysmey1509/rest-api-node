@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "87a7e928-0cf4-4965-b752-9efbe21ecfa2",
     "name": "REST API Node Microservices",
-    "description": "Gateway-based Postman collection for the Docker microservices refactor. Import with docs/rest-api-node-local.postman_environment.json. Clients should call the gateway at {{baseUrl}}.",
+    "description": "Gateway-based Postman collection for the local microservices setup. Import with docs/rest-api-node-local.postman_environment.json. Clients should call the gateway at {{baseUrl}}; direct service URLs are included for health checks and debugging.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -46,6 +46,54 @@
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Direct Service Health",
+      "description": "Direct checks for local service ports. Normal API clients should use {{baseUrl}} through the gateway.",
+      "item": [
+        {
+          "name": "Auth service health",
+          "request": {
+            "method": "GET",
+            "url": "{{authServiceUrl}}/health"
+          }
+        },
+        {
+          "name": "User service health",
+          "request": {
+            "method": "GET",
+            "url": "{{userServiceUrl}}/health"
+          }
+        },
+        {
+          "name": "Catalog service health",
+          "request": {
+            "method": "GET",
+            "url": "{{catalogServiceUrl}}/health"
+          }
+        },
+        {
+          "name": "Inventory service health",
+          "request": {
+            "method": "GET",
+            "url": "{{inventoryServiceUrl}}/health"
+          }
+        },
+        {
+          "name": "Order service health",
+          "request": {
+            "method": "GET",
+            "url": "{{orderServiceUrl}}/health"
+          }
+        },
+        {
+          "name": "Payment service health",
+          "request": {
+            "method": "GET",
+            "url": "{{paymentServiceUrl}}/health"
           }
         }
       ]
@@ -1476,7 +1524,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Postman User\",\n  \"email\": \"postman.user@example.com\",\n  \"password\": \"Password123\"\n}"
+              "raw": "{\n  \"name\": \"Postman User\",\n  \"email\": \"{{authEmail}}\",\n  \"password\": \"{{authPassword}}\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/register"
           }
@@ -1509,7 +1557,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"identifier\": \"postman.user@example.com\",\n  \"password\": \"Password123\"\n}"
+              "raw": "{\n  \"identifier\": \"{{authEmail}}\",\n  \"password\": \"{{authPassword}}\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/login"
           }

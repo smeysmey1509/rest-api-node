@@ -142,6 +142,8 @@ Core variables:
 ```text
 NODE_ENV=development
 PORT=5002
+API_GATEWAY_PORT=5002
+API_GATEWAY_URL=http://localhost:5002
 MONGO_URI=mongodb://localhost:27017/rest-api-node
 REDIS_URL=redis://localhost:6379
 RABBITMQ_URL=amqp://localhost:5672
@@ -150,20 +152,27 @@ JWT_SECRET=replace-with-access-token-secret
 JWT_REFRESH_SECRET=replace-with-refresh-token-secret
 ```
 
-Per-service Mongo variables currently point at the same MongoDB instance and database. They are present so each service can move to its own database later:
+Per-service Mongo variables can point at separate databases on the same MongoDB instance:
 
 ```text
-AUTH_MONGO_URI=
-USER_MONGO_URI=
-CATALOG_MONGO_URI=
-INVENTORY_MONGO_URI=
-ORDER_MONGO_URI=
-PAYMENT_MONGO_URI=
+AUTH_MONGO_URI=mongodb://localhost:27017/rest-api-auth
+USER_MONGO_URI=mongodb://localhost:27017/rest-api-user
+CATALOG_MONGO_URI=mongodb://localhost:27017/rest-api-catalog
+INVENTORY_MONGO_URI=mongodb://localhost:27017/rest-api-inventory
+ORDER_MONGO_URI=mongodb://localhost:27017/rest-api-order
+PAYMENT_MONGO_URI=mongodb://localhost:27017/rest-api-payment
 ```
 
-Gateway downstream targets for non-Docker local runs:
+Service ports and gateway downstream targets for non-Docker local runs:
 
 ```text
+AUTH_SERVICE_PORT=5101
+USER_SERVICE_PORT=5102
+CATALOG_SERVICE_PORT=5103
+INVENTORY_SERVICE_PORT=5104
+ORDER_SERVICE_PORT=5105
+PAYMENT_SERVICE_PORT=5106
+
 AUTH_SERVICE_URL=http://localhost:5101
 USER_SERVICE_URL=http://localhost:5102
 CATALOG_SERVICE_URL=http://localhost:5103

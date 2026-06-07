@@ -25,7 +25,7 @@ export const startService = async ({
   const logger = createLogger(serviceName);
   const server = http.createServer(app);
 
-  await connectDatabase(mongoUriEnv ? process.env[mongoUriEnv] : undefined);
+  await connectDatabase(mongoUriEnv ? process.env[mongoUriEnv] || undefined : undefined);
   logger.info("Connected to MongoDB");
 
   await Promise.all([

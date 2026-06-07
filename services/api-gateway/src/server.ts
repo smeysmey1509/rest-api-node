@@ -2,10 +2,11 @@ import "../../../packages/shared/src/register-paths";
 
 import http from "http";
 import app from "./app";
+import { env } from "@shared/config/env";
 import { createLogger } from "@shared/utils/logger";
 
 const logger = createLogger("api-gateway");
-const port = Number(process.env.PORT || 5002);
+const port = env.ports.gateway;
 const server = http.createServer(app);
 
 server.listen(port, () => {

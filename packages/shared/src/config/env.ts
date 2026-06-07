@@ -1,10 +1,44 @@
 import dotenv from "dotenv";
+import { resolveWorkspacePath } from "../runtime/paths";
 
-dotenv.config();
+const originalEnv = { ...process.env };
+
+dotenv.config({ path: resolveWorkspacePath(".env") });
+dotenv.config({
+  path: resolveWorkspacePath(`.env.${process.env.NODE_ENV || "development"}`),
+  override: true,
+});
+
+Object.entries(originalEnv).forEach(([key, value]) => {
+  process.env[key] = value;
+});
+
+const numberFromEnv = (value: string | undefined, fallback: number) => {
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const servicePort = (serviceName: string, envName: string, fallback: number) =>
+  numberFromEnv(process.env[envName] || (process.env.SERVICE_NAME === serviceName ? process.env.PORT : undefined), fallback);
+
+const ports = {
+  gateway: numberFromEnv(process.env.API_GATEWAY_PORT || process.env.GATEWAY_PORT || process.env.PORT, 5002),
+  auth: servicePort("auth-service", "AUTH_SERVICE_PORT", 5101),
+  user: servicePort("user-service", "USER_SERVICE_PORT", 5102),
+  catalog: servicePort("catalog-service", "CATALOG_SERVICE_PORT", 5103),
+  inventory: servicePort("inventory-service", "INVENTORY_SERVICE_PORT", 5104),
+  order: servicePort("order-service", "ORDER_SERVICE_PORT", 5105),
+  payment: servicePort("payment-service", "PAYMENT_SERVICE_PORT", 5106),
+};
+
+const serviceUrl = (envName: string, port: number) => process.env[envName] || `http://localhost:${port}`;
 
 export const env = {
   nodeEnv: process.env.NODE_ENV || "development",
-  port: Number(process.env.PORT || 5002),
+  port: ports.gateway,
+  ports,
+  gatewayUrl: process.env.API_GATEWAY_URL || `http://localhost:${ports.gateway}`,
   serviceName: process.env.SERVICE_NAME || "rest-api-node",
   mongoUri: process.env.MONGO_URI || "",
   authMongoUri: process.env.AUTH_MONGO_URI || process.env.MONGO_URI || "",
@@ -20,11 +54,11 @@ export const env = {
   proxyTarget: process.env.PROXY_TARGET,
   requestLogging: process.env.REQUEST_LOGGING === "true",
   services: {
-    auth: process.env.AUTH_SERVICE_URL || "http://localhost:5101",
-    user: process.env.USER_SERVICE_URL || "http://localhost:5102",
-    catalog: process.env.CATALOG_SERVICE_URL || "http://localhost:5103",
-    inventory: process.env.INVENTORY_SERVICE_URL || "http://localhost:5104",
-    order: process.env.ORDER_SERVICE_URL || "http://localhost:5105",
-    payment: process.env.PAYMENT_SERVICE_URL || "http://localhost:5106",
+    auth: serviceUrl("AUTH_SERVICE_URL", ports.auth),
+    user: serviceUrl("USER_SERVICE_URL", ports.user),
+    catalog: serviceUrl("CATALOG_SERVICE_URL", ports.catalog),
+    inventory: serviceUrl("INVENTORY_SERVICE_URL", ports.inventory),
+    order: serviceUrl("ORDER_SERVICE_URL", ports.order),
+    payment: serviceUrl("PAYMENT_SERVICE_URL", ports.payment),
   },
 };

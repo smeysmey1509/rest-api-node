@@ -1,15 +1,16 @@
 import "dotenv/config";
 import mongoose from "mongoose";
-import { connectDatabase } from "../config/database";
-import Brand from "../modules/brands/brand.model";
-import Category from "../modules/categories/category.model";
-import InventoryUnit from "../modules/inventory-units/inventory-unit.model";
-import { inventoryUnitService } from "../modules/inventory-units/inventory-unit.service";
-import ProductVariant from "../modules/product-variants/product-variant.model";
-import Product from "../modules/products/product.model";
-import StockLocation from "../modules/stock-locations/stock-location.model";
-import Supplier from "../modules/suppliers/supplier.model";
-import User from "../modules/users/user.model";
+import "../../packages/shared/src/register-paths";
+import { connectDatabase } from "@shared/config/database";
+import Brand from "@services/catalog-service/src/modules/brands/brand.model";
+import Category from "@services/catalog-service/src/modules/categories/category.model";
+import InventoryUnit from "@services/inventory-service/src/modules/inventory-units/inventory-unit.model";
+import { inventoryUnitService } from "@services/inventory-service/src/modules/inventory-units/inventory-unit.service";
+import ProductVariant from "@services/catalog-service/src/modules/product-variants/product-variant.model";
+import Product from "@services/catalog-service/src/modules/products/product.model";
+import StockLocation from "@services/inventory-service/src/modules/stock-locations/stock-location.model";
+import Supplier from "@services/inventory-service/src/modules/suppliers/supplier.model";
+import User from "@services/user-service/src/modules/users/user.model";
 
 const ensureUser = async () => {
   if (process.env.SEED_USER_ID && mongoose.isValidObjectId(process.env.SEED_USER_ID)) {

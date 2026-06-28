@@ -1,6 +1,7 @@
 import "dotenv/config";
 import mongoose from "mongoose";
-import Product from "../modules/products/product.model";
+import "../../packages/shared/src/register-paths";
+import Product from "@services/catalog-service/src/modules/products/product.model";
 
 async function run() {
   const uri = process.env.MONGO_URI;

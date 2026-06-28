@@ -19,11 +19,29 @@ const numberFromEnv = (value: string | undefined, fallback: number) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
-const servicePort = (serviceName: string, envName: string, fallback: number) =>
-  numberFromEnv(process.env[envName] || (process.env.SERVICE_NAME === serviceName ? process.env.PORT : undefined), fallback);
+const servicePort = (serviceName: string, envName: string, fallback: number) => {
+  const val = process.env[envName];
+  if (val) return numberFromEnv(val, fallback);
+
+  if (process.env.SERVICE_NAME === serviceName && process.env.PORT) {
+    const portNum = Number(process.env.PORT);
+    // 5002 is the API Gateway port. Other microservices should not listen on it.
+    if (portNum === 5002 && serviceName !== "api-gateway") {
+      return fallback;
+    }
+    return numberFromEnv(process.env.PORT, fallback);
+  }
+
+  return fallback;
+};
 
 const ports = {
-  gateway: numberFromEnv(process.env.API_GATEWAY_PORT || process.env.GATEWAY_PORT || process.env.PORT, 5002),
+  gateway: numberFromEnv(
+    process.env.API_GATEWAY_PORT ||
+    process.env.GATEWAY_PORT ||
+    (process.env.SERVICE_NAME === "api-gateway" || !process.env.SERVICE_NAME ? process.env.PORT : undefined),
+    5002
+  ),
   auth: servicePort("auth-service", "AUTH_SERVICE_PORT", 5101),
   user: servicePort("user-service", "USER_SERVICE_PORT", 5102),
   catalog: servicePort("catalog-service", "CATALOG_SERVICE_PORT", 5103),

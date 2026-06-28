@@ -6,6 +6,7 @@ import { getPagination, getPaginationMeta } from "@shared/utils/pagination";
 import { productRepository } from "./product.repository";
 import Product from "./product.model";
 import { publishProductActivity } from "@services/inventory-service/src/modules/activity-logs/activity-log.publisher";
+import { redis } from "@shared/infrastructure/redis/cache";
 
 const toNumber = (value: unknown, fallback = 0) => {
   const num = Number(value);
@@ -128,8 +129,59 @@ const buildFilter = (query: Record<string, unknown>, role?: string) => {
   return filter;
 };
 
+const PRODUCT_CACHE_TTL = 300; // 5 minutes
+
+const getListCacheKey = (query: Record<string, unknown>, role?: string) => {
+  const sortedQuery: Record<string, any> = {};
+  Object.keys(query).sort().forEach(key => {
+    sortedQuery[key] = query[key];
+  });
+  return `products:list:role:${role || "public"}:query:${JSON.stringify(sortedQuery)}`;
+};
+
+async function safeGetCache(key: string): Promise<any | null> {
+  try {
+    if (redis.isOpen) {
+      const data = await redis.get(key);
+      return data ? JSON.parse(data) : null;
+    }
+  } catch (error) {
+    console.error(`[product-cache] Failed to get cache for key ${key}:`, error);
+  }
+  return null;
+}
+
+async function safeSetCache(key: string, value: any, ttl = PRODUCT_CACHE_TTL): Promise<void> {
+  try {
+    if (redis.isOpen) {
+      await redis.set(key, JSON.stringify(value), { EX: ttl });
+    }
+  } catch (error) {
+    console.error(`[product-cache] Failed to set cache for key ${key}:`, error);
+  }
+}
+
+async function safeInvalidateProductCache(): Promise<void> {
+  try {
+    if (redis.isOpen) {
+      const keys = await redis.keys("products:*");
+      if (keys.length > 0) {
+        await redis.del(keys);
+      }
+    }
+  } catch (error) {
+    console.error("[product-cache] Failed to invalidate product cache:", error);
+  }
+}
+
 export const productService = {
   async list(query: Record<string, unknown>, role?: string) {
+    const cacheKey = getListCacheKey(query, role);
+    const cached = await safeGetCache(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const { page, limit, skip } = getPagination(query, { defaultLimit: 25, maxLimit: 100 });
     const filter = buildFilter(query, role);
     const sort = buildSort(query.sort);
@@ -138,22 +190,25 @@ export const productService = {
 
     const productsPromise = productRepository.list(filter, sort, skip, limit, { populate });
 
+    let result;
     if (!includeTotal) {
       const products = await productsPromise;
-      return {
+      result = {
         products,
         page,
         perPage: limit,
         hasMore: products.length === limit,
       };
+    } else {
+      const [products, total] = await Promise.all([
+        productsPromise,
+        productRepository.count(filter),
+      ]);
+      result = { products, ...getPaginationMeta(total, page, limit) };
     }
 
-    const [products, total] = await Promise.all([
-      productsPromise,
-      productRepository.count(filter),
-    ]);
-
-    return { products, ...getPaginationMeta(total, page, limit) };
+    await safeSetCache(cacheKey, result);
+    return result;
   },
 
   async listRaw(query: Record<string, unknown>, role?: string) {
@@ -166,10 +221,19 @@ export const productService = {
   },
 
   async getByIdOrSlug(idOrSlug: string) {
+    const cacheKey = `products:detail:${idOrSlug}`;
+    const cached = await safeGetCache(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const product = mongoose.isValidObjectId(idOrSlug)
       ? await productRepository.findById(idOrSlug)
       : await productRepository.findBySlug(idOrSlug);
     if (!product) throw new AppError("Product not found", 404);
+
+    await safeSetCache(`products:detail:${product._id}`, product);
+    await safeSetCache(`products:detail:${product.slug}`, product);
     return product;
   },
 
@@ -233,6 +297,8 @@ export const productService = {
       userId,
     }).catch(console.error);
 
+    await safeInvalidateProductCache();
+
     return product;
   },
 
@@ -278,6 +344,9 @@ export const productService = {
       productId: String((product as any)._id || id),
       userId,
     }).catch(console.error);
+
+    await safeInvalidateProductCache();
+
     return product;
   },
 
@@ -289,6 +358,9 @@ export const productService = {
       productId: String((product as any)._id || id),
       userId,
     }).catch(console.error);
+
+    await safeInvalidateProductCache();
+
     return { msg: "Product deleted successfully." };
   },
 
@@ -299,10 +371,19 @@ export const productService = {
       productIds: ids.map(String),
       userId,
     }).catch(console.error);
+
+    await safeInvalidateProductCache();
+
     return { msg: "Products deleted successfully." };
   },
 
   async recommendations(id: string) {
+    const cacheKey = `products:recommendations:${id}`;
+    const cached = await safeGetCache(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const product = await this.getByIdOrSlug(id);
     const related = await Product.find({
       _id: { $ne: product._id },
@@ -313,6 +394,9 @@ export const productService = {
       .select("name slug images primaryImageIndex price priceMin priceMax currency ratingAvg category brand createdAt")
       .limit(8)
       .lean({ virtuals: true });
-    return { products: related };
+    
+    const result = { products: related };
+    await safeSetCache(cacheKey, result);
+    return result;
   },
 };

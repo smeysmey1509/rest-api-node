@@ -7,7 +7,7 @@ export const inventoryUnitController = {
     res.status(200).json({ units: await inventoryUnitService.list(req.query as Record<string, unknown>) });
   },
   async get(req: AuthenticatedRequest, res: Response) {
-    res.status(200).json(await inventoryUnitService.get(req.params.id));
+    res.status(200).json(await inventoryUnitService.get(String(req.params.id)));
   },
   async stockIn(req: AuthenticatedRequest, res: Response) {
     res.status(201).json(await inventoryUnitService.stockIn(req.body || {}, req.user?.id));

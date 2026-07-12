@@ -7,15 +7,15 @@ export const stockLocationController = {
     res.status(200).json({ locations: await stockLocationService.list() });
   },
   async get(req: AuthenticatedRequest, res: Response) {
-    res.status(200).json(await stockLocationService.get(req.params.id));
+    res.status(200).json(await stockLocationService.get(String(req.params.id)));
   },
   async create(req: AuthenticatedRequest, res: Response) {
     res.status(201).json(await stockLocationService.create(req.body || {}));
   },
   async update(req: AuthenticatedRequest, res: Response) {
-    res.status(200).json(await stockLocationService.update(req.params.id, req.body || {}));
+    res.status(200).json(await stockLocationService.update(String(req.params.id), req.body || {}));
   },
   async remove(req: AuthenticatedRequest, res: Response) {
-    res.status(200).json(await stockLocationService.remove(req.params.id));
+    res.status(200).json(await stockLocationService.remove(String(req.params.id)));
   },
 };

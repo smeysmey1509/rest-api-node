@@ -22,7 +22,7 @@ export const productController = {
   },
 
   async get(req: AuthenticatedRequest, res: Response) {
-    const product = await productService.getByIdOrSlug(req.params.id || req.params.idOrSlug);
+    const product = await productService.getByIdOrSlug(String(req.params.id || req.params.idOrSlug));
     res.status(200).json(product);
   },
 
@@ -32,12 +32,12 @@ export const productController = {
   },
 
   async update(req: AuthenticatedRequest, res: Response) {
-    const product = await productService.update(req.params.id, req.body || {}, getFiles(req), req.user?.id);
+    const product = await productService.update(String(req.params.id), req.body || {}, getFiles(req), req.user?.id);
     res.status(200).json(product);
   },
 
   async remove(req: AuthenticatedRequest, res: Response) {
-    const result = await productService.remove(req.params.id, req.user?.id);
+    const result = await productService.remove(String(req.params.id), req.user?.id);
     res.status(200).json(result);
   },
 
@@ -48,7 +48,7 @@ export const productController = {
   },
 
   async recommendations(req: AuthenticatedRequest, res: Response) {
-    const result = await productService.recommendations(req.params.id);
+    const result = await productService.recommendations(String(req.params.id));
     res.status(200).json(result);
   },
 };

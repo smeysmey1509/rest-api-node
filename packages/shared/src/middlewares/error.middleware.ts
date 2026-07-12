@@ -1,7 +1,12 @@
-import { ErrorRequestHandler, RequestHandler } from "express";
+import { ErrorRequestHandler, Request, RequestHandler } from "express";
 import { AppError } from "../errors/app-error";
 import { ErrorCodes } from "../errors/error-codes";
 import { isMongoDuplicateKeyError, toDuplicateIdentifierError } from "../errors/mongo-error";
+
+type RequestWithContext = Request & { requestId?: string };
+
+const getRequestId = (req: Request, responseRequestId: string | number | string[] | undefined) =>
+  (req as RequestWithContext).requestId ?? responseRequestId ?? "unknown";
 
 export const notFoundMiddleware: RequestHandler = (req, _res, next) => {
   next(
@@ -32,7 +37,7 @@ export const errorMiddleware: ErrorRequestHandler = (rawError, req, res, _next) 
       code: err instanceof AppError ? err.code ?? ErrorCodes.InternalError : ErrorCodes.InternalError,
       message: err instanceof Error ? err.message : "Internal server error",
       details: err instanceof AppError ? err.details ?? [] : [],
-      requestId: req.requestId ?? res.getHeader("x-request-id") ?? "unknown",
+      requestId: getRequestId(req, res.getHeader("x-request-id")),
       stack: !isProduction && err instanceof Error ? err.stack : undefined,
     },
   });

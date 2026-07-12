@@ -14,12 +14,12 @@ export const orderController = {
   },
 
   async cancel(req: AuthenticatedRequest, res: Response) {
-    const order = await orderService.cancel(String(req.user?.id || ""), req.params.id);
+    const order = await orderService.cancel(String(req.user?.id || ""), String(req.params.id));
     res.status(200).json(order);
   },
 
   async updateStatus(req: AuthenticatedRequest, res: Response) {
-    const order = await orderService.updateStatus(req.params.id, req.body.status);
+    const order = await orderService.updateStatus(String(req.params.id), req.body.status);
     res.status(200).json(order);
   },
 };

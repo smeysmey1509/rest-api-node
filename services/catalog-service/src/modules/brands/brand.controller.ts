@@ -13,12 +13,12 @@ export const brandController = {
   },
 
   async update(req: Request, res: Response) {
-    const brand = await brandService.update(req.params.id, req.body || {});
+    const brand = await brandService.update(String(req.params.id), req.body || {});
     res.status(200).json(brand);
   },
 
   async remove(req: Request, res: Response) {
-    const result = await brandService.remove(req.params.id);
+    const result = await brandService.remove(String(req.params.id));
     res.status(200).json(result);
   },
 };

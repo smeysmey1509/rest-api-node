@@ -22,7 +22,7 @@ export const cartController = {
   },
 
   async updateQuantity(req: AuthenticatedRequest, res: Response) {
-    const cart = await cartService.updateQuantity(requireUserId(req), req.params.productId, Number(req.body.quantity));
+    const cart = await cartService.updateQuantity(requireUserId(req), String(req.params.productId), Number(req.body.quantity));
     res.status(200).json(cart);
   },
 

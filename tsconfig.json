@@ -5,9 +5,15 @@
     "outDir": "./dist",
     "rootDir": ".",
     "paths": {
-      "@shared/*": ["./packages/shared/src/*"],
-      "@services/*": ["./services/*"],
-      "@/*": ["./src/*"]
+      "@shared/*": [
+        "./packages/shared/src/*"
+      ],
+      "@services/*": [
+        "./services/*"
+      ],
+      "@/*": [
+        "./src/*"
+      ]
     },
     "strict": true,
     "esModuleInterop": true,
@@ -15,13 +21,20 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "moduleResolution": "node16",
-    "types": ["node"],
+    "types": [
+      "node",
+      "multer"
+    ],
     "typeRoots": [
       "./node_modules/@types",
       "./src/main/types"
     ]
   },
-  "include": ["packages/shared/src/**/*", "services/**/*", "src/**/*"],
+  "include": [
+    "packages/shared/src/**/*",
+    "services/**/*",
+    "src/**/*"
+  ],
   "exclude": [
     "node_modules",
     "dist",

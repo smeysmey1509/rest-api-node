@@ -28,12 +28,12 @@ export const userController = {
   },
 
   async getUser(req: AuthenticatedRequest, res: Response) {
-    const user = await userService.getUser(req.params.id);
+    const user = await userService.getUser(String(req.params.id));
     res.status(200).json(user);
   },
 
   async updateUserStatus(req: AuthenticatedRequest, res: Response) {
-    const user = await userService.updateUserStatus(req.params.id, req.body.status);
+    const user = await userService.updateUserStatus(String(req.params.id), req.body.status);
     res.status(200).json(user);
   },
 };

@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import jwt, { Secret, SignOptions } from "jsonwebtoken";
 import { jwtConfig } from "@shared/config/jwt";
 import { Roles } from "@shared/constants/roles";
@@ -6,6 +6,7 @@ import { DomainEventNames } from "@shared/events/domain-events";
 import { publishDomainEvent } from "@shared/events/message-bus";
 import { AppError } from "@shared/errors/app-error";
 import { authRepository } from "./auth.repository";
+import { AuthSessionModel } from "../auth-sessions/auth-session.model";
 
 const normalizeEmail = (email: string) => email.toLowerCase().trim();
 const normalizeIdentifier = (identifier: string) => identifier.trim();
@@ -45,15 +46,19 @@ const verifyRefreshToken = (refreshToken: string) => {
   }
 };
 
-const publicUser = (user: any) => ({
+type AuthUser = { _id: unknown; name: string; email: string; role: string; status: string; customerNumber?: string };
+type SessionContext = { device?: string; ipAddress?: string; userAgent?: string };
+
+const publicUser = (user: AuthUser) => ({
   id: user._id,
+  customerNumber: user.customerNumber,
   name: user.name,
   email: user.email,
   role: user.role,
   status: user.status,
 });
 
-const buildTokens = (user: any) => ({
+const buildTokens = (user: AuthUser) => ({
   accessToken: signToken(
     { id: String(user._id), role: user.role, tokenType: "access" },
     jwtConfig.accessSecret,
@@ -71,8 +76,21 @@ const buildTokens = (user: any) => ({
   ),
 });
 
+const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
+
+const persistSession = async (user: AuthUser, refreshToken: string, context: SessionContext) => {
+  const decoded = jwt.decode(refreshToken);
+  if (!decoded || typeof decoded === "string" || !decoded.exp) throw new AppError("Could not create refresh session", 500);
+  await AuthSessionModel.create({
+    userId: user._id,
+    refreshTokenHash: tokenHash(refreshToken),
+    expiresAt: new Date(decoded.exp * 1000),
+    ...context,
+  });
+};
+
 export const authService = {
-  async register(payload: { name: string; email: string; password: string }) {
+  async register(payload: { name: string; email: string; password: string }, context: SessionContext = {}) {
     assertJwtConfig();
 
     const email = normalizeEmail(payload.email);
@@ -87,6 +105,7 @@ export const authService = {
     });
 
     const tokens = buildTokens(user);
+    await persistSession(user, tokens.refreshToken, context);
 
     await publishDomainEvent(DomainEventNames.UserCreated, {
       userId: String(user._id),
@@ -96,7 +115,7 @@ export const authService = {
     return { ...tokens, user: publicUser(user) };
   },
 
-  async login(payload: { identifier: string; password: string }) {
+  async login(payload: { identifier: string; password: string }, context: SessionContext = {}) {
     assertJwtConfig();
 
     const user = await authRepository.findByLogin(normalizeIdentifier(payload.identifier));
@@ -110,11 +129,12 @@ export const authService = {
     if (!isMatch) throw new AppError("Invalid credentials", 401);
 
     const tokens = buildTokens(user);
+    await persistSession(user, tokens.refreshToken, context);
 
     return { ...tokens, user: publicUser(user) };
   },
 
-  async refresh(refreshToken?: string) {
+  async refresh(refreshToken?: string, context: SessionContext = {}) {
     if (!refreshToken) throw new AppError("No refresh token provided", 401);
     assertJwtConfig();
 
@@ -126,8 +146,28 @@ export const authService = {
     const user = await authRepository.findActiveById(String(decoded.id));
     if (!user) throw new AppError("Invalid refresh token", 401);
 
+    const oldSession = await AuthSessionModel.findOneAndUpdate(
+      { refreshTokenHash: tokenHash(refreshToken), revokedAt: null, expiresAt: { $gt: new Date() } },
+      { $set: { revokedAt: new Date() } },
+      { new: true },
+    ).select("_id");
+    if (!oldSession) throw new AppError("Refresh session is revoked or expired", 401);
+
     const tokens = buildTokens(user);
+    await persistSession(user, tokens.refreshToken, context);
 
     return { ...tokens, user: publicUser(user) };
+  },
+
+  async logout(refreshToken?: string) {
+    if (!refreshToken) return;
+    await AuthSessionModel.updateOne(
+      { refreshTokenHash: tokenHash(refreshToken), revokedAt: null },
+      { $set: { revokedAt: new Date() } },
+    );
+  },
+
+  async logoutAll(userId: string) {
+    await AuthSessionModel.updateMany({ userId, revokedAt: null }, { $set: { revokedAt: new Date() } });
   },
 };

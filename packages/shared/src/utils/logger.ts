@@ -1,14 +1,27 @@
 type LogLevel = "info" | "warn" | "error";
 
-const write = (level: LogLevel, service: string, message: string, meta?: unknown) => {
-  const payload = `[${new Date().toISOString()}] [${service}] ${message}`;
+const sensitiveKeys = /authorization|cookie|password|token|secret|card|cvv|signature/i;
 
-  if (meta === undefined) {
-    console[level](payload);
-    return;
+const redact = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(redact);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, sensitiveKeys.test(key) ? "[REDACTED]" : redact(item)]),
+    );
   }
+  return value;
+};
 
-  console[level](payload, meta);
+const write = (level: LogLevel, service: string, message: string, meta?: unknown) => {
+  const payload = JSON.stringify({
+    level,
+    time: new Date().toISOString(),
+    service,
+    environment: process.env.NODE_ENV ?? "development",
+    message,
+    ...(meta === undefined ? {} : { meta: redact(meta) }),
+  });
+  console[level](payload);
 };
 
 export const createLogger = (service: string) => ({

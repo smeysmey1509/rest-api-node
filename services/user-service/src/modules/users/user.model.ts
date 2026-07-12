@@ -6,6 +6,7 @@ import { normalizeRole, RoleValue, Roles } from "@shared/constants/roles";
 export type UserStatus = "ACTIVE" | "INACTIVE" | "BLOCKED";
 
 export interface IUser extends Document {
+  customerNumber?: string;
   name: string;
   email: string;
   password: string;
@@ -19,6 +20,14 @@ export interface IUser extends Document {
 
 const userSchema: Schema<IUser> = new Schema(
   {
+    customerNumber: {
+      type: String,
+      unique: true,
+      sparse: true,
+      immutable: true,
+      uppercase: true,
+      trim: true,
+    },
     name: {
       type: String,
       required: true,

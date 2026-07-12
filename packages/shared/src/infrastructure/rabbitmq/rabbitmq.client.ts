@@ -8,6 +8,8 @@ type RabbitChannel = {
 
 let channel: RabbitChannel | null = null;
 
+export const isRabbitMQReady = () => channel !== null;
+
 export const connectRabbitMQ = async (): Promise<RabbitChannel | null> => {
   if (!rabbitmqConfig.url) return null;
   if (channel) return channel;
@@ -32,9 +34,9 @@ export const connectRabbitMQ = async (): Promise<RabbitChannel | null> => {
 
 export const publishToQueue = async (queue: string, payload: unknown) => {
   const activeChannel = await connectRabbitMQ();
-  if (!activeChannel) return;
+  if (!activeChannel) return false;
 
-  activeChannel.sendToQueue(queue, Buffer.from(JSON.stringify(payload)), {
+  return activeChannel.sendToQueue(queue, Buffer.from(JSON.stringify(payload)), {
     persistent: true,
   });
 };

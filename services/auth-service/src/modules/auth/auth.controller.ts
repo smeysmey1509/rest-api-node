@@ -20,7 +20,7 @@ const clearRefreshCookieOptions = {
 
 export const authController = {
   async register(req: Request, res: Response) {
-    const result = await authService.register(req.body);
+    const result = await authService.register(req.body, { ipAddress: req.ip, userAgent: req.get("user-agent") });
     res.cookie("refreshToken", result.refreshToken, refreshCookieOptions);
     res.status(201).json({ accessToken: result.accessToken, user: result.user });
   },
@@ -30,18 +30,19 @@ export const authController = {
     const result = await authService.login({
       identifier,
       password: req.body.password,
-    });
+    }, { ipAddress: req.ip, userAgent: req.get("user-agent") });
     res.cookie("refreshToken", result.refreshToken, refreshCookieOptions);
     res.json({ accessToken: result.accessToken, user: result.user });
   },
 
   async refresh(req: Request, res: Response) {
-    const result = await authService.refresh(req.cookies?.refreshToken);
+    const result = await authService.refresh(req.cookies?.refreshToken, { ipAddress: req.ip, userAgent: req.get("user-agent") });
     res.cookie("refreshToken", result.refreshToken, refreshCookieOptions);
     res.json({ accessToken: result.accessToken, user: result.user });
   },
 
-  async logout(_req: Request, res: Response) {
+  async logout(req: Request, res: Response) {
+    await authService.logout(req.cookies?.refreshToken);
     res.clearCookie("refreshToken", clearRefreshCookieOptions);
     res.status(200).json({ msg: "Logged out" });
   },

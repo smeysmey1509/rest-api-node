@@ -7,7 +7,8 @@ export interface IReview extends Document {
   title?: string;
   body?: string;
   comment?: string;
-  orderItem?: Types.ObjectId;
+  orderId?: Types.ObjectId;
+  orderItemId?: string;
   isVerifiedPurchase?: boolean;
   status: "PENDING" | "APPROVED" | "REJECTED";
 }
@@ -19,12 +20,14 @@ const ReviewSchema = new Schema<IReview>({
   title:   { type: String, trim: true },
   body:    { type: String, trim: true, maxlength: 2000 },
   comment: { type: String, trim: true, maxlength: 2000 },
-  orderItem: { type: Schema.Types.ObjectId, default: null },
+  orderId: { type: Schema.Types.ObjectId, ref: "Order" },
+  orderItemId: { type: String, trim: true },
   isVerifiedPurchase: { type: Boolean, default: false },
   status: { type: String, enum: ["PENDING", "APPROVED", "REJECTED"], default: "PENDING", index: true },
 }, { timestamps: true });
 
 ReviewSchema.index({ product: 1, user: 1 }, { unique: true }); // one review per user per product
+ReviewSchema.index({ orderId: 1, orderItemId: 1 }, { sparse: true });
 
 const Review: Model<IReview> = mongoose.models.Review || mongoose.model("Review", ReviewSchema);
 export default Review;

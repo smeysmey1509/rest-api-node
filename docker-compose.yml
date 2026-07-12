@@ -1,12 +1,12 @@
 x-service-env: &service-env
   NODE_ENV: development
-  MONGO_URI: mongodb://mongo:27017/rest-api-node
-  AUTH_MONGO_URI: mongodb://mongo:27017/rest-api-node
-  USER_MONGO_URI: mongodb://mongo:27017/rest-api-node
-  CATALOG_MONGO_URI: mongodb://mongo:27017/rest-api-node
-  INVENTORY_MONGO_URI: mongodb://mongo:27017/rest-api-node
-  ORDER_MONGO_URI: mongodb://mongo:27017/rest-api-node
-  PAYMENT_MONGO_URI: mongodb://mongo:27017/rest-api-node
+  MONGO_URI: mongodb://mongo:27017/rest-api-node?replicaSet=rs0
+  AUTH_MONGO_URI: mongodb://mongo:27017/rest-api-node?replicaSet=rs0
+  USER_MONGO_URI: mongodb://mongo:27017/rest-api-node?replicaSet=rs0
+  CATALOG_MONGO_URI: mongodb://mongo:27017/rest-api-node?replicaSet=rs0
+  INVENTORY_MONGO_URI: mongodb://mongo:27017/rest-api-node?replicaSet=rs0
+  ORDER_MONGO_URI: mongodb://mongo:27017/rest-api-node?replicaSet=rs0
+  PAYMENT_MONGO_URI: mongodb://mongo:27017/rest-api-node?replicaSet=rs0
   REDIS_URL: redis://redis:6379
   RABBITMQ_URL: amqp://rabbitmq:5672
   PRODUCT_ACTIVITY_QUEUE: product.activity
@@ -19,6 +19,7 @@ x-service-env: &service-env
 services:
   mongo:
     image: mongo:7
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     ports:
       - "27017:27017"
     volumes:
@@ -28,6 +29,19 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  mongo-init:
+    image: mongo:7
+    restart: "no"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    command:
+      - sh
+      - -c
+      - >-
+        mongosh --host mongo:27017 --quiet --eval
+        'try { rs.status() } catch (e) { rs.initiate({_id:"rs0",members:[{_id:0,host:"mongo:27017"}]}) }'
 
   redis:
     image: redis:7-alpine
@@ -102,8 +116,8 @@ services:
     expose:
       - "5101"
     depends_on:
-      mongo:
-        condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       rabbitmq:
@@ -125,8 +139,8 @@ services:
     expose:
       - "5102"
     depends_on:
-      mongo:
-        condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       rabbitmq:
@@ -150,8 +164,8 @@ services:
     volumes:
       - uploads-data:/app/uploads
     depends_on:
-      mongo:
-        condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       rabbitmq:
@@ -173,8 +187,8 @@ services:
     expose:
       - "5104"
     depends_on:
-      mongo:
-        condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       rabbitmq:
@@ -196,8 +210,8 @@ services:
     expose:
       - "5105"
     depends_on:
-      mongo:
-        condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       rabbitmq:
@@ -219,8 +233,8 @@ services:
     expose:
       - "5106"
     depends_on:
-      mongo:
-        condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       rabbitmq:
@@ -230,6 +244,24 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  workers:
+    build:
+      context: .
+      dockerfile: services/workers/Dockerfile
+    environment:
+      <<: *service-env
+      SERVICE_NAME: workers
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  default:
+    name: rest-api-node-private
 
 volumes:
   mongo-data:

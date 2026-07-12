@@ -9,6 +9,8 @@ export async function connectRedis() {
   }
 }
 
+export const isRedisReady = () => redis.isReady;
+
 export const cartCacheKey = (uid: string) => `cart:${uid}`;
 
 export async function getCachedCart(uid: string) {
@@ -19,7 +21,7 @@ export async function getCachedCart(uid: string) {
     return null;
   }
 }
-export async function setCachedCart(uid: string, payload: any, ttl = 60) {
+export async function setCachedCart(uid: string, payload: unknown, ttl = 60) {
   try {
     await redis.set(cartCacheKey(uid), JSON.stringify(payload), { EX: ttl });
   } catch {

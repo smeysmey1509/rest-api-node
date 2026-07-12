@@ -4,6 +4,7 @@ import { connectDatabase } from "../config/database";
 import { connectRedis } from "../infrastructure/redis/cache";
 import { connectRabbitMQ } from "../infrastructure/rabbitmq/rabbitmq.client";
 import { createLogger } from "../utils/logger";
+import { validateServiceEnvironment } from "../config/validate-env";
 
 type StartServiceOptions = {
   app: Express;
@@ -22,6 +23,7 @@ export const startService = async ({
   connectRedisClient = true,
   connectRabbit = true,
 }: StartServiceOptions) => {
+  validateServiceEnvironment({ mongoUriEnv, connectRedisClient, connectRabbit });
   const logger = createLogger(serviceName);
   const server = http.createServer(app);
 

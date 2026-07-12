@@ -1,9 +1,14 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { Router } from "express";
+import mongoose from "mongoose";
 import { env } from "../config/env";
+import { isRabbitMQReady } from "../infrastructure/rabbitmq/rabbitmq.client";
+import { isRedisReady } from "../infrastructure/redis/cache";
 import { errorMiddleware, notFoundMiddleware } from "../middlewares/error.middleware";
+import { requestContextMiddleware } from "../middlewares/request-context.middleware";
 import { resolveWorkspacePath } from "../runtime/paths";
+import { createLogger } from "../utils/logger";
 
 type CreateServiceAppOptions = {
   serviceName: string;
@@ -41,14 +46,27 @@ export const createServiceApp = ({
   enableUploads = false,
 }: CreateServiceAppOptions) => {
   const app = express();
+  const logger = createLogger(serviceName);
 
-  app.use(express.json());
+  app.disable("x-powered-by");
+  app.use(requestContextMiddleware);
+  app.use(express.json({ limit: process.env.REQUEST_BODY_LIMIT ?? "1mb" }));
   app.use(cookieParser());
   app.use(cors({ origin: env.corsOrigin, credentials: true }));
+  app.use((_req, res, next) => {
+    res.setHeader("x-content-type-options", "nosniff");
+    res.setHeader("x-frame-options", "DENY");
+    res.setHeader("referrer-policy", "no-referrer");
+    next();
+  });
 
   if (env.requestLogging) {
     app.use((req, _res, next) => {
-      console.log(`[${new Date().toISOString()}] ${serviceName} PID:${process.pid} Path:${req.path}`);
+      logger.info("http.request", {
+        operation: `${req.method} ${req.path}`,
+        requestId: req.requestId,
+        correlationId: req.correlationId,
+      });
       next();
     });
   }
@@ -58,6 +76,19 @@ export const createServiceApp = ({
       success: true,
       message: "Service is healthy",
       data: buildHealthPayload(serviceName),
+    });
+  });
+
+  app.get(["/ready", "/api/ready", "/api/v1/ready"], (_req, res) => {
+    const dependencies = {
+      mongodb: mongoose.connection.readyState === 1,
+      redis: env.redisUrl ? isRedisReady() : true,
+      rabbitmq: env.rabbitmqUrl ? isRabbitMQReady() : true,
+    };
+    const ready = Object.values(dependencies).every(Boolean);
+    res.status(ready ? 200 : 503).json({
+      success: ready,
+      data: { status: ready ? "ready" : "not_ready", service: serviceName, dependencies },
     });
   });
 

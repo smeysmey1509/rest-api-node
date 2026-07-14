@@ -54,6 +54,10 @@ const serviceUrl = (envName: string, port: number) => process.env[envName] || `h
 
 export const env = {
   nodeEnv: process.env.NODE_ENV || "development",
+  dnsServers: (process.env.DNS_SERVERS || "1.1.1.1,8.8.8.8")
+    .split(",")
+    .map((server) => server.trim())
+    .filter(Boolean),
   port: ports.gateway,
   ports,
   gatewayUrl: process.env.API_GATEWAY_URL || `http://localhost:${ports.gateway}`,
